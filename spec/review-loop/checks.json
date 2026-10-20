@@ -456,10 +456,7 @@
     "modelCallAuthorWithTwoReviewers": 40
   },
   "tlc": {
-    "ignoredVariables": [
-      "lastStepReached",
-      "agentHeard"
-    ],
+    "ignoredVariables": ["lastStepReached", "agentHeard"],
     "bounds": {
       "judgeThenPolisher": {
         "pr": {

@@ -806,7 +806,7 @@ export const MUTANTS: Mutant[] = [
     id: "W114",
     invariant: "reviewLoop::aStoppedRefinerRunHandsOverBlocked (review read)",
     path: "src/workflow/refiner/loop.ts",
-    find: '  if ("readFailed" in read)\n    return handOverBlockedFromReviewer(\n      workflow,\n      reviewer,\n      `The reviewer\'s review could not be read (${read.readFailed}).`,\n    );\n',
+    find: '  if ("readFailed" in read)\n    return handOverBlockedFromReviewer(workflow, reviewer, {\n      reason: `The reviewer\'s review could not be read (${read.readFailed}).`,\n      revision,\n    });\n',
     replace: "",
   },
   {
@@ -1362,9 +1362,9 @@ export const MUTANTS: Mutant[] = [
     id: "W320",
     invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds (idle author's open checks)",
     path: "src/workflow/refiner/checks-recheck.ts",
-    find: '  await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  if (checks?.state === "failed") {\n',
+    find: '  await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  if (checks?.state === "failed" && !isTaskFinished(author.status)) {\n',
     replace:
-      '  if (checks?.state === "failed" || checks?.state === "conflicted") {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  if (checks?.state === "failed") {\n',
+      '  if (checks?.state === "failed" || checks?.state === "conflicted") {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  if (checks?.state === "failed" && !isTaskFinished(author.status)) {\n',
   },
   {
     id: "W321",
@@ -1602,17 +1602,17 @@ export const MUTANTS: Mutant[] = [
     id: "W280",
     invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer destroyed before routing)",
     path: "src/workflow/refiner/loop.ts",
-    find: "  await finishTask(workflow, reviewer, () => routeReview(workflow, reviewer, entry, read));\n",
+    find: "  await finishTask(workflow, reviewer, () =>\n    routeReview(workflow, reviewer, { entry, read, revision }),\n  );\n",
     replace:
-      "  await finishTask(workflow, reviewer, async () => {});\n  await routeReview(workflow, reviewer, entry, read);\n",
+      "  await finishTask(workflow, reviewer, async () => {});\n  await routeReview(workflow, reviewer, { entry, read, revision });\n",
   },
   {
     id: "W281",
     invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher destroyed before hand-on)",
     path: "src/workflow/refiner/polish.ts",
-    find: "  await finishTask(workflow, polisher, async () => {\n    const author = workflow.store.authorTaskOf(polisher.job_id);\n    await handOnFromPolisher(workflow, author, polisher, outcome);\n    await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n  });\n",
+    find: "  await finishTask(workflow, polisher, async () => {\n    const author = workflow.store.authorTaskOf(polisher.job_id);\n    await handOnFromPolisher(workflow, { author, polisher, outcome, revision });\n    await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n  });\n",
     replace:
-      "  await finishTask(workflow, polisher, async () => {});\n  const author = workflow.store.authorTaskOf(polisher.job_id);\n  await handOnFromPolisher(workflow, author, polisher, outcome);\n  await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n",
+      "  await finishTask(workflow, polisher, async () => {});\n  const author = workflow.store.authorTaskOf(polisher.job_id);\n  await handOnFromPolisher(workflow, { author, polisher, outcome, revision });\n  await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n",
   },
   {
     id: "W214",
@@ -1700,7 +1700,8 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W343",
-    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer reads the revision after its done write)",
+    invariant:
+      "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer reads the revision after its done write)",
     path: "src/workflow/refiner/loop.ts",
     find: "  await finishTask(workflow, reviewer, () =>\n    routeReview(workflow, reviewer, { entry, read, revision }),\n  );\n",
     replace:
@@ -1708,7 +1709,8 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W344",
-    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher reads the revision after its done write)",
+    invariant:
+      "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher reads the revision after its done write)",
     path: "src/workflow/refiner/polish.ts",
     find: "    await handOnFromPolisher(workflow, { author, polisher, outcome, revision });\n",
     replace:

@@ -1212,6 +1212,7 @@ export class WorkflowLifecycleReplay {
           this.runStep(() => this.personEndsIssue(world, required(picks.issue))),
         );
       case "researcherHandsOver":
+      case "theResearcherHandsOverItsResearch":
         return worldAction(`researcher of job ${picks.id} hands over`, (world) => {
           const handsOver = researcherTurnEnds(
             this.unfinishedResearcherIndexOf(required(picks.id)),
@@ -1220,6 +1221,7 @@ export class WorkflowLifecycleReplay {
           return this.runStep(() => handsOver.run(world));
         });
       case "authorWritesItsPage":
+      case "theAuthorOfAContinuingJobPushes":
         return worldAction(`author of job ${picks.id} writes its page`, async (world) => {
           const index = this.unfinishedIndexOf(required(picks.id));
           await firstArtifactAppears(index, "author_text").run(world);
@@ -1254,6 +1256,7 @@ export class WorkflowLifecycleReplay {
           }),
         );
       case "agentPromptsAuthor":
+      case "theAgentPromptsAModelCallAuthorUnderReview":
         return worldAction(`agent prompts the task of job ${picks.id}`, (world) =>
           this.runStep(async () => {
             const task = this.taskOf(required(picks.id));
@@ -1278,10 +1281,12 @@ export class WorkflowLifecycleReplay {
       }
       case "taskStalls":
       case "aRestartedTaskStalls":
+      case "anAuthorAfterResearchStalls":
         return worldAction(`task of job ${picks.id} stalls`, (world) =>
           this.taskStalls(world, required(picks.id)),
         );
       case "agentCancelsJob":
+      case "theAgentCancelsTheOpenerOfAnOpenPull":
         return worldAction(`agent cancels job ${picks.id}`, (world) =>
           this.runStep(async () => {
             const { cancel_job } = startTools(world.workflow);

@@ -176,7 +176,10 @@ describe("workflow lifecycle spec", () => {
   });
 
   it("keeps the status of a workflow a person ended while its subject job's destroy was out", async () => {
-    const path = join(PINNED_TRACES, "a-completion-after-the-subject-ended-keeps-its-status.itf.json");
+    const path = join(
+      PINNED_TRACES,
+      "a-completion-after-the-subject-ended-keeps-its-status.itf.json",
+    );
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
     await replayTrace("pullsForAnEndedSubject", traceSteps("pullsForAnEndedSubject", trace));
   });

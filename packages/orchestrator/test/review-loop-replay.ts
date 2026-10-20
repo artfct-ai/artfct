@@ -651,6 +651,15 @@ type HeardInStep = {
 };
 
 /** The page host methods a step can make fail. */
+/** Put back the property `name` of `target` as it is now, own or inherited, after an override. */
+function restorerOf<Target extends object>(target: Target, name: keyof Target & string): () => void {
+  const own = Object.getOwnPropertyDescriptor(target, name);
+  return () => {
+    if (own) Object.defineProperty(target, name, own);
+    else Reflect.deleteProperty(target, name);
+  };
+}
+
 type FailingHostMethod =
   | "heldComments"
   | "acknowledgeComment"
@@ -2073,22 +2082,27 @@ export class ReviewLoopReplay {
           );
         },
       });
-    const { code, documents } = workflow;
-    const destroy = sandboxProvider.destroy;
+    const restores = [
+      restorerOf(workflow, "code"),
+      restorerOf(workflow, "documents"),
+      restorerOf(sandboxProvider, "destroy"),
+    ];
+    const code = workflow.code.bind(workflow);
+    const documents = workflow.documents.bind(workflow);
+    const destroy = sandboxProvider.destroy.bind(sandboxProvider);
     workflow.code = () => {
-      const host = code.call(workflow);
+      const host = code();
       return host ? hostWithCut(host) : null;
     };
     workflow.documents = async () => {
-      const host = await documents.call(workflow);
+      const host = await documents();
       return host ? hostWithCut(host) : null;
     };
-    sandboxProvider.destroy = cutAfterTheDoneWrite(destroy.bind(sandboxProvider));
+    sandboxProvider.destroy = cutAfterTheDoneWrite(destroy);
     try {
       await this.untilCut(cut, work);
     } finally {
-      Object.assign(workflow, { code, documents });
-      sandboxProvider.destroy = destroy;
+      for (const restore of restores) restore();
     }
     if (!cut.reached()) throw new Error("the step ended without a call after a done run");
   }
@@ -2096,14 +2110,14 @@ export class ReviewLoopReplay {
   /** A cut a world action reaches once. The call that reaches it never returns. */
   private cutOnce(): { reach: () => Promise<never>; reached: () => boolean; out: Promise<void> } {
     let reached = false;
-    let reach = () => {};
+    let reachOut!: () => void;
     const out = new Promise<void>((resolve) => {
-      reach = resolve;
+      reachOut = resolve;
     });
     return {
       reach: () => {
         reached = true;
-        reach();
+        reachOut();
         return new Promise<never>(() => {});
       },
       reached: () => reached,
