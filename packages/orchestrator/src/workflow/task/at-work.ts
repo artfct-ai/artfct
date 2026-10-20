@@ -1,15 +1,17 @@
 import type { TaskStatus } from "@artfct-ai/contracts/types";
+import { isTaskFinished } from "../store/state";
 import type { TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
 
 const STARTING_STATUSES: TaskStatus[] = ["queued", "provisioning"];
 
 /**
- * True while the task's turn runs or is about to start. A task starts until it is working. Then
- * a harness task is at work while a prompt is in flight or its handshake is pending, and a
- * model-call task while the store holds its model turn in flight.
+ * True while the task's turn runs or is about to start. A finished task is not at work. A task
+ * starts until it is working. Then a harness task is at work while a prompt is in flight or its
+ * handshake is pending, and a model-call task while the store holds its model turn in flight.
  */
 export function taskAtWork(workflow: WorkflowRuntime, task: TaskRow): boolean {
+  if (isTaskFinished(task.status)) return false;
   if (STARTING_STATUSES.includes(task.status)) return true;
   const sandbox = workflow.store.sandbox(task.task_id);
   if (sandbox) {

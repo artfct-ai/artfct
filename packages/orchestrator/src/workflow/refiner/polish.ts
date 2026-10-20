@@ -48,18 +48,20 @@ const OPEN_GATE: ChecksGate = { gate: "open" };
 /**
  * End a polisher run, whatever ended it. A refiner that still holds the artifact hands it on,
  * and a stopped one ends the lists and gives it to the humans with the reason. The author's
- * queue drains last on every path, including the one where the artifact no longer points at
- * the polisher, because the author took no prompt while the polisher held its artifact.
+ * queue drains next on every path, including the one where the artifact no longer points at
+ * the polisher, because the author took no prompt while the polisher held its artifact. The
+ * polisher's sandbox goes last.
  */
 export async function endPolisherRun(
   workflow: WorkflowRuntime,
   polisher: TaskRow,
   outcome: PolishOutcome,
 ): Promise<void> {
-  await finishTask(workflow, polisher, "done");
-  const author = workflow.store.authorTaskOf(polisher.job_id);
-  await handOnFromPolisher(workflow, author, polisher, outcome);
-  await drainQueue(workflow, workflow.store.requireTask(author.task_id));
+  await finishTask(workflow, polisher, async () => {
+    const author = workflow.store.authorTaskOf(polisher.job_id);
+    await handOnFromPolisher(workflow, author, polisher, outcome);
+    await drainQueue(workflow, workflow.store.requireTask(author.task_id));
+  });
 }
 
 /** Where the artifact goes now that this polisher is over. */

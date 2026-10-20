@@ -17,7 +17,7 @@ import {
 } from "../src/workflow/refiner/checks-gate";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import { taskQuiet } from "../src/workflow/refiner/loop";
-import { isTaskFinished } from "../src/workflow/store/state";
+import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
 import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { taskAtWork } from "../src/workflow/task/at-work";
@@ -897,7 +897,13 @@ export class ReviewLoopReplay {
     this.heardSteps.push(heard);
     this.heardNow = heard;
     const notesBefore = this.world.workflow.notes.length;
-    await this.whileRevisionLookupsGo(step, () => this.takeAction(step));
+    const destroyIsCut =
+      this.trace[this.step + 1]?.action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed";
+    await this.whileRevisionLookupsGo(step, () =>
+      destroyIsCut
+        ? this.untilADoneRunsDestroy(() => this.takeAction(step))
+        : this.takeAction(step),
+    );
     for (const task of this.world.tasksAwaitingSandbox()) {
       await this.world.startSandboxOf(task.task_id);
     }
@@ -973,6 +979,9 @@ export class ReviewLoopReplay {
     if (action === "judgeClosesWithoutAConclusion") return this.judgeClosesWithoutAConclusion();
     if (action === "instanceRestarts") {
       return this.instanceRestarts(() => this.untilTheRestartMoment());
+    }
+    if (action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed") {
+      return this.instanceRestarts(async () => {});
     }
     if (action === "instanceRestartsWhileThePageIsWritten") {
       return this.instanceRestarts(() =>
@@ -1202,8 +1211,10 @@ export class ReviewLoopReplay {
    * The host reports checks. A polisher the gate holds settles on checks that give the outcome
    * the spec picks, and code hears of them by a webhook or the recheck alarm. So does an author
    * that waits on the gate, by the recheck alarm only while one is armed. Failed checks or a
-   * conflict reach an idle author by a webhook. A report the spec says changes nothing either
-   * misses its webhook, or reaches a polisher at work.
+   * conflict reach an idle author by a webhook. Open checks that stop the recheck alarm reach an
+   * idle or ended author by a webhook or the alarm, and only by the alarm once the workflow ended.
+   * A report the spec says changes nothing either misses its webhook, or reaches a polisher at
+   * work.
    */
   private checksReported(step: TraceStep, index: number): WorkflowAction {
     const before = this.trace[this.step - 1]?.review;
@@ -1233,6 +1244,20 @@ export class ReviewLoopReplay {
     if (step.review.artifact.sentBack !== before.artifact.sentBack) {
       const options = [FAILED, CONFLICTED].flatMap((checks) =>
         deliveriesOf(checks, false).map((delivery) => ({ checks, delivery })),
+      );
+      const { checks, delivery } = this.pick(options);
+      return this.hostReports(checks, delivery, index);
+    }
+    if (before.artifact.recheckArmed && !step.review.artifact.recheckArmed) {
+      const workflowEnded = isWorkflowFinished(this.world.workflow.state.status);
+      const options = hostChecksFor(
+        outcome,
+        sentBackOnTheRevision(before),
+        this.quietMsOf(this.world.taskOf(this.author)),
+      ).flatMap((checks) =>
+        deliveriesOf(checks, true)
+          .filter((delivery) => !workflowEnded || delivery === "recheck")
+          .map((delivery) => ({ checks, delivery })),
       );
       const { checks, delivery } = this.pick(options);
       return this.hostReports(checks, delivery, index);
@@ -1961,6 +1986,42 @@ export class ReviewLoopReplay {
       if (replay === this || replay.held.has(runId)) continue;
       replay.held.set(runId, { ...held, release: () => {}, turnEnd: Promise.resolve() });
     }
+  }
+
+  /**
+   * Run `work` until a world action it applies destroys the sandbox of a findings reviewer or
+   * polisher run that ended done. That action stops there, as its instance does at a restart, and
+   * the destroy never returns.
+   */
+  private async untilADoneRunsDestroy(work: () => Promise<void>): Promise<void> {
+    const world = this.world;
+    const { store, sandboxProvider } = world.workflow;
+    const destroy = sandboxProvider.destroy.bind(sandboxProvider);
+    const apply = world.apply.bind(world);
+    let reached = false;
+    const destroyOut = new Promise<void>((reach) => {
+      sandboxProvider.destroy = async (sandbox) => {
+        const task = store.task(sandbox.id);
+        if (task?.role === "author" || task?.status !== "done") return destroy(sandbox);
+        sandboxProvider.destroy = destroy;
+        reached = true;
+        reach();
+        return new Promise(() => {});
+      };
+    });
+    world.apply = (action) =>
+      apply({
+        run: (inWorld) =>
+          reached ? action.run(inWorld) : Promise.race([action.run(inWorld), destroyOut]),
+        toString: () => String(action),
+      });
+    try {
+      await work();
+    } finally {
+      sandboxProvider.destroy = destroy;
+      world.apply = apply;
+    }
+    if (!reached) throw new Error("the step ended without the destroy of a done run");
   }
 
   /** Reach the moment of a restart between steps that the seeded pick chooses. */
