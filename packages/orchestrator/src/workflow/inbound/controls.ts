@@ -90,7 +90,7 @@ async function cancel(
 
 /** Who cancelled, and what they said when they did. */
 function cancelReason(actor: Actor, text: string): string {
-  const who = `Cancelled by ${actor.display_name ?? actor.person_id}.`;
+  const who = `Cancelled by ${actor.display_name ?? actor.email ?? "a person"}.`;
   return text.trim() ? `${who} ${text.trim()}` : who;
 }
 

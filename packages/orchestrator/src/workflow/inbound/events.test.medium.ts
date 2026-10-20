@@ -46,7 +46,7 @@ const chatThread: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" }
 const start: InboundEvent = {
   id: "evt-start",
   kind: "start",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "fix the flaky test",

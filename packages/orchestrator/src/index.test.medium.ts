@@ -28,7 +28,6 @@ describe("the tracker workspace", () => {
         access_token: "lin_oauth_access",
         refresh_token: null,
         expires_at: "2026-10-02T00:00:00.000Z",
-        scope: "read,write",
       });
       expect(await exports.default.trackerWorkspace()).toBe("org_acme");
     });

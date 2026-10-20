@@ -20,7 +20,7 @@ import { FEEDBACK_ROUTE_PURPOSE } from "./feedback-route";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
-const ACTOR = { person_id: "p1", email: "sam@acme.test", display_name: "Sam" };
+const ACTOR = { email: "sam@acme.test", display_name: "Sam" };
 
 type Landed = { workflow: FakeRuntime; result: Applied };
 

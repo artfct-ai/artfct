@@ -229,7 +229,7 @@ describe("reviewForAuthorPrompt", () => {
 describe("feedbackText", () => {
   const feedback: Feedback = {
     dedupeKey: "evt-1",
-    from: { person_id: "p1", email: null, display_name: "alice" },
+    from: { email: null, display_name: "alice" },
     unchecked: false,
     body: "Two things.",
     findings: [{ location: "src/login.ts:12", body: "This drops the error." }],

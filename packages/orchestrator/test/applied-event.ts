@@ -4,7 +4,7 @@ import type { Applied } from "../src/workflow/types";
 import type { FakeRuntime } from "./fake-runtime";
 import type { Scenario } from "./scenario";
 
-const actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const actor = { email: "dev@acme.test", display_name: "Dev" };
 
 /** A Slack prompt from a team member, patched per scenario. */
 function slackPrompt(patch: Partial<InboundEvent>): InboundEvent {

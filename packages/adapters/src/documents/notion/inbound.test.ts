@@ -62,7 +62,7 @@ describe("notionInbound", () => {
     });
 
     it("names the comment author as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_n1");
+      expect(event.actor?.email).toBe("dev@acme.test");
     });
   });
 

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f70c1cd4-e721-4518-badf-fe5dd9eeb5b2",
+  "id": "1d994c2d-515e-48dc-81ce-75622790c1be",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "bindings": {
@@ -110,13 +110,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -164,109 +157,6 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "persons": {
-      "name": "persons",
-      "columns": {
-        "person_id": {
-          "name": "person_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "linear_user_id": {
-          "name": "linear_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "slack_user_id": {
-          "name": "slack_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "github_login": {
-          "name": "github_login",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "display_name": {
-          "name": "display_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "team_member": {
-          "name": "team_member",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "persons_email_unique": {
-          "name": "persons_email_unique",
-          "columns": [
-            "email"
-          ],
-          "isUnique": true
-        },
-        "persons_linear_user_id_unique": {
-          "name": "persons_linear_user_id_unique",
-          "columns": [
-            "linear_user_id"
-          ],
-          "isUnique": true
-        },
-        "persons_slack_user_id_unique": {
-          "name": "persons_slack_user_id_unique",
-          "columns": [
-            "slack_user_id"
-          ],
-          "isUnique": true
-        },
-        "persons_github_login_unique": {
-          "name": "persons_github_login_unique",
-          "columns": [
-            "github_login"
-          ],
-          "isUnique": true
-        }
-      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

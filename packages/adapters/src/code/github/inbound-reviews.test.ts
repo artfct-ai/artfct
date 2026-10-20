@@ -41,7 +41,7 @@ describe("github reviews", () => {
     });
 
     it("names the reviewer as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_sam");
+      expect(event.actor?.display_name).toBe("sam");
     });
   });
 
@@ -86,7 +86,7 @@ describe("github reviews", () => {
       });
 
       it("names the reviewer as the actor", () => {
-        expect(event.actor?.person_id).toBe("p_sam");
+        expect(event.actor?.display_name).toBe("sam");
       });
     });
 
@@ -113,7 +113,7 @@ describe("github reviews", () => {
       });
 
       it("names the reviewer as the actor", () => {
-        expect(event.actor?.person_id).toBe("p_sam");
+        expect(event.actor?.display_name).toBe("sam");
       });
     });
   });
@@ -164,7 +164,7 @@ describe("github review comments from a person", () => {
     });
 
     it("resolves the actor", () => {
-      expect(event.actor?.person_id).toBe("p_sam");
+      expect(event.actor?.display_name).toBe("sam");
     });
 
     it("carries the comment with its file and line", () => {

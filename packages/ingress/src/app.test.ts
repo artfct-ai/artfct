@@ -135,7 +135,7 @@ describe("github webhook", () => {
     });
 
     it("names the sender as the actor", () => {
-      expect(app.rpc.deliveries[0]?.actor?.person_id).toBe("p_sam");
+      expect(app.rpc.deliveries[0]?.actor?.display_name).toBe("sam");
     });
   });
 
@@ -479,7 +479,7 @@ describe("notion webhook", () => {
         text: "lgtm, ship it",
         bindings: [{ source: "documents_page", external_id: NOTION_PAGE_ID.replace(/-/g, "") }],
         reply_to: { source: "documents", page_id: NOTION_PAGE_ID },
-        actor: { person_id: "p_n1", email: "dev@acme.test" },
+        actor: { email: "dev@acme.test" },
       });
     });
   });

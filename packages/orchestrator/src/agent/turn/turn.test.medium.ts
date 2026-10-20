@@ -13,7 +13,7 @@ import { LOST_PLACE_TEXT, LOST_TURN_TEXT } from "./watchdog";
 const start: InboundEvent = {
   id: "evt-start",
   kind: "start",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "fix the flaky test",

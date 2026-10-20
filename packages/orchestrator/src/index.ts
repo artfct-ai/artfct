@@ -36,7 +36,7 @@ export default class Orchestrator extends WorkerEntrypoint<Env> implements Orche
   }
 
   resolveActor(query: IdentityQuery): Promise<Actor | null> {
-    return resolveActor(this.env, createDb(this.env.DB), query);
+    return resolveActor(this.env, query);
   }
 
   async trackerWorkspace(): Promise<string | null> {

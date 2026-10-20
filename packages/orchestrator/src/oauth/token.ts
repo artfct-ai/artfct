@@ -71,7 +71,6 @@ export class InstallToken {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token ?? refreshToken,
       expires_at: tokenExpiryIso(tokens, this.now()),
-      scope: tokens.scope ?? this.row.scope,
     };
     const stored = await updateLinearTokens(
       this.db,

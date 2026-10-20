@@ -130,7 +130,7 @@ describe("slack mentions", () => {
     });
 
     it("names the sender as the actor", () => {
-      expect(event.actor).toEqual({ person_id: "p_U1", email: null, display_name: null });
+      expect(event.actor).toEqual({ email: null, display_name: null });
     });
   });
 

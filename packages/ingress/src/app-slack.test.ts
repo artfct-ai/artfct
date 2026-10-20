@@ -57,7 +57,7 @@ describe("slack webhook", () => {
           bindings: [{ source: "chat_thread", external_id: "C1:1756893600.000100" }],
           reply_to: { source: "chat", channel: "C1", thread: "1756893600.000100" },
           acknowledge: { message: "1756893600.000100", user: "U1" },
-          actor: { person_id: "p_U1", email: "dev@acme.test" },
+          actor: { email: "dev@acme.test" },
         });
       });
     });

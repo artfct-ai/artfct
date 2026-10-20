@@ -4,8 +4,6 @@ import type { Actor } from "@artfct-ai/contracts/inbound";
 import type { ChatUser, CodeUser, ExternalUser, IdentityQuery } from "@artfct-ai/contracts/types";
 import type { Access } from "../config/config";
 import { registeredConfig } from "../config/register-config";
-import type { Database } from "../db/client";
-import { upsertPerson, type PersonRecord } from "../db/persons";
 import { codeHost, tracker as installedTracker } from "../clients";
 import type { Env } from "../env";
 
@@ -18,17 +16,16 @@ export type IdentityClients = { tracker?: Tracker | null; code?: CodeHost | null
  */
 export async function resolveActor(
   env: Env,
-  db: Database,
   query: IdentityQuery,
   clients: IdentityClients = {},
 ): Promise<Actor | null> {
   const { access, adapters } = registeredConfig().config;
   if (query.source === "code") {
     const code = clients.code === undefined ? codeHost(env, adapters.code.provider) : clients.code;
-    return resolveCodeActor(db, code, query.user);
+    return resolveCodeActor(code, query.user);
   }
   const tracker = clients.tracker === undefined ? await installedTracker(env) : clients.tracker;
-  const identity = new Identity(access, db, tracker);
+  const identity = new Identity(access, tracker);
   switch (query.source) {
     case "tracker":
       return identity.fromTracker(query.user);
@@ -48,13 +45,11 @@ export async function resolveActor(
  * authorized when they may push to the repository, asked on every event.
  */
 export async function resolveCodeActor(
-  db: Database,
   code: CodeHost | null,
   user: CodeUser,
 ): Promise<Actor | null> {
   if (!user.app && !(await mayPush(code, user))) return null;
-  const person = await upsertPerson(db, { github_login: user.login, display_name: user.login });
-  return toActor(person);
+  return { email: null, display_name: user.login };
 }
 
 /** An unanswered lookup leaves the person unauthorized. */
@@ -77,53 +72,36 @@ async function mayPush(code: CodeHost | null, user: CodeUser): Promise<boolean> 
 export class Identity {
   constructor(
     private access: Access,
-    private db: Database,
     private tracker: Tracker | null,
   ) {}
 
   /** The installed app's own user is not a person. */
   async fromTracker(user: ExternalUser): Promise<Actor | null> {
     if (user.id === this.tracker?.appUserId) return null;
-    const person = await upsertPerson(this.db, {
-      linear_user_id: user.id,
-      email: user.email,
-      display_name: user.name,
-    });
-    return (await this.isMember(user.id)) ? toActor(person) : null;
+    return (await this.isMember(user.id)) ? vendorActor(user) : null;
   }
 
+  /** The email join reads the email the chat vendor reports for this event. */
   async fromChat(user: ChatUser): Promise<Actor | null> {
-    const person = await upsertPerson(this.db, {
-      slack_user_id: user.id,
-      email: user.email,
-      display_name: user.name,
-    });
     const { chat_team: chatTeam, tracker_team: trackerTeam } = this.access;
-    if (chatTeam) return user.member_of_team === chatTeam ? toActor(person) : null;
-    if (!trackerTeam) return toActor(person);
-    const email = person.email ?? user.email ?? null;
-    if (!email) return null;
-    return this.joinByEmail(email, { slack_user_id: user.id });
+    if (chatTeam) return user.member_of_team === chatTeam ? vendorActor(user) : null;
+    if (!trackerTeam) return vendorActor(user);
+    if (!user.email) return null;
+    return this.joinByEmail(user.email);
   }
 
   async fromDocuments(user: ExternalUser): Promise<Actor | null> {
     if (!user.email) return null;
-    return this.joinByEmail(user.email, {});
+    return this.joinByEmail(user.email);
   }
 
-  /** Look the Linear user up by email and join the person to them. Null when unknown or not a member. */
-  private async joinByEmail(email: string, ids: { slack_user_id?: string }): Promise<Actor | null> {
+  /** The Linear user with this email as the actor. Null when unknown or not a member. */
+  private async joinByEmail(email: string): Promise<Actor | null> {
     const linearUser = await this.userByEmail(email);
     if (!linearUser) return null;
     const membership = await this.isMember(linearUser.id);
     if (!membership) return null;
-    const person = await upsertPerson(this.db, {
-      ...ids,
-      email,
-      linear_user_id: linearUser.id,
-      display_name: linearUser.name,
-    });
-    return toActor(person);
+    return { email, display_name: linearUser.name };
   }
 
   /** The Linear user with this email. Null when there is none, or when Linear cannot answer. */
@@ -156,6 +134,6 @@ export class Identity {
   }
 }
 
-function toActor(person: PersonRecord): Actor {
-  return { person_id: person.person_id, email: person.email, display_name: person.display_name };
+function vendorActor(user: ExternalUser): Actor {
+  return { email: user.email ?? null, display_name: user.name ?? null };
 }

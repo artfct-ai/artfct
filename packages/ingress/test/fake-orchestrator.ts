@@ -138,13 +138,9 @@ function linearInstallHandlers(
 
 function actorFor(query: IdentityQuery): Actor {
   if (query.source === "code") {
-    return { person_id: `p_${query.user.login}`, email: null, display_name: query.user.login };
+    return { email: null, display_name: query.user.login };
   }
-  return {
-    person_id: `p_${query.user.id}`,
-    email: query.user.email ?? null,
-    display_name: query.user.name ?? null,
-  };
+  return { email: query.user.email ?? null, display_name: query.user.name ?? null };
 }
 
 function summaryFor(workflowId: string): WorkflowSummary {
