@@ -497,6 +497,7 @@
         "pr": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -507,6 +508,7 @@
         "nightly": {
           "revisions": 3,
           "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -519,6 +521,7 @@
         "pr": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -529,6 +532,7 @@
         "nightly": {
           "revisions": 3,
           "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -541,6 +545,7 @@
         "pr": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -551,6 +556,7 @@
         "nightly": {
           "revisions": 3,
           "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -563,6 +569,7 @@
         "pr": {
           "revisions": 1,
           "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -571,6 +578,7 @@
         "nightly": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -581,6 +589,7 @@
         "pr": {
           "revisions": 1,
           "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -590,6 +599,7 @@
         "nightly": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -601,6 +611,7 @@
         "pr": {
           "revisions": 1,
           "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -611,6 +622,7 @@
         "nightly": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -623,6 +635,7 @@
         "pr": {
           "revisions": 1,
           "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
@@ -632,6 +645,7 @@
         "nightly": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 2,
@@ -643,6 +657,7 @@
         "pr": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
@@ -653,6 +668,7 @@
         "nightly": {
           "revisions": 3,
           "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
@@ -665,6 +681,7 @@
         "pr": {
           "revisions": 1,
           "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 1,
           "personCommentsLeft": 1,
@@ -675,6 +692,7 @@
         "nightly": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -687,6 +705,7 @@
         "pr": {
           "revisions": 2,
           "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -698,6 +717,7 @@
         "nightly": {
           "revisions": 3,
           "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,

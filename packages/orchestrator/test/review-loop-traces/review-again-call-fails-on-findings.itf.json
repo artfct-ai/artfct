@@ -21,30 +21,123 @@
   ],
   "states": [
     {
-      "#meta": { "index": 0 },
+      "#meta": {
+        "index": 0
+      },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
-        "cause": { "tag": "None", "value": { "#tup": [] } },
-        "commenting": { "tag": "None", "value": { "#tup": [] } },
-        "cut": { "tag": "None", "value": { "#tup": [] } },
-        "decision": { "tag": "None", "value": { "#tup": [] } },
-        "ending": { "tag": "None", "value": { "#tup": [] } },
-        "failure": { "tag": "None", "value": { "#tup": [] } },
-        "flaw": { "tag": "None", "value": { "#tup": [] } },
-        "judgeRun": { "tag": "None", "value": { "#tup": [] } },
-        "lookup": { "tag": "None", "value": { "#tup": [] } },
-        "meanwhile": { "tag": "None", "value": { "#tup": [] } },
-        "outcome": { "tag": "None", "value": { "#tup": [] } },
-        "part": { "tag": "None", "value": { "#tup": [] } },
-        "place": { "tag": "None", "value": { "#tup": [] } },
-        "post": { "tag": "None", "value": { "#tup": [] } },
-        "read": { "tag": "None", "value": { "#tup": [] } },
-        "revisionLookup": { "tag": "None", "value": { "#tup": [] } },
-        "route": { "tag": "None", "value": { "#tup": [] } }
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
       },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": { "#set": [] },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": { "#bigint": "0" },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": { "#bigint": "0" },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
       "modelCallAuthorWithTwoReviewers::reviewLoop::lastStepKept": {
         "aBlockedAuthorsGateHandsOverBlocked": true,
         "aFinishedRefinerRunKeepsItsStatus": true,
@@ -154,27 +247,73 @@
         "artifact": {
           "deliveredToHumans": false,
           "recheckArmed": false,
-          "refinerRun": { "tag": "NoRefinerRun", "value": { "#tup": [] } },
-          "revision": { "#bigint": "0" },
-          "sentBack": { "tag": "NotSentBack", "value": { "#tup": [] } },
-          "status": { "tag": "Drafted", "value": { "#tup": [] } }
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
-          "findingsFrom": { "#set": [] },
-          "pageEditsDuringTurn": { "#set": [] },
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
           "paused": false,
           "queuedPrompts": [],
-          "rejectedBy": { "#set": [] },
-          "restarts": { "#bigint": "0" },
-          "status": { "tag": "AtWork", "value": { "#tup": [] } },
-          "turnComments": { "#set": [] }
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
         },
-        "judgeRunsCodeRulesOn": { "#set": [] },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
         "personComments": [
           {
             "acknowledged": false,
             "answered": false,
-            "commentThread": { "tag": "OpenedBy", "value": { "#bigint": "0" } },
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
             "gone": false,
             "mentions": false,
             "onTheBlock": false,
@@ -186,33 +325,132 @@
       }
     },
     {
-      "#meta": { "index": 1 },
+      "#meta": {
+        "index": 1
+      },
       "mbt::actionTaken": "authorTurnEndsOnTheSameRevision",
       "mbt::nondetPicks": {
-        "cause": { "tag": "None", "value": { "#tup": [] } },
-        "commenting": { "tag": "None", "value": { "#tup": [] } },
-        "cut": { "tag": "None", "value": { "#tup": [] } },
-        "decision": { "tag": "Some", "value": { "tag": "NoReviewAgain", "value": { "#tup": [] } } },
-        "ending": { "tag": "None", "value": { "#tup": [] } },
-        "failure": { "tag": "None", "value": { "#tup": [] } },
-        "flaw": { "tag": "None", "value": { "#tup": [] } },
-        "judgeRun": { "tag": "None", "value": { "#tup": [] } },
-        "lookup": { "tag": "None", "value": { "#tup": [] } },
-        "meanwhile": { "tag": "None", "value": { "#tup": [] } },
-        "outcome": { "tag": "Some", "value": { "tag": "GateOpens", "value": { "#tup": [] } } },
-        "part": { "tag": "None", "value": { "#tup": [] } },
-        "place": { "tag": "None", "value": { "#tup": [] } },
-        "post": { "tag": "None", "value": { "#tup": [] } },
-        "read": { "tag": "None", "value": { "#tup": [] } },
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "Some",
+          "value": {
+            "tag": "NoReviewAgain",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "GateOpens",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "revisionLookup": {
           "tag": "Some",
-          "value": { "tag": "RevisionKnown", "value": { "#tup": [] } }
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
         },
-        "route": { "tag": "None", "value": { "#tup": [] } }
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
       },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": { "#set": [] },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": { "#bigint": "0" },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": { "#bigint": "0" },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
       "modelCallAuthorWithTwoReviewers::reviewLoop::lastStepKept": {
         "aBlockedAuthorsGateHandsOverBlocked": true,
         "aFinishedRefinerRunKeepsItsStatus": true,
@@ -322,27 +560,73 @@
         "artifact": {
           "deliveredToHumans": false,
           "recheckArmed": false,
-          "refinerRun": { "tag": "OnRefinerRun", "value": { "#bigint": "0" } },
-          "revision": { "#bigint": "0" },
-          "sentBack": { "tag": "NotSentBack", "value": { "#tup": [] } },
-          "status": { "tag": "Drafted", "value": { "#tup": [] } }
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
-          "findingsFrom": { "#set": [] },
-          "pageEditsDuringTurn": { "#set": [] },
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
           "paused": false,
           "queuedPrompts": [],
-          "rejectedBy": { "#set": [] },
-          "restarts": { "#bigint": "0" },
-          "status": { "tag": "InReview", "value": { "#tup": [] } },
-          "turnComments": { "#set": [] }
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
         },
-        "judgeRunsCodeRulesOn": { "#set": [] },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
         "personComments": [
           {
             "acknowledged": false,
             "answered": false,
-            "commentThread": { "tag": "OpenedBy", "value": { "#bigint": "0" } },
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
             "gone": false,
             "mentions": false,
             "onTheBlock": false,
@@ -351,43 +635,153 @@
         ],
         "refinerRuns": [
           {
-            "refinerIndex": { "#bigint": "0" },
-            "restarts": { "#bigint": "0" },
-            "result": { "tag": "NoResult", "value": { "#tup": [] } },
-            "status": { "tag": "Running", "value": { "#tup": [] } }
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Running",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "reviewComments": []
       }
     },
     {
-      "#meta": { "index": 2 },
+      "#meta": {
+        "index": 2
+      },
       "mbt::actionTaken": "findingsReviewerLeavesFindings",
       "mbt::nondetPicks": {
-        "cause": { "tag": "None", "value": { "#tup": [] } },
-        "commenting": { "tag": "Some", "value": { "tag": "TakesAll", "value": { "#tup": [] } } },
-        "cut": { "tag": "None", "value": { "#tup": [] } },
-        "decision": { "tag": "None", "value": { "#tup": [] } },
-        "ending": { "tag": "None", "value": { "#tup": [] } },
-        "failure": { "tag": "None", "value": { "#tup": [] } },
-        "flaw": { "tag": "None", "value": { "#tup": [] } },
-        "judgeRun": { "tag": "None", "value": { "#tup": [] } },
-        "lookup": { "tag": "None", "value": { "#tup": [] } },
-        "meanwhile": { "tag": "None", "value": { "#tup": [] } },
-        "outcome": { "tag": "None", "value": { "#tup": [] } },
-        "part": { "tag": "None", "value": { "#tup": [] } },
-        "place": { "tag": "None", "value": { "#tup": [] } },
-        "post": { "tag": "None", "value": { "#tup": [] } },
-        "read": { "tag": "None", "value": { "#tup": [] } },
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "Some",
+          "value": {
+            "tag": "TakesAll",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "revisionLookup": {
           "tag": "Some",
-          "value": { "tag": "RevisionKnown", "value": { "#tup": [] } }
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
         },
-        "route": { "tag": "None", "value": { "#tup": [] } }
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
       },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": { "#set": [] },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": { "#bigint": "0" },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": { "#bigint": "0" },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
       "modelCallAuthorWithTwoReviewers::reviewLoop::lastStepKept": {
         "aBlockedAuthorsGateHandsOverBlocked": true,
         "aFinishedRefinerRunKeepsItsStatus": true,
@@ -497,27 +891,73 @@
         "artifact": {
           "deliveredToHumans": false,
           "recheckArmed": false,
-          "refinerRun": { "tag": "OnRefinerRun", "value": { "#bigint": "1" } },
-          "revision": { "#bigint": "0" },
-          "sentBack": { "tag": "NotSentBack", "value": { "#tup": [] } },
-          "status": { "tag": "Drafted", "value": { "#tup": [] } }
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "1"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
-          "findingsFrom": { "#set": [] },
-          "pageEditsDuringTurn": { "#set": [] },
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
           "paused": false,
           "queuedPrompts": [],
-          "rejectedBy": { "#set": [] },
-          "restarts": { "#bigint": "0" },
-          "status": { "tag": "InReview", "value": { "#tup": [] } },
-          "turnComments": { "#set": [] }
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
         },
-        "judgeRunsCodeRulesOn": { "#set": [] },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
         "personComments": [
           {
             "acknowledged": false,
             "answered": false,
-            "commentThread": { "tag": "OpenedBy", "value": { "#bigint": "0" } },
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
             "gone": false,
             "mentions": false,
             "onTheBlock": false,
@@ -526,30 +966,65 @@
         ],
         "refinerRuns": [
           {
-            "refinerIndex": { "#bigint": "0" },
-            "restarts": { "#bigint": "0" },
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
             "result": {
               "tag": "FiledReview",
               "value": {
                 "findings": true,
-                "revision": { "tag": "ReadRevision", "value": { "#bigint": "0" } }
+                "revision": {
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                }
               }
             },
-            "status": { "tag": "Done", "value": { "#tup": [] } }
+            "status": {
+              "tag": "Done",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
-            "refinerIndex": { "#bigint": "1" },
-            "restarts": { "#bigint": "0" },
-            "result": { "tag": "NoResult", "value": { "#tup": [] } },
-            "status": { "tag": "Running", "value": { "#tup": [] } }
+            "refinerIndex": {
+              "#bigint": "1"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Running",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "reviewComments": [
           {
             "tag": "InlineFinding",
             "value": {
-              "passage": { "tag": "QuotesThePage", "value": { "#tup": [] } },
-              "refinerRun": { "#bigint": "0" }
+              "passage": {
+                "tag": "QuotesThePage",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "refinerRun": {
+                "#bigint": "0"
+              }
             }
           },
           {
@@ -558,44 +1033,152 @@
               "approves": false,
               "findings": {
                 "#set": [
-                  { "tag": "QuotesMissingText", "value": { "#tup": [] } },
-                  { "tag": "WithoutPassage", "value": { "#tup": [] } }
+                  {
+                    "tag": "QuotesMissingText",
+                    "value": {
+                      "#tup": []
+                    }
+                  },
+                  {
+                    "tag": "WithoutPassage",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
                 ]
               },
-              "refinerRun": { "#bigint": "0" }
+              "refinerRun": {
+                "#bigint": "0"
+              }
             }
           }
         ]
       }
     },
     {
-      "#meta": { "index": 3 },
+      "#meta": {
+        "index": 3
+      },
       "mbt::actionTaken": "findingsReviewerLeavesFindings",
       "mbt::nondetPicks": {
-        "cause": { "tag": "None", "value": { "#tup": [] } },
-        "commenting": { "tag": "Some", "value": { "tag": "DropsInline", "value": { "#tup": [] } } },
-        "cut": { "tag": "None", "value": { "#tup": [] } },
-        "decision": { "tag": "None", "value": { "#tup": [] } },
-        "ending": { "tag": "None", "value": { "#tup": [] } },
-        "failure": { "tag": "None", "value": { "#tup": [] } },
-        "flaw": { "tag": "None", "value": { "#tup": [] } },
-        "judgeRun": { "tag": "None", "value": { "#tup": [] } },
-        "lookup": { "tag": "None", "value": { "#tup": [] } },
-        "meanwhile": { "tag": "None", "value": { "#tup": [] } },
-        "outcome": { "tag": "None", "value": { "#tup": [] } },
-        "part": { "tag": "None", "value": { "#tup": [] } },
-        "place": { "tag": "None", "value": { "#tup": [] } },
-        "post": { "tag": "None", "value": { "#tup": [] } },
-        "read": { "tag": "None", "value": { "#tup": [] } },
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "Some",
+          "value": {
+            "tag": "DropsInline",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "revisionLookup": {
           "tag": "Some",
-          "value": { "tag": "RevisionKnown", "value": { "#tup": [] } }
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
         },
-        "route": { "tag": "None", "value": { "#tup": [] } }
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
       },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": { "#set": [] },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": { "#bigint": "0" },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": { "#bigint": "0" },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
       "modelCallAuthorWithTwoReviewers::reviewLoop::lastStepKept": {
         "aBlockedAuthorsGateHandsOverBlocked": true,
         "aFinishedRefinerRunKeepsItsStatus": true,
@@ -705,27 +1288,80 @@
         "artifact": {
           "deliveredToHumans": false,
           "recheckArmed": false,
-          "refinerRun": { "tag": "OnRefinerRun", "value": { "#bigint": "1" } },
-          "revision": { "#bigint": "0" },
-          "sentBack": { "tag": "NotSentBack", "value": { "#tup": [] } },
-          "status": { "tag": "Drafted", "value": { "#tup": [] } }
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "1"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
-          "findingsFrom": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
-          "pageEditsDuringTurn": { "#set": [] },
+          "findingsFrom": {
+            "#set": [
+              {
+                "#bigint": "0"
+              },
+              {
+                "#bigint": "1"
+              }
+            ]
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
           "paused": false,
           "queuedPrompts": [],
-          "rejectedBy": { "#set": [] },
-          "restarts": { "#bigint": "0" },
-          "status": { "tag": "AtWork", "value": { "#tup": [] } },
-          "turnComments": { "#set": [] }
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
         },
-        "judgeRunsCodeRulesOn": { "#set": [] },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
         "personComments": [
           {
             "acknowledged": false,
             "answered": false,
-            "commentThread": { "tag": "OpenedBy", "value": { "#bigint": "0" } },
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
             "gone": false,
             "mentions": false,
             "onTheBlock": false,
@@ -734,36 +1370,71 @@
         ],
         "refinerRuns": [
           {
-            "refinerIndex": { "#bigint": "0" },
-            "restarts": { "#bigint": "0" },
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
             "result": {
               "tag": "FiledReview",
               "value": {
                 "findings": true,
-                "revision": { "tag": "ReadRevision", "value": { "#bigint": "0" } }
+                "revision": {
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                }
               }
             },
-            "status": { "tag": "Done", "value": { "#tup": [] } }
+            "status": {
+              "tag": "Done",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
-            "refinerIndex": { "#bigint": "1" },
-            "restarts": { "#bigint": "0" },
+            "refinerIndex": {
+              "#bigint": "1"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
             "result": {
               "tag": "FiledReview",
               "value": {
                 "findings": true,
-                "revision": { "tag": "ReadRevision", "value": { "#bigint": "0" } }
+                "revision": {
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                }
               }
             },
-            "status": { "tag": "Done", "value": { "#tup": [] } }
+            "status": {
+              "tag": "Done",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "reviewComments": [
           {
             "tag": "InlineFinding",
             "value": {
-              "passage": { "tag": "QuotesThePage", "value": { "#tup": [] } },
-              "refinerRun": { "#bigint": "0" }
+              "passage": {
+                "tag": "QuotesThePage",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "refinerRun": {
+                "#bigint": "0"
+              }
             }
           },
           {
@@ -772,11 +1443,23 @@
               "approves": false,
               "findings": {
                 "#set": [
-                  { "tag": "QuotesMissingText", "value": { "#tup": [] } },
-                  { "tag": "WithoutPassage", "value": { "#tup": [] } }
+                  {
+                    "tag": "QuotesMissingText",
+                    "value": {
+                      "#tup": []
+                    }
+                  },
+                  {
+                    "tag": "WithoutPassage",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
                 ]
               },
-              "refinerRun": { "#bigint": "0" }
+              "refinerRun": {
+                "#bigint": "0"
+              }
             }
           },
           {
@@ -785,47 +1468,168 @@
               "approves": false,
               "findings": {
                 "#set": [
-                  { "tag": "QuotesMissingText", "value": { "#tup": [] } },
-                  { "tag": "QuotesThePage", "value": { "#tup": [] } },
-                  { "tag": "WithoutPassage", "value": { "#tup": [] } }
+                  {
+                    "tag": "QuotesMissingText",
+                    "value": {
+                      "#tup": []
+                    }
+                  },
+                  {
+                    "tag": "QuotesThePage",
+                    "value": {
+                      "#tup": []
+                    }
+                  },
+                  {
+                    "tag": "WithoutPassage",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
                 ]
               },
-              "refinerRun": { "#bigint": "1" }
+              "refinerRun": {
+                "#bigint": "1"
+              }
             }
           }
         ]
       }
     },
     {
-      "#meta": { "index": 4 },
+      "#meta": {
+        "index": 4
+      },
       "mbt::actionTaken": "authorTurnEndsOnTheSameRevision",
       "mbt::nondetPicks": {
-        "cause": { "tag": "None", "value": { "#tup": [] } },
-        "commenting": { "tag": "None", "value": { "#tup": [] } },
-        "cut": { "tag": "None", "value": { "#tup": [] } },
-        "decision": { "tag": "Some", "value": { "tag": "AgentRoutes", "value": { "#tup": [] } } },
-        "ending": { "tag": "None", "value": { "#tup": [] } },
-        "failure": { "tag": "None", "value": { "#tup": [] } },
-        "flaw": { "tag": "None", "value": { "#tup": [] } },
-        "judgeRun": { "tag": "None", "value": { "#tup": [] } },
-        "lookup": { "tag": "None", "value": { "#tup": [] } },
-        "meanwhile": { "tag": "None", "value": { "#tup": [] } },
-        "outcome": { "tag": "Some", "value": { "tag": "GateOpens", "value": { "#tup": [] } } },
-        "part": { "tag": "None", "value": { "#tup": [] } },
-        "place": { "tag": "None", "value": { "#tup": [] } },
-        "post": { "tag": "None", "value": { "#tup": [] } },
-        "read": { "tag": "None", "value": { "#tup": [] } },
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "Some",
+          "value": {
+            "tag": "AgentRoutes",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "GateOpens",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "revisionLookup": {
           "tag": "Some",
-          "value": { "tag": "RevisionKnown", "value": { "#tup": [] } }
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
         },
-        "route": { "tag": "None", "value": { "#tup": [] } }
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
       },
       "modelCallAuthorWithTwoReviewers::reviewLoop::agentHeard": {
-        "#set": [{ "tag": "RouteNote", "value": { "#tup": [] } }]
+        "#set": [
+          {
+            "tag": "RouteNote",
+            "value": {
+              "#tup": []
+            }
+          }
+        ]
       },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": { "#bigint": "0" },
-      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": { "#bigint": "0" },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "modelCallAuthorWithTwoReviewers::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
       "modelCallAuthorWithTwoReviewers::reviewLoop::lastStepKept": {
         "aBlockedAuthorsGateHandsOverBlocked": true,
         "aFinishedRefinerRunKeepsItsStatus": true,
@@ -935,27 +1739,80 @@
         "artifact": {
           "deliveredToHumans": false,
           "recheckArmed": false,
-          "refinerRun": { "tag": "OnRefinerRun", "value": { "#bigint": "1" } },
-          "revision": { "#bigint": "0" },
-          "sentBack": { "tag": "NotSentBack", "value": { "#tup": [] } },
-          "status": { "tag": "Drafted", "value": { "#tup": [] } }
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "1"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
-          "findingsFrom": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
-          "pageEditsDuringTurn": { "#set": [] },
+          "findingsFrom": {
+            "#set": [
+              {
+                "#bigint": "0"
+              },
+              {
+                "#bigint": "1"
+              }
+            ]
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
           "paused": false,
           "queuedPrompts": [],
-          "rejectedBy": { "#set": [] },
-          "restarts": { "#bigint": "0" },
-          "status": { "tag": "InReview", "value": { "#tup": [] } },
-          "turnComments": { "#set": [] }
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
         },
-        "judgeRunsCodeRulesOn": { "#set": [] },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
         "personComments": [
           {
             "acknowledged": false,
             "answered": false,
-            "commentThread": { "tag": "OpenedBy", "value": { "#bigint": "0" } },
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
             "gone": false,
             "mentions": false,
             "onTheBlock": false,
@@ -964,36 +1821,71 @@
         ],
         "refinerRuns": [
           {
-            "refinerIndex": { "#bigint": "0" },
-            "restarts": { "#bigint": "0" },
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
             "result": {
               "tag": "FiledReview",
               "value": {
                 "findings": true,
-                "revision": { "tag": "ReadRevision", "value": { "#bigint": "0" } }
+                "revision": {
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                }
               }
             },
-            "status": { "tag": "Done", "value": { "#tup": [] } }
+            "status": {
+              "tag": "Done",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
-            "refinerIndex": { "#bigint": "1" },
-            "restarts": { "#bigint": "0" },
+            "refinerIndex": {
+              "#bigint": "1"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
             "result": {
               "tag": "FiledReview",
               "value": {
                 "findings": true,
-                "revision": { "tag": "ReadRevision", "value": { "#bigint": "0" } }
+                "revision": {
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                }
               }
             },
-            "status": { "tag": "Done", "value": { "#tup": [] } }
+            "status": {
+              "tag": "Done",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "reviewComments": [
           {
             "tag": "InlineFinding",
             "value": {
-              "passage": { "tag": "QuotesThePage", "value": { "#tup": [] } },
-              "refinerRun": { "#bigint": "0" }
+              "passage": {
+                "tag": "QuotesThePage",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "refinerRun": {
+                "#bigint": "0"
+              }
             }
           },
           {
@@ -1002,11 +1894,23 @@
               "approves": false,
               "findings": {
                 "#set": [
-                  { "tag": "QuotesMissingText", "value": { "#tup": [] } },
-                  { "tag": "WithoutPassage", "value": { "#tup": [] } }
+                  {
+                    "tag": "QuotesMissingText",
+                    "value": {
+                      "#tup": []
+                    }
+                  },
+                  {
+                    "tag": "WithoutPassage",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
                 ]
               },
-              "refinerRun": { "#bigint": "0" }
+              "refinerRun": {
+                "#bigint": "0"
+              }
             }
           },
           {
@@ -1015,12 +1919,29 @@
               "approves": false,
               "findings": {
                 "#set": [
-                  { "tag": "QuotesMissingText", "value": { "#tup": [] } },
-                  { "tag": "QuotesThePage", "value": { "#tup": [] } },
-                  { "tag": "WithoutPassage", "value": { "#tup": [] } }
+                  {
+                    "tag": "QuotesMissingText",
+                    "value": {
+                      "#tup": []
+                    }
+                  },
+                  {
+                    "tag": "QuotesThePage",
+                    "value": {
+                      "#tup": []
+                    }
+                  },
+                  {
+                    "tag": "WithoutPassage",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
                 ]
               },
-              "refinerRun": { "#bigint": "1" }
+              "refinerRun": {
+                "#bigint": "1"
+              }
             }
           }
         ]

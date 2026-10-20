@@ -67,8 +67,9 @@ module reviewLoopTypes {
 
   /// The output artifact. A revision is a number here. The host gives it a name. It is delivered to
   /// the humans from its first handover on, also while it is a draft again. The recheck alarm of
-  /// its job is armed or stopped. The humans got a post for each of `handoverPosts` handovers, and
-  /// the alarm that posts a handover whose post a restart cut waits or not.
+  /// its job is armed or stopped. It went from drafted to ready `handovers` times. The humans got
+  /// `handoverPosts` handover posts, and the alarm that posts a handover whose post a restart cut
+  /// waits or not.
   type Artifact = {
     status: ArtifactStatus,
     deliveredToHumans: bool,
@@ -76,6 +77,7 @@ module reviewLoopTypes {
     refinerRun: RefinerRunOfArtifact,
     sentBack: SentBack,
     recheckArmed: bool,
+    handovers: int,
     handoverPosts: int,
     handoverPostWaits: bool,
   }
@@ -502,6 +504,7 @@ module reviewLoop {
       refinerRun: NoRefinerRun,
       sentBack: NotSentBack,
       recheckArmed: false,
+      handovers: 0,
       handoverPosts: 0,
       handoverPostWaits: false,
     },
@@ -755,6 +758,7 @@ module reviewLoop {
         artifact: {
           ...handedOver,
           status: Ready({ deliveredRevision: hostRevision(loop, lookup), close: close }),
+          handovers: loop.artifact.handovers + 1,
           handoverPosts: loop.artifact.handoverPosts + 1,
           handoverPostWaits: false,
         },
@@ -2865,18 +2869,19 @@ module reviewLoop {
     theHumansHearOfEachHandoverOnce: postsEachHandoverOnce(step),
   }
 
-  /// The humans get one post in the step that hands the artifact over. A restart that cuts that
-  /// post takes it back and leaves its alarm waiting. The alarm posts it once, unless the artifact
-  /// is a draft again. Any other step posts no handover and leaves the alarm as it was.
+  /// The humans get one post for each handover in a step. A restart that cuts that post takes it
+  /// back and leaves its alarm waiting. A newer handover replaces the alarm. Otherwise the alarm
+  /// posts once, unless the artifact is a draft again. No other step changes the alarm.
   pure def postsEachHandoverOnce(step: Transition): bool = {
     val before = step.before.artifact
     val after = step.after.artifact
     val newPosts = after.handoverPosts - before.handoverPosts
-    if (handedOverIn(step)) newPosts == 1 and not(after.handoverPostWaits)
-    else if (step.kind.cutOfADoneRun == ItsHandoverPostIsCut) newPosts == -1 and after.handoverPostWaits
+    val handed = after.handovers - before.handovers
+    if (step.kind.cutOfADoneRun == ItsHandoverPostIsCut)
+      newPosts == -1 and handed == 0 and after.handoverPostWaits
     else if (before.handoverPostWaits and not(after.handoverPostWaits))
-      newPosts == (if (drafted(step.after)) 0 else 1)
-    else newPosts == 0 and after.handoverPostWaits == before.handoverPostWaits
+      newPosts == handed + (if (handed > 0 or drafted(step.after)) 0 else 1)
+    else newPosts == handed and after.handoverPostWaits == before.handoverPostWaits
   }
 
   /// The held comments read in a step whose host marks them read, when some were held.
@@ -3423,6 +3428,9 @@ module reviewLoop {
 
   /// The handover posts the humans got, a counter that model checking bounds.
   val handoverPostsMade: int = review.artifact.handoverPosts
+
+  /// The handovers of the artifact, a counter that model checking bounds.
+  val handoversMade: int = review.artifact.handovers
 
   /// The comments code posted on the page, a counter that model checking bounds.
   val reviewCommentsPosted: int = review.reviewComments.length()
