@@ -1359,6 +1359,14 @@ export const MUTANTS: Mutant[] = [
     replace: "  }\n  return gate;\n",
   },
   {
+    id: "W320",
+    invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds (idle author's open checks)",
+    path: "src/workflow/refiner/checks-recheck.ts",
+    find: '  await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  if (checks?.state === "failed") {\n',
+    replace:
+      '  if (checks?.state === "failed" || checks?.state === "conflicted") {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  if (checks?.state === "failed") {\n',
+  },
+  {
     id: "W227",
     invariant: "reviewLoop::anAnswerAtTheReviewLimitMovesOn",
     path: "src/workflow/refiner/loop.ts",
