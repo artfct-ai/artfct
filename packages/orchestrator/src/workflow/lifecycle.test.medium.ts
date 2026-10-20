@@ -4,12 +4,23 @@ import { describe, expect, it } from "vitest";
 import { listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { createWorkflow } from "../db/workflows";
-import { type FakeRuntime, seedTask } from "../../test/fake-runtime";
+import { FakeRuntime, seedTask } from "../../test/fake-runtime";
+import { FakeSandboxProvider } from "../../test/fake-sandbox";
+import { gate } from "../../test/scripted-chat";
 import { testNotifier } from "../../test/notifier-fixture";
 import { freshDurableRuntime } from "../../test/durable-runtime";
 import { type Scenario, scenario } from "../../test/scenario";
-import { cancelTask, completeJob, completeWorkflow, failTask, startJob } from "./lifecycle";
+import {
+  cancelTask,
+  completeJob,
+  completeWorkflow,
+  failTask,
+  resumeTaskEnd,
+  startJob,
+  type TaskEndAlarm,
+} from "./lifecycle";
 import { jobInputKey } from "./store/input-key";
+import type { TaskRow } from "./store/tasks";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
@@ -27,6 +38,32 @@ const db = createDb(env.DB);
 
 function planned(workflow: FakeRuntime, concurrency = 3): void {
   workflow.patchState({ stages: STAGES, concurrency, status: "running" });
+}
+
+function cutOffDuring(
+  end: (workflow: FakeRuntime, task: TaskRow) => Promise<void>,
+  call: "destroy" | "post",
+): Scenario<FakeRuntime> {
+  return (run) =>
+    freshDurableRuntime(async (workflow) => {
+      const task = seedTask(workflow);
+      const cut = gate();
+      if (call === "destroy") workflow.sandboxProvider.destroy = cut.hold;
+      else workflow.post = cut.hold;
+      void end(workflow, task);
+      await cut.reached;
+      const restarted = workflow.restarted();
+      restarted.sandboxProvider = new FakeSandboxProvider();
+      restarted.post = FakeRuntime.prototype.post.bind(restarted);
+      await run(restarted);
+    });
+}
+
+async function fireTaskEndAlarms(workflow: FakeRuntime): Promise<void> {
+  for (const alarm of workflow.alarmsFor("resumeTaskEnd")) {
+    await workflow.cancelAlarm(alarm.id);
+    await resumeTaskEnd(workflow, alarm.payload as TaskEndAlarm);
+  }
 }
 
 function acting<Result>(
@@ -153,7 +190,12 @@ describe("cancelTask and failTask", () => {
 
     it("cancels the hello alarm", () =>
       cancelled((workflow) => {
-        expect(workflow.cancelled).toEqual(["h1"]);
+        expect(workflow.cancelled).toContain("h1");
+      }));
+
+    it("cancels its task end alarm once the teardown finished", () =>
+      cancelled((workflow) => {
+        expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
       }));
 
     it("clears the prompt queue", () =>
@@ -256,6 +298,109 @@ describe("cancelTask and failTask", () => {
           expect(workflow.posted).toEqual([]);
         }));
     });
+  });
+
+  describe("a cancel whose sandbox destroy an instance restart cut off", () => {
+    const restarted = cutOffDuring(
+      (workflow, task) => cancelTask(workflow, task, "PR closed"),
+      "destroy",
+    );
+
+    it("keeps the task end alarm armed with the reason", () =>
+      restarted((workflow) => {
+        expect(workflow.alarmsFor("resumeTaskEnd").map((alarm) => alarm.payload)).toEqual([
+          { task_id: TASK, reason: "PR closed" },
+        ]);
+      }));
+
+    describe("and the task end alarm fires", () => {
+      const resumed = scenario(restarted, fireTaskEndAlarms);
+
+      it("destroys the sandbox again", () =>
+        resumed((workflow) => {
+          expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`]);
+        }));
+
+      it("notes the cancellation once", () =>
+        resumed((workflow) => {
+          expect(workflow.notes).toEqual([
+            { text: expect.stringContaining(`Job ${JOB} was cancelled: PR closed`), wake: "none" },
+          ]);
+        }));
+
+      it("cancels the task end alarm", () =>
+        resumed((workflow) => {
+          expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
+        }));
+    });
+  });
+
+  describe("a failure whose sandbox destroy an instance restart cut off", () => {
+    const resumed = scenario(
+      cutOffDuring((workflow, task) => failTask(workflow, task, "harness died"), "destroy"),
+      fireTaskEndAlarms,
+    );
+
+    it("destroys the sandbox again and posts the failure once", () =>
+      resumed((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`]);
+        expect(workflow.posted).toEqual([{ type: "failed", job_id: JOB, reason: "harness died" }]);
+      }));
+
+    it("wakes the agent with the failure", () =>
+      resumed((workflow) => {
+        expect(workflow.notes).toEqual([
+          {
+            text: expect.stringContaining(`Job ${JOB} failed: its author ${TASK} stopped`),
+            wake: "task_result",
+          },
+        ]);
+      }));
+  });
+
+  describe("a failure whose post an instance restart cut off", () => {
+    const resumed = scenario(
+      cutOffDuring((workflow, task) => failTask(workflow, task, "harness died"), "post"),
+      fireTaskEndAlarms,
+    );
+
+    it("posts the failure once", () =>
+      resumed((workflow) => {
+        expect(workflow.posted).toEqual([{ type: "failed", job_id: JOB, reason: "harness died" }]);
+      }));
+
+    it("leaves no task end alarm armed", () =>
+      resumed((workflow) => {
+        expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
+      }));
+  });
+
+  describe("a task end alarm that fires while its teardown still runs", () => {
+    const fired = scenario(freshDurableRuntime, async (workflow) => {
+      const task = seedTask(workflow);
+      const destroy = gate();
+      workflow.sandboxProvider.destroy = async (sandbox) => {
+        await destroy.hold();
+        workflow.sandboxProvider.calls.push(`destroy ${sandbox.id}`);
+      };
+      const cancelling = cancelTask(workflow, task, "PR closed");
+      await destroy.reached;
+      await fireTaskEndAlarms(workflow);
+      expect(workflow.alarmsFor("resumeTaskEnd")).toHaveLength(1);
+      destroy.open();
+      await cancelling;
+    });
+
+    it("destroys the sandbox once", () =>
+      fired((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`]);
+      }));
+
+    it("cancels the alarm it armed again once the teardown finished", () =>
+      fired((workflow) => {
+        expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
+        expect(workflow.notes).toHaveLength(1);
+      }));
   });
 
   describe("a task that already finished", () => {

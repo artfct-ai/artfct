@@ -15,7 +15,7 @@ import { onReviewerFailed } from "./refiner/loop";
 import { endPolisherRun } from "./refiner/polish";
 import { refinerRunOf } from "./refiner/stage-refiner";
 import { markArtifactReady } from "./refiner/outcome";
-import type { WorkflowRuntime } from "./types";
+import type { Wake, WorkflowRuntime } from "./types";
 import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
 import { isTaskFinished, isWorkflowFinished, type WorkflowEnd } from "./store/state";
@@ -183,24 +183,119 @@ export async function startAuthorAfterResearch(
 export type CompleteOutcome = { running: number; slots: number };
 
 /**
- * The teardown every end of a task shares. The status is written before the sandbox goes, and
- * with it the model turn of a model-call task ends. False when the task had already finished.
+ * Write the status that ends the task, and with it end the model turn of a model-call task. False
+ * when the task had already finished.
  */
-async function finishTask(
+function markTaskFinished(
   workflow: WorkflowRuntime,
   task: TaskRow,
   status: "done" | "cancelled" | "failed",
-): Promise<boolean> {
+): boolean {
   if (isTaskFinished(workflow.store.requireTask(task.task_id).status)) return false;
   workflow.store.updateTask(task.task_id, { status, model_turn_id: null });
+  return true;
+}
+
+/** Stop the timers of a finished task and destroy its sandbox. One without a sandbox drops its queue. */
+async function removeSandbox(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
   const sandbox = workflow.store.sandbox(task.task_id);
   if (!sandbox) {
     workflow.store.clearPromptQueue(task.task_id);
-    return true;
+    return;
   }
   await clearTaskTimers(workflow, sandbox);
   await destroySandbox(workflow, task);
-  return true;
+}
+
+/** End the task done and destroy its sandbox, unless it had already finished. */
+async function finishTask(workflow: WorkflowRuntime, task: TaskRow, status: "done"): Promise<void> {
+  if (markTaskFinished(workflow, task, status)) await removeSandbox(workflow, task);
+}
+
+/** The payload of a task end alarm: the cancelled or failed task, and why it ended. */
+export type TaskEndAlarm = { task_id: string; reason: string };
+
+/** The task end alarm that a teardown this instance runs holds now. */
+type TaskTeardown = { alarmId: string };
+
+/** How long a task end alarm waits before it goes on with a teardown that a restart cut off. */
+const TASK_END_ALARM_SECONDS = 60;
+
+const teardownsInFlight = new WeakMap<WorkflowRuntime, Map<string, TaskTeardown>>();
+
+/**
+ * Cancel or fail the task: write its status, arm its task end alarm, and destroy its sandbox. Null
+ * when the task had already finished.
+ */
+async function endTask(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  status: "cancelled" | "failed",
+  reason: string,
+): Promise<TaskTeardown | null> {
+  if (!markTaskFinished(workflow, task, status)) return null;
+  return removeSandboxOfEndedTask(workflow, task, reason);
+}
+
+/**
+ * Arm the task end alarm, then destroy the sandbox. The alarm stays armed until the teardown
+ * finishes, so an instance restart before that leaves the alarm to run it again.
+ */
+async function removeSandboxOfEndedTask(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  reason: string,
+): Promise<TaskTeardown> {
+  const alarm: TaskEndAlarm = { task_id: task.task_id, reason };
+  const teardown = {
+    alarmId: await workflow.scheduleAlarm(TASK_END_ALARM_SECONDS, "resumeTaskEnd", alarm),
+  };
+  const inFlight = teardownsInFlight.get(workflow) ?? new Map<string, TaskTeardown>();
+  teardownsInFlight.set(workflow, inFlight);
+  inFlight.set(task.task_id, teardown);
+  await removeSandbox(workflow, task);
+  return teardown;
+}
+
+/**
+ * Finish the teardown of a cancelled or failed task once its sandbox is gone: end what the task
+ * held, cancel its task end alarm, then tell the agent.
+ */
+async function finishTeardown(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  teardown: TaskTeardown,
+  reason: string,
+): Promise<void> {
+  const ended = workflow.store.requireTask(task.task_id).status;
+  const note =
+    ended === "cancelled"
+      ? await endWorkOfCancelledTask(workflow, task, reason)
+      : await endWorkOfFailedTask(workflow, task, reason);
+  teardownsInFlight.get(workflow)?.delete(task.task_id);
+  await workflow.cancelAlarm(teardown.alarmId);
+  if (note) await workflow.tellAgent(note.text, note.wake);
+}
+
+/** What the agent hears once the teardown of a task finished. */
+type EndNote = { text: string; wake: Wake };
+
+/**
+ * Alarm: go on with the teardown of a cancelled or failed task that an instance restart cut off.
+ * While this instance still runs that teardown, the alarm is armed again instead.
+ */
+export async function resumeTaskEnd(workflow: WorkflowRuntime, alarm: TaskEndAlarm): Promise<void> {
+  const task = workflow.store.requireTask(alarm.task_id);
+  const running = teardownsInFlight.get(workflow)?.get(task.task_id);
+  if (running) {
+    const rearmed = await workflow.scheduleAlarm(TASK_END_ALARM_SECONDS, "resumeTaskEnd", alarm);
+    // The teardown can finish while the alarm is armed again.
+    if (teardownsInFlight.get(workflow)?.get(task.task_id) === running) running.alarmId = rearmed;
+    else await workflow.cancelAlarm(rearmed);
+    return;
+  }
+  const teardown = await removeSandboxOfEndedTask(workflow, task, alarm.reason);
+  await finishTeardown(workflow, task, teardown, alarm.reason);
 }
 
 /**
@@ -253,19 +348,28 @@ export async function cancelTask(
 ): Promise<void> {
   if (isTaskFinished(workflow.store.requireTask(task.task_id).status)) return;
   workflow.log(task.task_id, `cancelled: ${reason}`);
-  const [, finished] = await Promise.all([
+  const [, teardown] = await Promise.all([
     closeAbandonedTurnFeed(workflow, task, STOPPED_CLOSING),
-    finishTask(workflow, task, "cancelled"),
+    endTask(workflow, task, "cancelled", reason),
   ]);
-  if (!finished) return;
+  if (teardown) await finishTeardown(workflow, task, teardown, reason);
+}
+
+/** End the polisher run, or the job of an author or researcher, of a cancelled task. */
+async function endWorkOfCancelledTask(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  reason: string,
+): Promise<EndNote | null> {
   switch (task.role) {
     case "polisher":
-      return endPolisherRun(workflow, task, {
+      await endPolisherRun(workflow, task, {
         ended: "stopped",
         reason: `the polisher was cancelled: ${reason}`,
       });
+      return null;
     case "reviewer":
-      return;
+      return null;
     case "author":
     case "researcher":
       break;
@@ -277,7 +381,7 @@ export async function cancelTask(
       reason: `The job was cancelled before the review settled (${reason}).`,
     },
   });
-  await workflow.tellAgent(noteMessage(`Job ${task.job_id} was cancelled: ${reason}`), "none");
+  return { text: noteMessage(`Job ${task.job_id} was cancelled: ${reason}`), wake: "none" };
 }
 
 /** The review of the job is over. The refiner run on its artifact has nothing left to work on. */
@@ -307,12 +411,26 @@ export async function failTask(
     kind: "error",
     text: `The task failed: ${reason}`,
   });
-  if (!(await finishTask(workflow, task, "failed"))) return;
+  const teardown = await endTask(workflow, task, "failed", reason);
+  if (teardown) await finishTeardown(workflow, task, teardown, reason);
+}
+
+/**
+ * End the polisher run or the reviewer of a failed task. A failed author or researcher ends the
+ * review of its job and posts its failure.
+ */
+async function endWorkOfFailedTask(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  reason: string,
+): Promise<EndNote | null> {
   switch (task.role) {
     case "polisher":
-      return endPolisherRun(workflow, task, { ended: "stopped", reason });
+      await endPolisherRun(workflow, task, { ended: "stopped", reason });
+      return null;
     case "reviewer":
-      return onReviewerFailed(workflow, task, reason);
+      await onReviewerFailed(workflow, task, reason);
+      return null;
     case "author":
     case "researcher":
       break;
@@ -322,12 +440,12 @@ export async function failTask(
     close: { close: "blocked", reason: `The job failed before the review settled (${reason}).` },
   });
   await workflow.post({ type: "failed", job_id: task.job_id, reason });
-  await workflow.tellAgent(
-    noteMessage(
+  return {
+    text: noteMessage(
       `Job ${task.job_id} failed: its ${task.role} ${task.task_id} stopped (${reason}). Retry its work with start_job, or call fail_workflow.`,
     ),
-    "task_result",
-  );
+    wake: "task_result",
+  };
 }
 
 /** How often a task restarts, whatever the cause, before it fails. */

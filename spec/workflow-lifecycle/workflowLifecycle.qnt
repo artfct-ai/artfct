@@ -106,7 +106,7 @@ module workflowLifecycleTypes {
     pullOnHost: PullOnHost,
   }
 
-  type CallKind = SandboxDestroy | AcceptanceCheck | ModelCall | PageWrite
+  type CallKind = SandboxDestroy | AcceptanceCheck | ModelCall | PageWrite | FailurePost
 
   /// The end of a task that went on after its teardown.
   type Teardown = AfterCancel | AfterFail | AfterComplete
@@ -127,8 +127,11 @@ module workflowLifecycleTypes {
   /// `ModelCallStopped` is the model call of a model turn that a stop ended. Its answer changes
   /// nothing. `StoppedTurnGoesOn` is the page write of a model turn that a stop reached. The turn
   /// goes on once the write returns, without the prompt the stop dropped.
+  /// `AgentHearsTheFailure` is the failure post of a researcher or author. Once it returns, the
+  /// task end alarm is cancelled and the agent hears of the failure.
   type Rest =
     | TeardownGoesOn({ teardown: Teardown, caller: Caller })
+    | AgentHearsTheFailure
     | RestartGoesOn
     | RestartAfterWake
     | CompletionGoesOn
@@ -154,6 +157,10 @@ module workflowLifecycleTypes {
   type Subject = NoSubject | SubjectIssue(int) | SubjectProject
 
   /// `endingPosts` holds the posts that tell the person of an end, in the order they went out.
+  /// `taskEndAlarms` holds the jobs whose cancelled or failed researcher or author has its task
+  /// end alarm armed. The store keeps it across an instance restart. `destroyedSandboxes` holds
+  /// the jobs whose cancelled or failed harness author had its sandbox destroyed by its teardown.
+  /// Only the invariants read it, so the replay does not compare it.
   /// `issueMoves` counts the moves of a tracker issue the workflow made. `endedIssues` holds the
   /// issues a person moved to a canceled or completed state on the tracker.
   /// `restartAlarms` holds each armed restart alarm by the jobs whose lost model turn it still
@@ -181,11 +188,13 @@ module workflowLifecycleTypes {
     restartAlarmFired: bool,
     ranAgain: Set[int],
     storedEnd: StoredEnd,
+    taskEndAlarms: Set[int],
+    destroyedSandboxes: Set[int],
   }
 
-  /// A post that tells the person of an end: a researcher or author failed, the workflow failed,
-  /// or the workflow is done.
-  type EndingPost = TaskFailurePost | WorkflowFailurePost | DonePost
+  /// A post that tells the person of an end: the researcher or author of the job failed, the
+  /// workflow failed, or the workflow is done.
+  type EndingPost = TaskFailurePost(int) | WorkflowFailurePost | DonePost
 
   /// A verbal command that acts on a job. The cancel ends the workflow, so it is an `Ending`.
   type VerbalCommand = Pause | Resume | Instruct
@@ -211,6 +220,7 @@ module workflowLifecycleTypes {
   /// while its author waits for the alarm that runs the turn again. `HostErrorStep` is the page
   /// model failing the model call of the job.
   /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
+  /// `TaskEndAlarmStep` is the task end alarm of the job's cancelled or failed task.
   type StepKind =
     | OtherStep
     | PlanStep({ definition: int, subject: Subject })
@@ -237,6 +247,7 @@ module workflowLifecycleTypes {
     | LostTurnDeadlineStep(int)
     | HostErrorStep(int)
     | EndResumeStep
+    | TaskEndAlarmStep(int)
 
   /// The timers whose alarms are about one sandbox generation.
   type GenerationTimer = HelloTimeout | NoProgress | KeepAlive | BridgeLost | QueueRetry | SettleIdleAuthor
@@ -281,7 +292,6 @@ module workflowLifecycleTypes {
     aWorkflowEndReachesAFinishedStatus: bool,
     aPersonsMessageWakesTheWorkflow: bool,
     issuesMoveOnlyAtAStartOrADoneEnd: bool,
-    eachFailedTaskPostsItsFailureOnce: bool,
     aCompletedJobEndsItsReview: bool,
   }
 
@@ -355,7 +365,11 @@ module workflowLifecycleTypes {
     aHarnessAuthorPostsItsFailureAfterItsDestroy: bool,
     aResearcherPostsItsFailure: bool,
     aModelCallHostErrorPostsAFailure: bool,
-    aRestartDropsAFailurePost: bool,
+    aRestartCutsTheDestroyOfACancelledAuthor: bool,
+    aRestartCutsTheDestroyOfAFailedAuthor: bool,
+    aRestartCutsAFailurePost: bool,
+    aTaskEndAlarmResumesATeardown: bool,
+    aTaskEndAlarmFindsItsTeardownOut: bool,
     aJobCompletesDuringItsReview: bool,
     aHarnessAuthorCompletesAfterItsDestroy: bool,
     aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool,
@@ -490,6 +504,8 @@ module workflowLifecycle {
     restartAlarmFired: false,
     ranAgain: Set(),
     storedEnd: NoStoredEnd,
+    taskEndAlarms: Set(),
+    destroyedSandboxes: Set(),
   }
 
   var workflow: Workflow
@@ -855,7 +871,8 @@ module workflowLifecycle {
   /// The loop of a workflow end stores the end before its first cancel. It reads the unfinished
   /// researchers and authors again before each cancel and cancels the one that started first. A
   /// task without a sandbox destroy to wait on ends at once, and its cancel tells the agent. The
-  /// loop waits on the destroy of a harness author's sandbox.
+  /// loop waits on the destroy of a harness author's sandbox, with the task end alarm of that
+  /// author armed.
   pure def continueWorkflowEnd(unstored: Workflow, endsAs: WorkflowStatus): Outcome = {
     val flow = { ...unstored, storedEnd: EndStored(endsAs) }
     val left = unfinishedJobsInStartOrder(flow)
@@ -869,7 +886,7 @@ module workflowLifecycle {
       else {
         val id = left[firstAwaited]
         sendCall(
-          finishTask(endedAtOnce, id, TaskCancelled),
+          armTaskEndAlarm(finishTask(endedAtOnce, id, TaskCancelled), id),
           SandboxDestroy,
           id,
           TeardownGoesOn({ teardown: AfterCancel, caller: WorkflowEnd(endsAs) }),
@@ -879,32 +896,74 @@ module workflowLifecycle {
   }
 
 
-  /// The end of a task goes on once its sandbox is gone: the review of its job ends, and a failed
-  /// task posts its failure to the person. A cancel or a failure tells the agent. `complete_job`
-  /// on the job of the subject issue then ends the workflow done once a plan set the stages,
-  /// unless the workflow ended or another end runs.
+  /// The task end alarm of the job's task is armed as its cancel or failure writes the status.
+  pure def armTaskEndAlarm(flow: Workflow, id: int): Workflow =
+    { ...flow, taskEndAlarms: flow.taskEndAlarms.union(Set(id)) }
+
+  /// The teardown of the job's task finished, so its task end alarm is cancelled.
+  pure def cancelTaskEndAlarm(flow: Workflow, id: int): Workflow =
+    { ...flow, taskEndAlarms: flow.taskEndAlarms.exclude(Set(id)) }
+
+  /// The end of a task goes on once its sandbox is gone: the review of its job ends. A failed
+  /// task then sends its failure post, and the rest waits on it. A cancel cancels its task end
+  /// alarm and tells the agent. `complete_job` on the job of the subject issue then ends the
+  /// workflow done once a plan set the stages, unless the workflow ended or another end runs. A
+  /// failure is always the end of a tool call or an event.
   pure def teardownGoesOn(flow: Workflow, id: int, teardown: Teardown, caller: Caller): Outcome = {
     val reviewed = endReview(flow, id)
-    val posted =
-      if (teardown == AfterFail) { ...reviewed, endingPosts: reviewed.endingPosts.append(TaskFailurePost) }
-      else reviewed
-    val continued = match caller {
-      | ToolOrEvent => untold(posted)
-      | WorkflowEnd(endsAs) => continueWorkflowEnd(posted, endsAs)
-      | SubjectJobCompletes =>
-        if (hasEnded(posted.status) or workflowEnding(posted) or posted.stagePlan == NoStages) untold(posted)
-        else continueWorkflowEnd(posted, Done)
+    if (teardown == AfterFail) untold(sendCall(reviewed, FailurePost, id, AgentHearsTheFailure))
+    else {
+      val ended = if (teardown == AfterCancel) cancelTaskEndAlarm(reviewed, id) else reviewed
+      val continued = match caller {
+        | ToolOrEvent => untold(ended)
+        | WorkflowEnd(endsAs) => continueWorkflowEnd(ended, endsAs)
+        | SubjectJobCompletes =>
+          if (hasEnded(ended.status) or workflowEnding(ended) or ended.stagePlan == NoStages) untold(ended)
+          else continueWorkflowEnd(ended, Done)
+      }
+      { ...continued, told: teardown != AfterComplete or continued.told }
     }
-    { ...continued, told: teardown != AfterComplete or continued.told }
   }
 
-  /// `failTask`, `cancelTask` or `completeJob` ends a task. A harness author's end waits on the
-  /// destroy of its sandbox. Any other end goes on at once.
+  /// The failure post of the job's task returns. The task end alarm is cancelled, and the agent
+  /// hears of the failure.
+  pure def failureHeard(flow: Workflow, id: int): Outcome = {
+    flow: cancelTaskEndAlarm({ ...flow, endingPosts: flow.endingPosts.append(TaskFailurePost(id)) }, id),
+    told: true,
+  }
+
+  /// `failTask`, `cancelTask` or `completeJob` ends a task. A cancel or a failure arms the task
+  /// end alarm with the status. A harness author's end waits on the destroy of its sandbox. Any
+  /// other end goes on at once.
   pure def endTask(flow: Workflow, id: int, status: TaskStatus, teardown: Teardown, caller: Caller): Outcome = {
-    val ended = finishTask(flow, id, status)
+    val finished = finishTask(flow, id, status)
+    val ended = if (teardown == AfterComplete) finished else armTaskEndAlarm(finished, id)
     if (destroyIsACall(jobTask(flow, id)))
       untold(sendCall(ended, SandboxDestroy, id, TeardownGoesOn({ teardown: teardown, caller: caller })))
     else teardownGoesOn(ended, id, teardown, caller)
+  }
+
+  /// True while a call of the teardown of the job's task is out: the destroy of its sandbox or
+  /// its failure post.
+  pure def teardownCallOut(flow: Workflow, id: int): bool =
+    flow.calls.indices().exists(callId => and {
+      flow.calls[callId].job == id,
+      match flow.calls[callId].rest {
+        | TeardownGoesOn(_) => true
+        | AgentHearsTheFailure => true
+        | _ => false
+      },
+    })
+
+  /// The task end alarm of the job fires. While this instance still runs the teardown, the alarm
+  /// is armed again and nothing else changes. Otherwise the teardown goes on from the destroy of
+  /// the sandbox, as a tool call or an event would.
+  pure def resumeTaskEnd(flow: Workflow, id: int): Outcome = {
+    val teardown = if (jobTask(flow, id).status == TaskFailed) AfterFail else AfterCancel
+    if (teardownCallOut(flow, id)) untold(flow)
+    else if (destroyIsACall(jobTask(flow, id)))
+      untold(sendCall(flow, SandboxDestroy, id, TeardownGoesOn({ teardown: teardown, caller: ToolOrEvent })))
+    else teardownGoesOn(flow, id, teardown, ToolOrEvent)
   }
 
   /// True when the first prompt of a new generation of the task takes its oldest queued prompt.
@@ -1070,7 +1129,13 @@ module workflowLifecycle {
     val call = flow.calls[callId]
     val returned = withoutCall(flow, callId)
     match call.rest {
-      | TeardownGoesOn(teardown) => teardownGoesOn(returned, call.job, teardown.teardown, teardown.caller)
+      | TeardownGoesOn(teardown) => {
+        val destroyed =
+          if (teardown.teardown == AfterComplete) returned
+          else { ...returned, destroyedSandboxes: returned.destroyedSandboxes.union(Set(call.job)) }
+        teardownGoesOn(destroyed, call.job, teardown.teardown, teardown.caller)
+      }
+      | AgentHearsTheFailure => failureHeard(returned, call.job)
       | RestartGoesOn => untold(restartGoesOn(returned, call.job))
       | RestartAfterWake => untold(returned)
       | CompletionGoesOn => untold(returned)
@@ -1108,6 +1173,7 @@ module workflowLifecycle {
   /// revise turn the restart cut waits again unless a stop reached its page write. The alarms of
   /// earlier restarts stay armed. The review loop spec holds the lost rulings the alarm asks again.
   /// The workflow end the store holds stays, and the start step arms the alarm that goes on with it.
+  /// Each task end alarm stays armed.
   pure def restartWorkflow(flow: Workflow): Workflow = {
     val held = modelTurnsInFlight(flow)
     val cut = held.filter(id => not(lostModelTurn(flow, id)) and not(flow.turnsToRunAgain.contains(id)))
@@ -1448,10 +1514,11 @@ module workflowLifecycle {
       }), id)
   }
 
-  /// True for a call whose return the event that sent it waits on: a sandbox destroy, or a model
-  /// turn its prompt started.
+  /// True for a call whose return the event that sent it waits on: a sandbox destroy, a failure
+  /// post, or a model turn its prompt started.
   pure def eventWaitsOn(call: Call): bool = match call.rest {
     | TeardownGoesOn(_) => true
+    | AgentHearsTheFailure => true
     | PageWriteStarts(turn) => turn.eventWaits
     | ModelTurnGoesOn(turn) => turn.eventWaits
     | _ => false
@@ -1864,6 +1931,20 @@ module workflowLifecycle {
     moveAnswering(after, stepKind, answered),
   }
 
+  /// The chat host returns from the failure post of a researcher or author.
+  action failurePostReturns: bool = all {
+    outCalls(workflow, FailurePost).size() > 0,
+    nondet callId = outCalls(workflow, FailurePost).oneOf()
+    move(returnCall(workflow, callId), OtherStep),
+  }
+
+  /// The task end alarm of a cancelled or failed researcher or author fires, at once or after
+  /// other events and restarts.
+  action theTaskEndAlarmFires: bool = onJobWhere(
+    id => workflow.taskEndAlarms.contains(id),
+    id => move(resumeTaskEnd(workflow, id), TaskEndAlarmStep(id)),
+  )
+
   /// The page model answers the model call of a model-call author, also one whose model turn a
   /// stop ended.
   action modelCallReturns: bool = all {
@@ -2065,8 +2146,8 @@ module workflowLifecycle {
     _ => move(untold(workflow), StaleAlarmStep),
   )
 
-  /// The Durable Object restarts while a call is out, an alarm of an earlier restart is armed, or
-  /// the store holds a workflow end. Every call that is out is lost with its isolate. A page write
+  /// The Durable Object restarts while a call is out, an alarm of an earlier restart or a task end
+  /// alarm is armed, or the store holds a workflow end. Every call that is out is lost with its isolate. A page write
   /// that is out may have landed on the host first. That changes nothing here, since the store
   /// does not hear of it. Only the replay reads it.
   action workflowRestarts: bool = all {
@@ -2074,6 +2155,7 @@ module workflowLifecycle {
       workflow.calls.length() > 0,
       workflow.restartAlarms.size() > 0,
       workflow.runAgainAlarms.size() > 0,
+      workflow.taskEndAlarms.size() > 0,
       workflowEnding(workflow),
     },
     nondet landed = Set(true, false).oneOf()
@@ -2144,6 +2226,8 @@ module workflowLifecycle {
     theAgentEndsAJob,
     acceptanceCheckReturns,
     sandboxDestroyReturns,
+    failurePostReturns,
+    theTaskEndAlarmFires,
     aModelTurnEnds,
     workflowEnds,
     anOutsideEventLands,
@@ -2337,7 +2421,7 @@ module workflowLifecycle {
 
   /// A restart or the deadline does not lose a model turn. The author whose turn was cut asks the
   /// page model again, is back in review with the prompt of its turn taken, waits paused, or
-  /// failed with a post to the person. The start of a turn folds into the step, so an author that
+  /// failed with its failure post out to the person. The start of a turn folds into the step, so an author that
   /// is starting has its model call out, or waits for its alarm to run the lost turn again. The
   /// prompt of a revise turn counts as sent while its turn is in flight, so it is taken unless it
   /// waits again after the cut.
@@ -2350,7 +2434,7 @@ module workflowLifecycle {
         modelTurnInFlight(step.after, id),
         after.status == InReview and not(revised and after.promptsQueued > before.promptsQueued),
         after.paused,
-        after.status == TaskFailed and postsOf(step.after, TaskFailurePost) > postsOf(step.before, TaskFailurePost),
+        after.status == TaskFailed and failurePostOut(step.after, id),
       }
     })
 
@@ -2483,6 +2567,14 @@ module workflowLifecycle {
   pure def postsOf(flow: Workflow, post: EndingPost): int =
     flow.endingPosts.select(made => made == post).length()
 
+  /// The failure posts of the job's researcher or author.
+  pure def failurePostsOf(flow: Workflow, id: int): int = postsOf(flow, TaskFailurePost(id))
+
+  /// True while the failure post of the job's task is out.
+  pure def failurePostOut(flow: Workflow, id: int): bool =
+    flow.calls.indices().exists(callId =>
+      flow.calls[callId].job == id and flow.calls[callId].rest == AgentHearsTheFailure)
+
   /// The jobs that ran before the step, out of the constant cap.
   pure def jobsBefore(step: Transition): Set[int] =
     0.to(MAX_JOBS - 1).filter(id => id < step.before.jobs.length())
@@ -2506,20 +2598,14 @@ module workflowLifecycle {
     jobTask(step.before, id).status != status or teardownOut(step.before, id, teardown),
   }
 
-  /// True when the failure of the job's researcher or author finished in the step.
+  /// True when the failure of the job's researcher or author finished in the step: its failure
+  /// post returned.
   pure def finishesAFailure(step: Transition, id: int): bool =
-    finishesTheEnd(step, id, TaskFailed, AfterFail)
+    failurePostsOf(step.after, id) > failurePostsOf(step.before, id)
 
   /// True when `complete_job` on the job finished in the step.
   pure def finishesACompletion(step: Transition, id: int): bool =
     jobTask(step.after, id).role == Author and finishesTheEnd(step, id, TaskDone, AfterComplete)
-
-  /// A step posts one failure for each researcher or author whose failure finished in it, and no
-  /// other. A failed refiner run, a cancel, and a dropped destroy do not post one.
-  pure def postsEachFailureAsItsEndFinishes(step: Transition): bool = {
-    val finished = jobsBefore(step).filter(id => finishesAFailure(step, id)).size()
-    postsOf(step.after, TaskFailurePost) - postsOf(step.before, TaskFailurePost) == finished
-  }
 
   /// `complete_job` ends the author done. A harness author waits on the destroy of its sandbox.
   /// Once the end finished, the refiner run of the job is not running and the humans have the
@@ -2567,7 +2653,6 @@ module workflowLifecycle {
     aWorkflowEndReachesAFinishedStatus: keepsAnEndGoingUntilItsStatus(step),
     aPersonsMessageWakesTheWorkflow: wakesOnAPersonsMessage(step),
     issuesMoveOnlyAtAStartOrADoneEnd: movesIssuesOnlyAtAStartOrADoneEnd(step),
-    eachFailedTaskPostsItsFailureOnce: postsEachFailureAsItsEndFinishes(step),
     aCompletedJobEndsItsReview: endsTheReviewOfACompletedJob(step),
   }
 
@@ -2808,15 +2893,27 @@ module workflowLifecycle {
       aRestartCutsAPageCreate: step.kind == RestartStep and
         cut.exists(id => pageWriteOut(step.before, id) and step.before.jobs[id].artifact == NoArtifact),
       aHarnessAuthorPostsItsFailureAfterItsDestroy: jobsBefore(step).exists(id =>
-        finishesAFailure(step, id) and teardownOut(step.before, id, AfterFail)),
+        teardownOut(step.before, id, AfterFail) and failurePostOut(step.after, id)),
       aResearcherPostsItsFailure: jobsBefore(step).exists(id =>
         finishesAFailure(step, id) and jobTask(step.after, id).role == Researcher),
       aModelCallHostErrorPostsAFailure: match step.kind {
-        | HostErrorStep(id) => finishesAFailure(step, id)
+        | HostErrorStep(id) => failurePostOut(step.after, id)
         | _ => false
       },
-      aRestartDropsAFailurePost: step.kind == RestartStep and
+      aRestartCutsTheDestroyOfACancelledAuthor: step.kind == RestartStep and
+        jobsBefore(step).exists(id => teardownOut(step.before, id, AfterCancel)),
+      aRestartCutsTheDestroyOfAFailedAuthor: step.kind == RestartStep and
         jobsBefore(step).exists(id => teardownOut(step.before, id, AfterFail)),
+      aRestartCutsAFailurePost: step.kind == RestartStep and
+        jobsBefore(step).exists(id => failurePostOut(step.before, id)),
+      aTaskEndAlarmResumesATeardown: match step.kind {
+        | TaskEndAlarmStep(id) => not(teardownCallOut(step.before, id))
+        | _ => false
+      },
+      aTaskEndAlarmFindsItsTeardownOut: match step.kind {
+        | TaskEndAlarmStep(id) => teardownCallOut(step.before, id)
+        | _ => false
+      },
       aJobCompletesDuringItsReview: jobsBefore(step).exists(id =>
         finishesACompletion(step, id) and refinerRunning(step.before.jobs[id])),
       aHarnessAuthorCompletesAfterItsDestroy: jobsBefore(step).exists(id =>
@@ -2832,9 +2929,30 @@ module workflowLifecycle {
   /// done end of a tracker workflow. A failed or cancelled end does not move them.
   val issuesMoveOnlyAtAStartOrADoneEnd: bool = lastStepKept.issuesMoveOnlyAtAStartOrADoneEnd
 
-  /// Each researcher or author that failed posts its failure once, as its end finishes. A failed
-  /// refiner run does not post.
-  val eachFailedTaskPostsItsFailureOnce: bool = lastStepKept.eachFailedTaskPostsItsFailureOnce
+  /// Each researcher or author that failed posts its failure at most once, after the destroy of
+  /// its sandbox returned. A task that did not fail and a failed refiner run do not post one. A
+  /// failure that has not posted keeps its task end alarm armed, so an instance restart does not
+  /// lose the post.
+  val eachFailedTaskPostsItsFailureOnce: bool =
+    jobIds(workflow).forall(id => {
+      val posts = failurePostsOf(workflow, id)
+      val failed = jobTask(workflow, id).status == TaskFailed
+      and {
+        posts <= 1,
+        posts == 1 implies (failed and not(teardownOut(workflow, id, AfterFail))),
+        (failed and posts == 0) implies workflow.taskEndAlarms.contains(id),
+      }
+    })
+
+  /// The teardown of each cancelled or failed harness author destroys its sandbox. Until it did,
+  /// the task end alarm of the author stays armed, so an instance restart during the destroy does
+  /// not leave the sandbox running.
+  val aCancelledOrFailedAuthorsSandboxIsDestroyed: bool =
+    jobIds(workflow).forall(id => {
+      val task = jobTask(workflow, id)
+      (destroyIsACall(task) and (task.status == TaskCancelled or task.status == TaskFailed)) implies
+        (workflow.destroyedSandboxes.contains(id) or workflow.taskEndAlarms.contains(id))
+    })
 
   /// A workflow that ended failed posted its failure once, and one that ended done posted its
   /// done message once. Any other workflow did not post either.
@@ -3436,20 +3554,37 @@ module workflowLifecycle {
   /// author while the page create is out. The turn runs again and creates a second page.
   val aRestartCutsAPageCreate: bool = lastStepReached.aRestartCutsAPageCreate
 
-  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the failure of a harness author posts once the
-  /// destroy of its sandbox returns.
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: a harness author sends its failure post once
+  /// the destroy of its sandbox returned.
   val aHarnessAuthorPostsItsFailureAfterItsDestroy: bool = lastStepReached.aHarnessAuthorPostsItsFailureAfterItsDestroy
 
   /// Witness for `eachFailedTaskPostsItsFailureOnce`: a researcher fails past its restarts and posts.
   val aResearcherPostsItsFailure: bool = lastStepReached.aResearcherPostsItsFailure
 
   /// Witness for `eachFailedTaskPostsItsFailureOnce`: the page model fails a model call, and its
-  /// author posts its failure.
+  /// author sends its failure post.
   val aModelCallHostErrorPostsAFailure: bool = lastStepReached.aModelCallHostErrorPostsAFailure
 
-  /// Known limit of row C14: a restart of the Durable Object drops the destroy of a failed harness
-  /// author's sandbox. The failure does not post, and the agent is not told.
-  val aRestartDropsAFailurePost: bool = lastStepReached.aRestartDropsAFailurePost
+  /// Witness for `aCancelledOrFailedAuthorsSandboxIsDestroyed`: a restart of the Durable Object
+  /// cuts the destroy of a cancelled harness author's sandbox.
+  val aRestartCutsTheDestroyOfACancelledAuthor: bool = lastStepReached.aRestartCutsTheDestroyOfACancelledAuthor
+
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: a restart of the Durable Object cuts the
+  /// destroy of a failed harness author's sandbox before its failure posts.
+  val aRestartCutsTheDestroyOfAFailedAuthor: bool = lastStepReached.aRestartCutsTheDestroyOfAFailedAuthor
+
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: a restart of the Durable Object cuts the
+  /// failure post of a researcher or author.
+  val aRestartCutsAFailurePost: bool = lastStepReached.aRestartCutsAFailurePost
+
+  /// Witness for `aCancelledOrFailedAuthorsSandboxIsDestroyed` and
+  /// `eachFailedTaskPostsItsFailureOnce`: the task end alarm goes on with a teardown that a
+  /// restart cut off.
+  val aTaskEndAlarmResumesATeardown: bool = lastStepReached.aTaskEndAlarmResumesATeardown
+
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the task end alarm fires while its teardown
+  /// still runs in this instance, and changes nothing.
+  val aTaskEndAlarmFindsItsTeardownOut: bool = lastStepReached.aTaskEndAlarmFindsItsTeardownOut
 
   /// Witness for `aCompletedJobEndsItsReview`: `complete_job` ends a job while its refiner run runs.
   val aJobCompletesDuringItsReview: bool = lastStepReached.aJobCompletesDuringItsReview

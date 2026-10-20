@@ -164,7 +164,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -220,6 +225,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -369,7 +380,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -425,6 +441,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -571,7 +593,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -699,6 +726,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -847,7 +880,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -975,6 +1013,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1123,7 +1167,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -1251,6 +1300,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1399,7 +1454,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -1509,6 +1569,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1657,7 +1723,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -1767,6 +1838,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1916,7 +1993,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -2026,6 +2108,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -2174,7 +2262,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -2284,6 +2377,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     }

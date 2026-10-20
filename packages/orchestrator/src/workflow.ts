@@ -65,7 +65,13 @@ import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
 import { postToRecipients, releaseChatThreads, showWorking } from "./workflow/posts";
 import { openWorkflowDb } from "./workflow/store/db";
 import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/events";
-import { armWorkflowEndAlarm, onIdle, resumeWorkflowEnd } from "./workflow/lifecycle";
+import {
+  armWorkflowEndAlarm,
+  onIdle,
+  resumeTaskEnd,
+  resumeWorkflowEnd,
+  type TaskEndAlarm,
+} from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
 import { settleLostJudgeRuling } from "./workflow/refiner/loop";
@@ -313,6 +319,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   resumeWorkflowEnd(): Promise<void> {
     return this.inSpan("alarm resumeWorkflowEnd", null, () => resumeWorkflowEnd(this));
+  }
+
+  resumeTaskEnd(alarm: TaskEndAlarm): Promise<void> {
+    return this.inSpan("alarm resumeTaskEnd", alarm.task_id, () => resumeTaskEnd(this, alarm));
   }
 
   resumeLostCalls(alarm: LostCallsAlarm): Promise<void> {

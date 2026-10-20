@@ -113,7 +113,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -169,6 +174,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "scriptedInit",
@@ -323,7 +334,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -379,6 +395,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -531,7 +553,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -587,6 +614,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
@@ -739,7 +772,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -795,6 +833,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentSetsPlan",
@@ -950,7 +994,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1060,6 +1109,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -1212,7 +1267,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1322,6 +1382,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentSetsPlan",
@@ -1477,7 +1543,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1587,6 +1658,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentPromptsAuthor",
@@ -1741,7 +1818,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1851,6 +1933,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -2003,7 +2091,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2113,6 +2206,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
@@ -2265,7 +2364,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2375,6 +2479,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "agentResumesAuthor",
@@ -2529,7 +2639,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": true,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2639,6 +2754,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       },
       "mbt::actionTaken": "authorLinksItsIssues",

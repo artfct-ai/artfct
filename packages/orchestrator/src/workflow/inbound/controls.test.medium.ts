@@ -110,7 +110,8 @@ describe("control", () => {
 
       it("cancels the alarms of the active tasks", () =>
         cancelled((workflow) => {
-          expect(workflow.cancelled.toSorted()).toEqual(["k1", "w1"]);
+          expect(workflow.cancelled).toEqual(expect.arrayContaining(["k1", "w1"]));
+          expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
         }));
 
       it("destroys the sandbox of the active tasks", () =>

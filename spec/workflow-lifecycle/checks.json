@@ -34,6 +34,7 @@
     "aPersonsMessageWakesTheWorkflow",
     "issuesMoveOnlyAtAStartOrADoneEnd",
     "eachFailedTaskPostsItsFailureOnce",
+    "aCancelledOrFailedAuthorsSandboxIsDestroyed",
     "anEndedWorkflowPostsItsEndOnce",
     "aCompletedJobEndsItsReview"
   ],
@@ -99,7 +100,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost",
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut",
       "aJobCompletesDuringItsReview"
     ],
     "pagesWithAPolisher": [
@@ -149,7 +153,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost",
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut",
       "aJobCompletesDuringItsReview"
     ],
     "pagesWithoutRefiners": [
@@ -192,7 +199,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost"
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "pagesWithAChoice": [
       "aPlanStartsTheWorkflow",
@@ -234,7 +244,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost"
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "pagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -269,7 +282,11 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost",
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut",
       "aResearcherPostsItsFailure"
     ],
     "pagesFromModelCalls": [
@@ -327,7 +344,10 @@
       "aLostModelTurnDeadlineFires",
       "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
       "aJobStartsPastAFailedRouterWrite",
-      "aModelCallHostErrorPostsAFailure"
+      "aModelCallHostErrorPostsAFailure",
+      "aRestartCutsAFailurePost",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -391,7 +411,10 @@
       "aLostModelTurnDeadlineFires",
       "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
       "aJobStartsPastAFailedRouterWrite",
-      "aModelCallHostErrorPostsAFailure"
+      "aModelCallHostErrorPostsAFailure",
+      "aRestartCutsAFailurePost",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -451,6 +474,9 @@
       "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
       "aJobStartsPastAFailedRouterWrite",
       "aModelCallHostErrorPostsAFailure",
+      "aRestartCutsAFailurePost",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut",
       "aResearcherPostsItsFailure"
     ],
     "modelCallPagesForAnIssue": [
@@ -522,7 +548,10 @@
       "aStopTakesATurnThatWaitsToRunAgain",
       "aRunAgainAlarmFindsAStoppedAuthor",
       "aJobStartsPastAFailedRouterWrite",
-      "aModelCallHostErrorPostsAFailure"
+      "aModelCallHostErrorPostsAFailure",
+      "aRestartCutsAFailurePost",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "pullsTheHostMoves": [
       "aPlanStartsTheWorkflow",
@@ -572,7 +601,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost"
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "pullsForAnEndedSubject": [
       "aPlanStartsTheWorkflow",
@@ -622,7 +654,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost"
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "pullsForAnEndedSubIssue": [
       "aPlanStartsTheWorkflow",
@@ -671,7 +706,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost"
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "pullsForTwoIssues": [
       "aPlanStartsTheWorkflow",
@@ -722,7 +760,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost"
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "issuesForAChatRequest": [
       "aPlanStartsTheWorkflow",
@@ -769,7 +810,10 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost",
+      "aRestartCutsTheDestroyOfACancelledAuthor",
+      "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aTaskEndAlarmResumesATeardown",
+      "aTaskEndAlarmFindsItsTeardownOut",
       "theWorkflowFailed"
     ]
   },

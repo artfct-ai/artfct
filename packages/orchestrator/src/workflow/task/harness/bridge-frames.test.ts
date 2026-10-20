@@ -190,7 +190,8 @@ describe("onBridgeMessage", () => {
 
       it("cancels the wall clock alarm of each task", () =>
         bothFailed((workflow) => {
-          expect(workflow.cancelled.toSorted()).toEqual(["w1", "w2"]);
+          expect(workflow.cancelled).toEqual(expect.arrayContaining(["w1", "w2"]));
+          expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
         }));
 
       it("leaves no handshake pending", () =>
