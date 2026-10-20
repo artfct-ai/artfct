@@ -124,7 +124,7 @@ describe("connectGithubApp", () => {
     expect(readDevVar(orchestratorVars, "PUBLIC_URL")).toBe("https://ingress.acme.dev");
     expect(readDevVar(orchestratorVars, "GITHUB_APP_ID")).toBe("1234567");
     expect(readDevVar(orchestratorVars, "GITHUB_INSTALLATION_ID")).toBe("987654");
-    expect(orchestratorVars).toContain(`GITHUB_PRIVATE_KEY="${PRIVATE_KEY.trim()}"\n`);
+    expect(orchestratorVars).toContain(`GITHUB_PRIVATE_KEY="${PRIVATE_KEY}"\n`);
     const ingressVars = readRepoFile(repoDir, "ingress/.dev.vars");
     expect(readDevVar(ingressVars, "GITHUB_WEBHOOK_SECRET")).toBe("webhook-secret-value");
     expect(ingressVars).toContain("ADMIN_TOKEN=\n");

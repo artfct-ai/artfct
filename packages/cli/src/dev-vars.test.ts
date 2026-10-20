@@ -26,7 +26,7 @@ describe("setDevVars", () => {
   it("quotes a multi-line value and replaces an earlier multi-line value whole", () => {
     const text = 'A=1\nKEY="first\nsecond"\nB=2\n';
     expect(setDevVars(text, { KEY: "one\ntwo\nthree\n" })).toBe(
-      'A=1\nKEY="one\ntwo\nthree"\nB=2\n',
+      'A=1\nKEY="one\ntwo\nthree\n"\nB=2\n',
     );
   });
 

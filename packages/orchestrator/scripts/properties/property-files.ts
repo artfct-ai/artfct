@@ -188,6 +188,13 @@ export const STANDALONE_PROPERTY_FILES: PropertyFile[] = [
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 50_000,
   },
+  {
+    title: "cli dev vars properties",
+    packageDir: "cli",
+    path: "./src/dev-vars-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
 ];
 
 /** A property file run past this is a hang, reported with its seed. */
