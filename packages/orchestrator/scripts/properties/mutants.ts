@@ -1777,6 +1777,24 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W351",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the workflow end drops the handover alarm)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await writeWorkflowStatus(workflow, end.status);\n  if (!end.posted)",
+    replace:
+      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await writeWorkflowStatus(workflow, end.status);\n  if (!end.posted)',
+  },
+  {
+    id: "W352",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the handover alarm posts only while the workflow runs)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  if (artifact?.status !== "ready") return;\n  workflow.log(null, `the handover of job',
+    replace:
+      '  if (artifact?.status !== "ready" || workflow.state.status !== "running") return;\n  workflow.log(null, `the handover of job',
+  },
+  {
     id: "W355",
     invariant:
       "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no reviewer turn end)",

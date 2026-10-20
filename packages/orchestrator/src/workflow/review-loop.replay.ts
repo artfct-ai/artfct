@@ -180,6 +180,20 @@ describe("review loop spec", () => {
     );
   });
 
+  it("posts the handover of an author the workflow end cancelled after a restart cuts its post", async () => {
+    await replayPinnedTrace(
+      "a-restart-cuts-the-handover-at-the-workflow-end",
+      "reviewerThenPolisher",
+    );
+  });
+
+  it("posts the handover of a failed model-call author after a restart cuts its post", async () => {
+    await replayPinnedTrace(
+      "a-restart-cuts-the-handover-of-a-failed-model-call-author",
+      "modelCallJudgeThenPolisher",
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
