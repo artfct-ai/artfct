@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { createWorkflow } from "../db/workflows";
-import { FakeRuntime, seedTask } from "../../test/fake-runtime";
+import { FakeRuntime, type SeedTaskPatch, seedTask } from "../../test/fake-runtime";
 import { FakeSandboxProvider } from "../../test/fake-sandbox";
 import { gate } from "../../test/scripted-chat";
 import { testNotifier } from "../../test/notifier-fixture";
@@ -16,6 +16,7 @@ import {
   completeWorkflow,
   failTask,
   resumeTaskEnd,
+  startAuthorAfterResearch,
   startJob,
   type TaskEndAlarm,
 } from "./lifecycle";
@@ -43,10 +44,11 @@ function planned(workflow: FakeRuntime, concurrency = 3): void {
 function cutOffDuring(
   end: (workflow: FakeRuntime, task: TaskRow) => Promise<void>,
   call: "destroy" | "post",
+  seed: SeedTaskPatch = {},
 ): Scenario<FakeRuntime> {
   return (run) =>
     freshDurableRuntime(async (workflow) => {
-      const task = seedTask(workflow);
+      const task = seedTask(workflow, seed);
       const cut = gate();
       if (call === "destroy") workflow.sandboxProvider.destroy = cut.hold;
       else workflow.post = cut.hold;
@@ -85,7 +87,7 @@ describe("completeJob", () => {
 
     it("reports every slot free", () =>
       completed(({ result }) => {
-        expect(result).toEqual({ running: 0, slots: 3 });
+        expect(result).toEqual({ ended: "job", running: 0, slots: 3 });
       }));
 
     it("marks the author done and forgets its alarm ids", () =>
@@ -135,7 +137,7 @@ describe("completeJob", () => {
 
     it("counts the jobs still running and reports no free slot", () =>
       completed(({ result }) => {
-        expect(result).toEqual({ running: 2, slots: 0 });
+        expect(result).toEqual({ ended: "job", running: 2, slots: 0 });
       }));
 
     it("leaves the workflow running", () =>
@@ -177,10 +179,10 @@ describe("completeJob", () => {
       await completeJob(workflow, task, "designed");
     }, "destroy");
 
-    it("keeps the task end alarm armed without a reason", () =>
+    it("keeps the task end alarm armed with the result", () =>
       restarted((workflow) => {
         expect(workflow.alarmsFor("resumeTaskEnd").map((alarm) => alarm.payload)).toEqual([
-          { task_id: TASK },
+          { task_id: TASK, result: "designed" },
         ]);
       }));
 
@@ -201,6 +203,114 @@ describe("completeJob", () => {
       it("cancels the task end alarm", () =>
         resumed((workflow) => {
           expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
+        }));
+    });
+  });
+
+  describe("a completion cut off while the review held its artifact", () => {
+    const restarted = cutOffDuring(async (workflow, task) => {
+      planned(workflow);
+      workflow.store.upsertArtifact({
+        job_id: JOB,
+        kind: "pull",
+        external_url: PR_URL,
+        ref: { kind: "pull", repo: "acme/app", number: 1 },
+      });
+      await completeJob(workflow, task, "shipped");
+    }, "destroy");
+
+    it("leaves the artifact drafted", () =>
+      restarted((workflow) => {
+        expect(workflow.store.artifact(JOB)?.status).toBe("drafted");
+      }));
+
+    describe("and the task end alarm fires", () => {
+      const resumed = scenario(restarted, fireTaskEndAlarms);
+
+      it("hands the artifact to the humans once", () =>
+        resumed((workflow) => {
+          expect(workflow.store.artifact(JOB)?.status).toBe("ready");
+          expect(workflow.posted.map((event) => event.type)).toEqual(["artifact_ready"]);
+        }));
+
+      it("leaves the workflow running", () =>
+        resumed((workflow) => {
+          expect(workflow.state.status).toBe("running");
+        }));
+    });
+  });
+
+  describe("a completion of the subject issue's job cut off in a single-issue workflow", () => {
+    const restarted = cutOffDuring(
+      async (workflow, task) => {
+        workflow.patchState({
+          stages: ["design"],
+          status: "running",
+          subject: { kind: "issue", issue_id: ISSUE.id },
+        });
+        await completeJob(workflow, task, "designed");
+      },
+      "destroy",
+      { issue_id: ISSUE.id },
+    );
+
+    it("leaves the workflow running", () =>
+      restarted((workflow) => {
+        expect(workflow.state.status).toBe("running");
+      }));
+
+    describe("and the task end alarm fires", () => {
+      const resumed = scenario(restarted, fireTaskEndAlarms);
+
+      it("ends the workflow done with the result", () =>
+        resumed((workflow) => {
+          expect(workflow.state.status).toBe("done");
+          expect(workflow.posted).toEqual([{ type: "done", result: "designed" }]);
+        }));
+
+      describe("and fires again", () => {
+        const again = scenario(resumed, async (workflow) => {
+          await resumeTaskEnd(workflow, { task_id: TASK, result: "designed" });
+        });
+
+        it("does not post the end again", () =>
+          again((workflow) => {
+            expect(workflow.posted).toEqual([{ type: "done", result: "designed" }]);
+          }));
+      });
+    });
+  });
+});
+
+describe("startAuthorAfterResearch", () => {
+  describe("a handover whose researcher sandbox destroy an instance restart cut off", () => {
+    const restarted = cutOffDuring(
+      (workflow, researcher) => startAuthorAfterResearch(workflow, researcher, "Findings."),
+      "destroy",
+      { role: "researcher" },
+    );
+
+    it("starts the author of the job before the destroy", () =>
+      restarted((workflow) => {
+        const author = workflow.store.authorTask(JOB);
+        expect(author?.status).toBe("queued");
+        expect(workflow.alarmsFor("provision").map((alarm) => alarm.payload)).toEqual([
+          { task_id: author?.task_id },
+        ]);
+      }));
+
+    describe("and the task end alarm fires", () => {
+      const resumed = scenario(restarted, fireTaskEndAlarms);
+
+      it("destroys the researcher sandbox again and cancels the alarm", () =>
+        resumed((workflow) => {
+          expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`]);
+          expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
+        }));
+
+      it("keeps the one author", () =>
+        resumed((workflow) => {
+          expect(workflow.store.tasks().filter((task) => task.role === "author")).toHaveLength(1);
         }));
     });
   });

@@ -1,21 +1,41 @@
 #!/usr/bin/env bun
 /**
- * Applies each hand-written mutant to the orchestrator source, one at a time, and runs the spec
- * replays against it on `PROPERTY_SEED`. A mutant that every spec replay passes survives. When a
- * mutant survives or no longer applies, the report goes to the path in the first argument.
+ * Applies each hand-written mutant to the source, one at a time, and runs its property files
+ * against it on `PROPERTY_SEED`: the standalone property file it names, or else every spec replay.
+ * A mutant that each of its property files passes survives. When a mutant survives or no longer
+ * applies, the report goes to the path in the first argument.
  * Usage: PROPERTY_SEED=<integer> bun scripts/properties/mutants.ts <report-path>
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { SPEC_REPLAY_FILES, runPropertyFile } from "./property-files";
+import {
+  SPEC_REPLAY_FILES,
+  STANDALONE_PROPERTY_FILES,
+  runPropertyFile,
+  type PropertyFile,
+} from "./property-files";
 
-/** A one-place change to the source that breaks the invariant it names. */
-export type Mutant = { id: string; invariant: string; path: string; find: string; replace: string };
+/**
+ * A one-place change to the source that breaks the invariant it names. Its path is relative to the
+ * orchestrator package. A mutant of a standalone property invariant names the property file that
+ * kills it.
+ */
+export type Mutant = {
+  id: string;
+  invariant: string;
+  path: string;
+  find: string;
+  replace: string;
+  propertyFile?: PropertyFile;
+};
 
-/** What the spec replays did to a mutant. */
-export type MutantResult = { mutant: Mutant; status: "killed" | "survived" | "not_applied" };
+/** What a mutant's property files did to it. */
+export type MutantResult = {
+  mutant: Mutant;
+  status: "killed" | "survived" | "not_applied";
+};
 
-/** The hand-written mutants. Each one breaks the spec rule it names, which its spec replay is meant to catch. */
+/** The hand-written mutants. Each one breaks the rule it names, which its property files are meant to catch. */
 export const MUTANTS: Mutant[] = [
   {
     id: "W1",
@@ -901,8 +921,8 @@ export const MUTANTS: Mutant[] = [
     id: "W204",
     invariant: "workflowLifecycle::aCompletedJobEndsItsReview",
     path: "src/workflow/lifecycle.ts",
-    find: '  await finishTask(workflow, author, "done");\n  await endReviewAndBoard(workflow, author.job_id, {\n    reason: "the job is complete",\n    close: { close: "ready" },\n  });\n',
-    replace: '  await finishTask(workflow, author, "done");\n',
+    find: '  await endReviewAndBoard(workflow, author.job_id, {\n    reason: "the job is complete",\n    close: { close: "ready" },\n  });\n  await closeTeardown(workflow, author, teardown);\n',
+    replace: "  await closeTeardown(workflow, author, teardown);\n",
   },
   {
     id: "W171",
@@ -1359,6 +1379,21 @@ export const MUTANTS: Mutant[] = [
     replace: "  }\n  return gate;\n",
   },
   {
+    id: "W320",
+    invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds (idle author's open checks)",
+    path: "src/workflow/refiner/checks-recheck.ts",
+    find: '  await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  if (checks?.state === "failed") {\n',
+    replace:
+      '  if (checks?.state === "failed" || checks?.state === "conflicted") {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  if (checks?.state === "failed") {\n',
+  },
+  {
+    id: "W321",
+    invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds (ended author's open checks)",
+    path: "src/workflow/task/at-work.ts",
+    find: "  if (isTaskFinished(task.status)) return false;\n",
+    replace: "",
+  },
+  {
     id: "W227",
     invariant: "reviewLoop::anAnswerAtTheReviewLimitMovesOn",
     path: "src/workflow/refiner/loop.ts",
@@ -1548,8 +1583,8 @@ export const MUTANTS: Mutant[] = [
     id: "W277",
     invariant: "workflowLifecycle::aFinishedAuthorsSandboxIsDestroyed (done task arms no alarm)",
     path: "src/workflow/lifecycle.ts",
-    find: "  const teardown = await removeSandboxOfEndedTask(workflow, task, { task_id: task.task_id });\n  await closeTeardown(workflow, task, teardown);\n",
-    replace: "  await removeSandbox(workflow, task);\n",
+    find: "  const teardown = finished\n    ? await armTaskEndAlarm(workflow, task, { task_id: task.task_id })\n    : null;\n  await handOn();\n  if (!teardown) return;\n  await removeSandbox(workflow, task);\n  await closeTeardown(workflow, task, teardown);\n",
+    replace: "  await handOn();\n  if (finished) await removeSandbox(workflow, task);\n",
   },
   {
     id: "W278",
@@ -1558,6 +1593,46 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/lifecycle.ts",
     find: '  if ("reason" in alarm) await finishTeardown(workflow, task, teardown, alarm.reason);\n',
     replace: '  if (alarm) await finishTeardown(workflow, task, teardown, "reason");\n',
+  },
+  {
+    id: "W279",
+    invariant:
+      "workflowLifecycle::aDoneResearchersJobHasItsAuthor (author queued after the researcher's destroy)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await finishTask(workflow, researcher, async () => {\n    workflow.store.completeTodos(researcher.task_id);\n    const job = workflow.store.requireJob(researcher.job_id);\n    const authorId = insertJobTask(workflow, authorTaskOf(workflow.stageFor(job), job));\n    await workflow.scheduleAlarm(0, "provision", { task_id: authorId });\n    await dropBoardFlush(workflow, researcher.task_id);\n    await flushBoards(workflow, researcher.job_id);\n  });\n',
+    replace:
+      '  await finishTask(workflow, researcher, async () => {});\n  workflow.store.completeTodos(researcher.task_id);\n  const job = workflow.store.requireJob(researcher.job_id);\n  const authorId = insertJobTask(workflow, authorTaskOf(workflow.stageFor(job), job));\n  await workflow.scheduleAlarm(0, "provision", { task_id: authorId });\n  await dropBoardFlush(workflow, researcher.task_id);\n  await flushBoards(workflow, researcher.job_id);\n',
+  },
+  {
+    id: "W248",
+    invariant: "workflowLifecycle::aCompletedJobEndsItsReview (task end alarm only destroys)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  else if ("result" in alarm) await finishCompletion(workflow, task, teardown, alarm.result);\n',
+    replace: "",
+  },
+  {
+    id: "W249",
+    invariant:
+      "workflowLifecycle::aSingleIssueWorkflowIsDoneWithItsSubjectsJob (completion alarm without its result)",
+    path: "src/workflow/lifecycle.ts",
+    find: "    const alarm = { task_id: author.task_id, result };\n",
+    replace: "    const alarm = { task_id: author.task_id };\n",
+  },
+  {
+    id: "W280",
+    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer destroyed before routing)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  await finishTask(workflow, reviewer, () => routeReview(workflow, reviewer, entry, read));\n",
+    replace:
+      "  await finishTask(workflow, reviewer, async () => {});\n  await routeReview(workflow, reviewer, entry, read);\n",
+  },
+  {
+    id: "W281",
+    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher destroyed before hand-on)",
+    path: "src/workflow/refiner/polish.ts",
+    find: "  await finishTask(workflow, polisher, async () => {\n    const author = workflow.store.authorTaskOf(polisher.job_id);\n    await handOnFromPolisher(workflow, author, polisher, outcome);\n    await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n  });\n",
+    replace:
+      "  await finishTask(workflow, polisher, async () => {});\n  const author = workflow.store.authorTaskOf(polisher.job_id);\n  await handOnFromPolisher(workflow, author, polisher, outcome);\n  await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n",
   },
   {
     id: "W214",
@@ -1622,6 +1697,225 @@ export const MUTANTS: Mutant[] = [
     find: "  await Promise.all(turns.map((turn) => resumeLostModelTurn(workflow, turn)));\n",
     replace: "  for (const turn of turns) await resumeLostModelTurn(workflow, turn);\n",
   },
+  {
+    id: "W290",
+    invariant: "slackTextInvariants::slackTextNeverNotifies",
+    path: "../adapters/src/chat/slack/mrkdwn.ts",
+    find: '      if (heading !== undefined) return `*${toSlackMrkdwn(heading.replaceAll("**", ""))}*`;\n',
+    replace: '      if (heading !== undefined) return `*${heading.replaceAll("**", "")}*`;\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W291",
+    invariant: "slackTextInvariants::slackChunksKeepTheText",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: '  const paragraph = text.lastIndexOf("\\n\\n", limit);\n',
+    replace: '  const paragraph = text.lastIndexOf("\\n\\n", limit + 1);\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W292",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (surrogate pair)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
+    replace: "  return limit;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W293",
+    invariant: "slackTextInvariants::slackMrkdwnIsStable",
+    path: "../adapters/src/chat/slack/mrkdwn.ts",
+    find: "  let previous: string;\n  do {\n    previous = mrkdwn;\n    mrkdwn = markdownToMrkdwnOnce(previous);\n  } while (mrkdwn !== previous);\n  return mrkdwn;\n",
+    replace: "  return markdownToMrkdwnOnce(mrkdwn);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W294",
+    invariant: "inboundInvariants::inboundMapperNeverThrows",
+    path: "../adapters/src/chat/slack/inbound.ts",
+    find: "  const parsed = slackEventCallbackSchema.safeParse(payload);\n  if (!parsed.success) return UNHANDLED_EVENT;\n  const callback = parsed.data;\n",
+    replace: "  const callback = slackEventCallbackSchema.parse(payload);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_inbound,
+  },
+  {
+    id: "W300",
+    invariant: "githubCodeInvariants::githubFailedCheckWinsInAnyOrder (running before stopped)",
+    path: "../adapters/src/code/github/commit-checks.ts",
+    find: '  const stopped = failuresOf(reported, "stopped");\n  if (stopped.length) return { state: "stopped", failures: stopped };\n  if (reported.some((check) => check.standing === "running")) return { state: "running" };\n',
+    replace:
+      '  if (reported.some((check) => check.standing === "running")) return { state: "running" };\n  const stopped = failuresOf(reported, "stopped");\n  if (stopped.length) return { state: "stopped", failures: stopped };\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W301",
+    invariant:
+      "githubCodeInvariants::githubFailedCheckWinsInAnyOrder (error status reads as failed)",
+    path: "../adapters/src/code/github/commit-checks.ts",
+    find: '    standing: status.state === "failure" ? "failed" : "stopped",\n',
+    replace: '    standing: "failed",\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W302",
+    invariant: "githubCodeInvariants::githubPullLinkNamesOnlyAGithubPull (unanchored reader)",
+    path: "../adapters/src/code/github/url.ts",
+    find: "const GITHUB_PULL = /^https:\\/\\/github\\.com\\/([\\w.-]+\\/[\\w.-]+)\\/pull\\/(\\d+)(?:[/?#]|$)/;\n",
+    replace: "const GITHUB_PULL = /github\\.com\\/([\\w.-]+\\/[\\w.-]+)\\/pull\\/(\\d+)/;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W303",
+    invariant: "githubCodeInvariants::githubPullLinkNamesOnlyAGithubPull (inexact number)",
+    path: "../adapters/src/code/github/url.ts",
+    find: "  if (!Number.isSafeInteger(number)) return null;\n",
+    replace: "",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W304",
+    invariant: "githubCodeInvariants::githubFailedCheckWinsInAnyOrder (run detail not clipped)",
+    path: "../adapters/src/code/github/commit-checks.ts",
+    find: "      detail: detail.slice(0, DETAIL_CHARS),\n",
+    replace: "      detail,\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W325",
+    invariant: "githubCodeInvariants::githubPullLinkRoundTrips",
+    path: "../adapters/src/code/github/url.ts",
+    find: "\\/pull\\/(\\d+)(?:[/?#]|$)/;\n",
+    replace: "\\/pull\\/(\\d+)(?:[/?]|$)/;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W310",
+    invariant: "documentsInvariants::notionPageLinkNamesItsPage",
+    path: "../adapters/src/documents/notion/page-id.ts",
+    find: "const PAGE_ID = /([0-9a-f]{32})(?:[?#/]|$)/;\n",
+    replace: "const PAGE_ID = /([0-9a-f]{32})/;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+  },
+  {
+    id: "W311",
+    invariant: "documentsInvariants::notionRichTextJoinsBack (cut past the limit)",
+    path: "../adapters/src/documents/notion/rich-text.ts",
+    find: "    const end = richTextItemEnd(text, start + NOTION_RICH_TEXT_CHARS);\n",
+    replace: "    const end = richTextItemEnd(text, start + NOTION_RICH_TEXT_CHARS + 1);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+  },
+  {
+    id: "W312",
+    invariant: "documentsInvariants::notionRichTextJoinsBack (surrogate pair)",
+    path: "../adapters/src/documents/notion/rich-text.ts",
+    find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
+    replace: "  return limit;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+  },
+  {
+    id: "W313",
+    invariant:
+      "documentsInvariants::linearWriteKeepsTheConcurrentEdit (edits applied to the text read)",
+    path: "../adapters/src/documents/linear/documents.ts",
+    find: "  return applyPageTextEdits(current, update.edits);\n",
+    replace: "  return applyPageTextEdits(change.before, update.edits);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.linear_document_write,
+  },
+  {
+    id: "W314",
+    invariant:
+      "documentsInvariants::linearWriteKeepsTheConcurrentEdit (whole text over the current content)",
+    path: "../adapters/src/documents/linear/documents.ts",
+    find: "    return { text: current.trim() ? `${update.whole}\\n${current}` : update.whole };\n",
+    replace: "    return { text: update.whole };\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.linear_document_write,
+  },
+  {
+    id: "W305",
+    invariant: "webhookInvariants::genuineWebhookDelivers (data by character code)",
+    path: "../adapters/src/hmac.ts",
+    find: '  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(data));\n',
+    replace:
+      '  const signature = await crypto.subtle.sign(\n    "HMAC",\n    key,\n    Uint8Array.from(data, (char) => char.charCodeAt(0)),\n  );\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W306",
+    invariant: "webhookInvariants::genuineWebhookDelivers (secret by character code)",
+    path: "../adapters/src/hmac.ts",
+    find: "    encoder.encode(secret),\n",
+    replace: "    Uint8Array.from(secret, (char) => char.charCodeAt(0)),\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W307",
+    invariant: "webhookInvariants::genuineWebhookDelivers (Linear body as Latin-1)",
+    path: "../adapters/src/tracker/linear/webhook.ts",
+    find: "new LinearWebhookClient(secret).verify(Buffer.from(body), signature)",
+    replace: 'new LinearWebhookClient(secret).verify(Buffer.from(body, "latin1"), signature)',
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W308",
+    invariant: "webhookInvariants::genuineWebhookDelivers (GitHub verifies the parsed body)",
+    path: "../ingress/src/routes/github.ts",
+    find: "  if (!(await verifyGithubWebhook(secret, body, ctx.req.raw.headers)))\n",
+    replace:
+      "  if (!(await verifyGithubWebhook(secret, JSON.stringify(JSON.parse(body)), ctx.req.raw.headers)))\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W309",
+    invariant: "webhookInvariants::badSignatureNeverDelivers",
+    path: "../adapters/src/chat/slack/webhook.ts",
+    find: "  return Math.abs(nowMs / 1000 - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
+    replace:
+      "  return Math.abs(Math.floor(nowMs / 1000) - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W315",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (chunk decoded without streaming)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace: "    for (const line of splitter.push(decoder.decode(value))) onLine(line);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W316",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (lone carriage return ends a line)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    this.buffer += chunk;\n",
+    replace: '    this.buffer += chunk.replaceAll("\\r", "\\n");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W317",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (unended last line not trimmed)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    const tail = this.buffer.trim();\n",
+    replace: "    const tail = this.buffer;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W318",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (bytes decoded as Latin-1)",
+    path: "../bridge/src/line-reader.ts",
+    find: "  const decoder = new TextDecoder();\n",
+    replace: '  const decoder = new TextDecoder("latin1");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W319",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (fresh decoder per chunk)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace:
+      "    for (const line of splitter.push(new TextDecoder().decode(value, { stream: true }))) onLine(line);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
@@ -1641,15 +1935,16 @@ export function mutantReport(results: MutantResult[], seed: number): string | nu
   );
   return [
     "## Surviving mutants",
-    `The nightly mutant run on seed ${seed} found mutants the spec replays did not kill.`,
+    `The nightly mutant run on seed ${seed} found mutants their property files did not kill.`,
     ["| Mutant | Invariant | File | Result |", "| --- | --- | --- | --- |", ...rows].join("\n"),
     "A surviving mutant shows a rule the generators do not reach. Update a mutant that no longer applies in `packages/orchestrator/scripts/properties/mutants.ts`.",
     "",
   ].join("\n\n");
 }
 
-async function killedByASpecReplay(seed: number): Promise<boolean> {
-  for (const file of Object.values(SPEC_REPLAY_FILES)) {
+async function killedByItsPropertyFiles(mutant: Mutant, seed: number): Promise<boolean> {
+  const files = mutant.propertyFile ? [mutant.propertyFile] : Object.values(SPEC_REPLAY_FILES);
+  for (const file of files) {
     const run = await runPropertyFile(file, seed);
     if (run.outcome !== "passed") return true;
   }
@@ -1663,7 +1958,10 @@ async function runMutant(mutant: Mutant, seed: number): Promise<MutantResult> {
   if (mutated === null) return { mutant, status: "not_applied" };
   writeFileSync(path, mutated);
   try {
-    return { mutant, status: (await killedByASpecReplay(seed)) ? "killed" : "survived" };
+    return {
+      mutant,
+      status: (await killedByItsPropertyFiles(mutant, seed)) ? "killed" : "survived",
+    };
   } finally {
     writeFileSync(path, original);
   }

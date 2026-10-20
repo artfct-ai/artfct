@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
-import { bridgeKeepsEveryHarnessLineWhole } from "../test/line-reader-invariants";
+import { bridgeKeepsEveryHarnessLineWhole } from "../test/bridge-line-invariants";
 import { readLines } from "./line-reader";
 
 const RUNS = 100;

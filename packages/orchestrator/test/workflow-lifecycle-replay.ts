@@ -310,6 +310,11 @@ const COMPLETION_ANSWERS = [
 ] as const;
 const ROLES = ["Researcher", "Author"] as const;
 const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
+
+/** True for a researcher that handed over to its author, which only a handover ends done. */
+function isResearcherThatHandedOver(task: TaskRow): boolean {
+  return task.role === "researcher" && task.status === "done";
+}
 const ENDINGS = ["PersonCancels", "AgentFails", "AgentFinishes"] as const;
 const VERBAL_COMMANDS = ["Pause", "Resume", "Instruct"] as const;
 
@@ -398,7 +403,8 @@ type SpecEndingPost =
  * The workflow as the spec sees it. `jobSlots` is null until a plan sets the stages. A restart
  * alarm is the jobs whose lost model turn it still decides. `turnsToRunAgain` is the jobs whose
  * author still holds the turn id an armed run-again alarm names. `taskEndAlarms` is the jobs whose
- * task end alarm is armed. The spec's ended issues and destroyed sandboxes only drive the spec's
+ * task end alarm is armed, and `researcherEndAlarms` the jobs whose researcher that handed over
+ * has its task end alarm armed. The spec's ended issues and destroyed sandboxes only drive the spec's
  * own rules, so the replay does not compare them.
  */
 export type SpecWorkflow = {
@@ -414,6 +420,7 @@ export type SpecWorkflow = {
   restartAlarms: number[][];
   runAgainAlarms: number[];
   taskEndAlarms: number[];
+  researcherEndAlarms: number[];
   turnsToRunAgain: number[];
   restartAlarmFired: boolean;
   ranAgain: number[];
@@ -564,6 +571,7 @@ function specWorkflow(value: unknown): SpecWorkflow {
       .toSorted(compareJobLists),
     runAgainAlarms: sortedInts(itfField(value, "runAgainAlarms")),
     taskEndAlarms: sortedInts(itfField(value, "taskEndAlarms")),
+    researcherEndAlarms: sortedInts(itfField(value, "researcherEndAlarms")),
     turnsToRunAgain: sortedInts(itfField(value, "turnsToRunAgain")),
     restartAlarmFired: itfBool(itfField(value, "restartAlarmFired")),
     ranAgain: sortedInts(itfField(value, "ranAgain")),
@@ -992,10 +1000,8 @@ export class WorkflowLifecycleReplay {
       runAgainAlarms: [
         ...new Set(this.runAgainAlarms().map((alarm) => this.jobIndexOfTask(alarm.task_id))),
       ].toSorted((left, right) => left - right),
-      taskEndAlarms: workflow
-        .alarmsFor("resumeTaskEnd")
-        .map((alarm) => this.jobIndexOfTask((alarm.payload as TaskEndAlarm).task_id))
-        .toSorted((left, right) => left - right),
+      taskEndAlarms: this.taskEndAlarmJobs((task) => !isResearcherThatHandedOver(task)),
+      researcherEndAlarms: this.taskEndAlarmJobs(isResearcherThatHandedOver),
       turnsToRunAgain: this.runAgainAlarms()
         .filter((alarm) => {
           const task = store.requireTask(alarm.task_id);
@@ -1051,6 +1057,17 @@ export class WorkflowLifecycleReplay {
         return task !== null && !isTaskFinished(task.status) && task.model_turn_id === turn.turn_id;
       })
       .map((turn) => this.jobIndexOfTask(turn.task_id))
+      .toSorted((left, right) => left - right);
+  }
+
+  /** The jobs whose task end alarm is armed for a task that `counts`, in order. */
+  private taskEndAlarmJobs(counts: (task: TaskRow) => boolean): number[] {
+    const { workflow } = this.world;
+    return workflow
+      .alarmsFor("resumeTaskEnd")
+      .map((alarm) => workflow.store.requireTask((alarm.payload as TaskEndAlarm).task_id))
+      .filter(counts)
+      .map((task) => this.jobIndexOfTask(task.task_id))
       .toSorted((left, right) => left - right);
   }
 
@@ -1195,11 +1212,13 @@ export class WorkflowLifecycleReplay {
           this.runStep(() => this.personEndsIssue(world, required(picks.issue))),
         );
       case "researcherHandsOver":
-        return worldAction(`researcher of job ${picks.id} hands over`, (world) =>
-          researcherTurnEnds(this.unfinishedResearcherIndexOf(required(picks.id)), "written").run(
-            world,
-          ),
-        );
+        return worldAction(`researcher of job ${picks.id} hands over`, (world) => {
+          const handsOver = researcherTurnEnds(
+            this.unfinishedResearcherIndexOf(required(picks.id)),
+            "written",
+          );
+          return this.runStep(() => handsOver.run(world));
+        });
       case "authorWritesItsPage":
         return worldAction(`author of job ${picks.id} writes its page`, async (world) => {
           const index = this.unfinishedIndexOf(required(picks.id));
@@ -1306,6 +1325,11 @@ export class WorkflowLifecycleReplay {
       case "theTaskEndAlarmFires":
         return worldAction(`the task end alarm of job ${picks.id} fires`, (world) =>
           this.taskEndAlarmFires(world, required(picks.id)),
+        );
+      case "theResearcherEndAlarmFires":
+        return worldAction(
+          `the task end alarm of the researcher of job ${picks.id} fires`,
+          (world) => this.researcherEndAlarmFires(world, required(picks.id)),
         );
       case "modelCallReturns":
         return worldAction(`model call ${picks.callId} returns`, () =>
@@ -1633,6 +1657,17 @@ export class WorkflowLifecycleReplay {
     await this.runStep(() => resumeTaskEnd(world.workflow, alarm.payload as TaskEndAlarm));
   }
 
+  /** The task end alarm of the job's researcher that handed over fires, and leaves the list before it runs. */
+  private async researcherEndAlarmFires(world: WorkflowWorld, jobIndex: number): Promise<void> {
+    const alarm = world.workflow.alarmsFor("resumeTaskEnd").find((candidate) => {
+      const task = world.workflow.store.requireTask((candidate.payload as TaskEndAlarm).task_id);
+      return isResearcherThatHandedOver(task) && this.jobIndexOfTask(task.task_id) === jobIndex;
+    });
+    if (!alarm) throw new Error(`the researcher of job ${jobIndex} has no task end alarm`);
+    await world.workflow.cancelAlarm(alarm.id);
+    await this.runStep(() => resumeTaskEnd(world.workflow, alarm.payload as TaskEndAlarm));
+  }
+
   /** The one alarm the start step armed for the workflow end the store holds fires. */
   private async workflowEndResumes(world: WorkflowWorld): Promise<void> {
     const [alarm, ...others] = world.workflow.alarmsFor("resumeWorkflowEnd");
@@ -1782,13 +1817,16 @@ export class WorkflowLifecycleReplay {
   }
 
   /**
-   * Hold the destroy of the sandbox of an author that ended or restarts. A polisher closes the
-   * container of an author as it starts, and the spec folds that destroy into the step.
+   * Hold the destroy of the sandbox of an author that ended or restarts, or of a researcher that
+   * handed over. A polisher closes the container of an author as it starts, and the spec folds that
+   * destroy into the step.
    */
   private holdDestroy(taskId: string): Promise<void> | null {
     const task = this.world.workflow.store.task(taskId);
-    if (task?.role !== "author") return null;
-    if (!isTaskFinished(task.status) && task.status !== "queued") return null;
+    if (!task) return null;
+    const authorEnds =
+      task.role === "author" && (isTaskFinished(task.status) || task.status === "queued");
+    if (!authorEnds && !isResearcherThatHandedOver(task)) return null;
     return new Promise<void>((release) => {
       this.hold({
         kind: "SandboxDestroy",

@@ -74,128 +74,128 @@ export const SPEC_REPLAY_FILES = {
   },
 } satisfies Record<string, PropertyFile>;
 
-/** The property test files that check logic the Quint specs do not model, for the main and nightly property jobs. */
-export const STANDALONE_PROPERTY_FILES: PropertyFile[] = [
-  {
+/** The property test files that check logic the Quint specs do not model, for the main and nightly property jobs and the mutants that name them. */
+export const STANDALONE_PROPERTY_FILES = {
+  slack_inbound: {
     title: "slack inbound mapper properties",
     packageDir: "adapters",
     path: "./src/chat/slack/inbound-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  slack_text: {
     title: "slack text properties",
     packageDir: "adapters",
     path: "./src/chat/slack/text-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  github_inbound: {
     title: "github inbound mapper properties",
     packageDir: "adapters",
     path: "./src/code/github/inbound-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  github_code: {
     title: "github code properties",
     packageDir: "adapters",
     path: "./src/code/github/code-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  linear_inbound: {
     title: "linear inbound mapper properties",
     packageDir: "adapters",
     path: "./src/tracker/linear/inbound-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  notion_inbound: {
     title: "notion inbound mapper properties",
     packageDir: "adapters",
     path: "./src/documents/notion/inbound-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  linear_held_comments: {
     title: "linear held comments properties",
     packageDir: "adapters",
     path: "./src/documents/linear/held-comments.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 200_000,
   },
-  {
+  notion_held_comments: {
     title: "notion held comments properties",
     packageDir: "adapters",
     path: "./src/documents/notion/held-comments.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 200_000,
   },
-  {
+  notion_text: {
     title: "notion text properties",
     packageDir: "adapters",
     path: "./src/documents/notion/text-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  linear_document_write: {
     title: "linear document write property",
     packageDir: "adapters",
     path: "./src/documents/linear/write-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  page_text_update: {
     title: "page text update properties",
     packageDir: "adapters",
     path: "./src/documents/page-text-update.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  webhook_signatures: {
     title: "webhook signature properties",
     packageDir: "ingress",
     path: "./src/routes/webhook-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  bridge_line_reader: {
     title: "bridge line reader properties",
     packageDir: "bridge",
     path: "./src/line-reader-invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
-  {
+  condensed_tool_result: {
     title: "condensed tool result property",
     packageDir: "orchestrator",
     path: "./src/agent/tools/condensed.property.test.medium.ts",
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 20_000,
   },
-  {
+  person_upserts: {
     title: "person upserts property",
     packageDir: "orchestrator",
     path: "./src/db/persons.property.test.medium.ts",
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 3_000,
   },
-  {
+  token_refresh: {
     title: "tracker install token refresh property",
     packageDir: "orchestrator",
     path: "./src/oauth/token.property.test.medium.ts",
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 5_000,
   },
-  {
+  access_rules: {
     title: "access rules property",
     packageDir: "orchestrator",
     path: "./src/router/identity.property.test.medium.ts",
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 50_000,
   },
-];
+} satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */
 export const PROPERTY_FILE_TIMEOUT_MINUTES = 20;

@@ -1406,7 +1406,7 @@ export class WorkflowWorld {
           promptInFlight,
           queuedPrompts: queue.filter((row) => row.task_id === task.task_id).length,
           handshaking: store.handshakePending(task.task_id),
-          atWork: !isTaskFinished(task.status) && taskAtWork(this.workflow, task),
+          atWork: taskAtWork(this.workflow, task),
           modelCallOut:
             task.model_turn_id !== null &&
             this.hungModelTurns.get(task.task_id) === task.model_turn_id,

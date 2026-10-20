@@ -1,0 +1,2512 @@
+{
+  "#meta": {
+    "format": "ITF",
+    "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
+    "source": "spec/review-loop/checksOnAPolishedPull.qnt",
+    "status": "ok",
+    "description": "Created by Quint on Tue Oct 20 2026 00:42:08 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792471328471
+  },
+  "vars": [
+    "checksOnAPolishedPull::reviewLoop::review",
+    "checksOnAPolishedPull::reviewLoop::lastStepKept",
+    "checksOnAPolishedPull::reviewLoop::lastStepReached",
+    "checksOnAPolishedPull::reviewLoop::agentHeard",
+    "checksOnAPolishedPull::reviewLoop::instanceRestartCount",
+    "checksOnAPolishedPull::reviewLoop::checksReportCount",
+    "mbt::actionTaken",
+    "mbt::nondetPicks"
+  ],
+  "states": [
+    {
+      "#meta": {
+        "index": 0
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": false,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": false,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": false,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": false,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": false,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": false,
+        "theRecheckAlarmStops": false,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": false,
+          "recheckArmed": false,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "init",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 1
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": false,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": false,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": false,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": false,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": true,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": false,
+        "theRecheckAlarmStops": false,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": false,
+          "recheckArmed": false,
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [
+          {
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Running",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "authorTurnEndsOnTheSameRevision",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "Some",
+          "value": {
+            "tag": "AgentRoutes",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "GateOpens",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 2
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": false,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": false,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": false,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": false,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": false,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": false,
+        "theRecheckAlarmStops": false,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": false,
+          "recheckArmed": true,
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [
+          {
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "WaitsOnChecks",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "aPolisherEndsWaitingOnChecks",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "GateWaits",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "1"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": false,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": false,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": false,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": true,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": false,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": false,
+        "theRecheckAlarmStops": false,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": false,
+          "recheckArmed": true,
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "SentBackOn",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [
+          {
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Running",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "checksSendAWaitingPolisherBack",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "GateSendsBack",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 4
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "1"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": true,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": false,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": false,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": false,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": false,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": false,
+        "theRecheckAlarmStops": false,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": false,
+          "recheckArmed": true,
+          "refinerRun": {
+            "tag": "OnRefinerRun",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "SentBackOn",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [
+            {
+              "#set": []
+            }
+          ],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [
+          {
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Running",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "agentPromptsAuthor",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "Some",
+          "value": {
+            "tag": "NothingLands",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "Some",
+          "value": {
+            "tag": "AdmittedAndAcknowledged",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 5
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "1"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": false,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": true,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": false,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": false,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": false,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": false,
+        "theRecheckAlarmStops": false,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": true,
+          "recheckArmed": true,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "SentBackOn",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "status": {
+            "tag": "Ready",
+            "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "deliveredRevision": {
+                "tag": "UnknownRevision",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [
+          {
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Cancelled",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "agentCancelsRefinerRun",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionUnknown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 6
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "1"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": false,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": false,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": true,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": false,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": false,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": false,
+        "theRecheckAlarmStops": false,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": true,
+          "recheckArmed": true,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "SentBackOn",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "status": {
+            "tag": "Ready",
+            "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "deliveredRevision": {
+                "tag": "UnknownRevision",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AuthorFailed",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [
+          {
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Cancelled",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "authorEnds",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "Some",
+          "value": {
+            "tag": "TheAuthorFails",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionUnknown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 7
+      },
+      "checksOnAPolishedPull::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "checksOnAPolishedPull::reviewLoop::checksReportCount": {
+        "#bigint": "2"
+      },
+      "checksOnAPolishedPull::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepKept": {
+        "aBlockedAuthorsGateHandsOverBlocked": true,
+        "aFinishedRefinerRunKeepsItsStatus": true,
+        "aJudgeRejectionPostsItsReasonOnce": true,
+        "aModelCallAuthorFailsOnlyOnAHostError": true,
+        "aPolisherEndsDoneOnlyWhenItsChecksOpen": true,
+        "aPromptToAPageAuthorCarriesItsHeldComments": true,
+        "aRefinerRunRestartsAtMostTwice": true,
+        "aReviewWaitingForRoutingTellsTheAgent": true,
+        "aStoppedRefinerRunHandsOverBlocked": true,
+        "anAnswerAtTheReviewLimitMovesOn": true,
+        "anEndedAuthorEndsItsReview": true,
+        "authorGetsEveryPageFinding": true,
+        "authorGetsEveryPullFinding": true,
+        "checksGoBackOncePerRevision": true,
+        "deliveredToHumansIsNeverCleared": true,
+        "failedReplyLeavesThePage": true,
+        "judgeRulesAtMostOnce": true,
+        "pageReviewPostsEachFindingOnce": true,
+        "refinerRunIsDoneOnlyAfterItsTurnEnded": true,
+        "refinersRunAgainOnlyOnChangedRevision": true,
+        "refinersStartOnlyWhenTheAuthorsGateOpens": true,
+        "reviewerRunsOnlyOnAnUnreviewedRevision": true,
+        "sentCommentIsAnsweredBeforeItsLineGoes": true,
+        "theRecheckAlarmRunsWhileTheGateHolds": true,
+        "unadmittedFeedbackReachesNobody": true
+      },
+      "checksOnAPolishedPull::reviewLoop::lastStepReached": {
+        "aCommentReplyFails": false,
+        "aFailedReplyLeavesAQueuedCommentUnanswered": false,
+        "aHeldCommentReachesTheAuthor": false,
+        "aJudgeClosesWithoutAConclusion": false,
+        "aMentionCarriesTheHeldComments": false,
+        "aMentionRoutedAwayLeavesHeldComments": false,
+        "aModelCallAnswerRepliesToAnUnsentComment": false,
+        "aModelCallAnswerSkipsAReply": false,
+        "aModelCallAuthorFailsOnALostTurn": false,
+        "aModelCallTurnStartsOver": false,
+        "aModelTurnIsLostWithTheInstance": false,
+        "aPageAuthorGetsTheFindingsOfItsReviewer": false,
+        "aPageReviewMeetsAHostThatIsDown": false,
+        "aPageReviewMovesInlineFindingsIntoItsOutcome": false,
+        "aPageReviewPostsAnInlineFinding": false,
+        "aPageTextChangeLandsBeforeTheInstanceRestarts": false,
+        "aPageWriteIsLostWithTheInstance": false,
+        "aPausedAuthorResumesItsWork": false,
+        "aPausedAuthorsModelTurnIsLost": false,
+        "aPersonEditsDuringAModelCallTurn": false,
+        "aPersonInstructsWhileAPolisherRuns": false,
+        "aPersonRepliesWhileTheScreenReads": false,
+        "aPersonRuled": false,
+        "aPolisherRunStopsOnADraftedArtifact": false,
+        "aRefinerRunEndsDone": false,
+        "aRefinerRunFailsPastItsRestarts": false,
+        "aRefinerRunStartsAfterAFailedOrCancelledOne": false,
+        "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
+        "aRefinerRunStartsPastAJudgeWithFindings": false,
+        "aRefinerRunStartsPastFindings": false,
+        "aRefinerRunStartsWhenTheAuthorsGateOpens": false,
+        "aRejectionLands": false,
+        "aReviewReadFailsOnADraftedArtifact": false,
+        "aReviewerApproved": false,
+        "aReviewerRunFailsOnADraftedArtifact": false,
+        "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
+        "aRevisionAnswersAQueuedComment": false,
+        "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
+        "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
+        "aRulingLandsOnARuledJudgeRun": false,
+        "aStaleReviewRunsTheSegmentAgain": false,
+        "aWaitingPolisherEndsDone": false,
+        "anAuthorAnswersAReviewAtTheLimit": false,
+        "anAuthorEndsOnAReadyArtifact": false,
+        "anAuthorEndsWhileARefinerRunIsUnfinished": false,
+        "anAuthorFailsPastItsRestarts": false,
+        "anAuthorRestartsWhileAPolisherRuns": false,
+        "anAuthorResumesWhileAPolisherRuns": false,
+        "anAuthorTurnEndsOnTheDeliveredRevision": false,
+        "anUnknownRevisionOpensTheGate": false,
+        "checksGoBackToAWaitingAuthor": false,
+        "checksGoBackToAWaitingPolisher": false,
+        "checksGoBackToTheAuthor": false,
+        "checksGoBackToTheAuthorAtItsTurnEnd": false,
+        "checksGoBackToThePolisherAtItsTurnEnd": false,
+        "heldCommentsGoToThePageAuthor": false,
+        "heldCommentsQueueForAPausedAuthor": false,
+        "heldCommentsStayHeld": false,
+        "theAgentFinishedTheReview": false,
+        "theAgentIsAskedToRoute": false,
+        "theAgentIsAskedToRouteAgain": false,
+        "theAuthorsGateBlocksTheHandover": false,
+        "theAuthorsGateOpens": false,
+        "theAuthorsGateWaits": false,
+        "theChecksGateBlocksTheHandover": false,
+        "theGateBlocksARevisionItSentBack": false,
+        "theHostFailsAModelCallAuthor": false,
+        "theHostFailsARejection": false,
+        "theHostFailsTheReadAfterAModelCall": false,
+        "theHostKeepsHeldCommentsHeld": false,
+        "theIdleAuthorsOpenChecksStopTheRecheckAlarm": true,
+        "theRecheckAlarmStops": true,
+        "theScreenKeepsHeldComments": false
+      },
+      "checksOnAPolishedPull::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": true,
+          "recheckArmed": false,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "SentBackOn",
+            "value": {
+              "#bigint": "0"
+            }
+          },
+          "status": {
+            "tag": "Ready",
+            "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "deliveredRevision": {
+                "tag": "UnknownRevision",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          }
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AuthorFailed",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [],
+        "refinerRuns": [
+          {
+            "refinerIndex": {
+              "#bigint": "0"
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "result": {
+              "tag": "NoResult",
+              "value": {
+                "#tup": []
+              }
+            },
+            "status": {
+              "tag": "Cancelled",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "checksReport",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "GateOpens",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    }
+  ]
+}

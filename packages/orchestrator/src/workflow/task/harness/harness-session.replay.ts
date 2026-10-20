@@ -91,6 +91,10 @@ describe("harness session spec", () => {
     await replayPinnedTrace("stale-start-fails-at-once");
   });
 
+  it("keeps a launched start out when an older start fails at once", async () => {
+    await replayPinnedTrace("launched-start-before-an-older-start-fails-at-once");
+  });
+
   it("wakes the agent once the turn text summarization returns", async () => {
     await replayPinnedTrace("agent-wakes-after-the-turn-summarization");
   });
