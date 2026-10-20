@@ -37,8 +37,16 @@ describe("splitSlackText", () => {
     expect(splitSlackText("one\n\ntwo\n\nthree", 9)).toEqual(["one\n\ntwo", "three"]);
   });
 
-  it("falls back to a line boundary when no paragraph boundary fits", () => {
-    expect(splitSlackText("abc\ndef\nghi", 8)).toEqual(["abc\ndef", "ghi"]);
+  it("prefers a paragraph break to a later space", () => {
+    expect(splitSlackText("one\n\ntwo three", 12)).toEqual(["one", "two three"]);
+  });
+
+  it("falls back to the last whitespace when no paragraph break fits", () => {
+    expect(splitSlackText("abc\ndef ghi", 8)).toEqual(["abc\ndef", "ghi"]);
+  });
+
+  it("falls back to just after the last period when no whitespace fits", () => {
+    expect(splitSlackText("ab.cd.efgh", 7)).toEqual(["ab.cd.", "efgh"]);
   });
 
   it("cuts hard when no boundary fits", () => {
