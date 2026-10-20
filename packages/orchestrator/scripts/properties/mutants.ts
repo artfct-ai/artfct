@@ -1769,7 +1769,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/chat.ts",
     find: "  const whitespace = text.slice(0, limit + 1).search(LAST_WHITESPACE);\n",
     replace: "  const whitespace = text.slice(0, limit + 2).search(LAST_WHITESPACE);\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+    propertyFile: "../adapters/src/chat/slack/text.property.ts",
   },
   {
     id: "W297",
@@ -1777,7 +1777,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/chat.ts",
     find: '  const period = text.lastIndexOf(".", limit - 1);\n',
     replace: '  const period = text.lastIndexOf(".", limit);\n',
-    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+    propertyFile: "../adapters/src/chat/slack/text.property.ts",
   },
   {
     id: "W293",
