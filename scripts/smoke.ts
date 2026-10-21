@@ -31,20 +31,20 @@ async function main(): Promise<void> {
 
   await step("0. Linear install", runLinearInstall);
   const first = await step("1. Linear delegation", runLinearStart);
-  const { workflowId } = first;
+  const { conversationId } = first;
   const { taskId, branch } = await step("2. Document stages", () =>
-    runDocumentStages({ workflowId, taskId: first.taskId }),
+    runDocumentStages({ conversationId, taskId: first.taskId }),
   );
-  await step("3. Artifact", () => runArtifactFromAgentOutput({ workflowId, taskId, branch }));
-  await step("4. GitHub events", () => runGithubEvents({ workflowId, taskId, branch }));
-  const done = await step("5. Merge", () => runMerge({ workflowId, taskId, branch }));
+  await step("3. Artifact", () => runArtifactFromAgentOutput({ conversationId, taskId, branch }));
+  await step("4. GitHub events", () => runGithubEvents({ conversationId, taskId, branch }));
+  const done = await step("5. Merge", () => runMerge({ conversationId, taskId, branch }));
   await step("6. Linear issue canceled", runLinearCancel);
   const slack = await step("7. Slack", runSlack);
   await step("8. Boards", () => runBoardChecks(slack));
 
   console.log("\nSMOKE PASSED");
-  const workflowLog = done.log.map((entry) => entry.line).join(" | ");
-  console.log(`workflow ${workflowId}: ${workflowLog.slice(0, 1500)}`);
+  const conversationLog = done.log.map((entry) => entry.line).join(" | ");
+  console.log(`conversation ${conversationId}: ${conversationLog.slice(0, 1500)}`);
 }
 
 const startedAt = Date.now();

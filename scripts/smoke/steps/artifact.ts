@@ -9,7 +9,7 @@ import {
   countTaskLogLines,
   countTurns,
   fetchBindings,
-  fetchWorkflowDebug,
+  fetchConversationDebug,
   handedOverLine,
   isRefinerRun,
   logLinesBetween,
@@ -17,7 +17,7 @@ import {
   outboxText,
   taskById,
   waitUntil,
-  type WorkflowDebug,
+  type ConversationDebug,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
 import { authorTurnsThrough, REPO_FULL_NAME, STAGE_NAMES } from "../config";
@@ -31,17 +31,17 @@ const HELD_LINE = "holding the announcement until the review settles";
 
 /** Runs step 3 for the PR stage task started in step 2. */
 export async function runArtifactFromAgentOutput(options: {
-  workflowId: string;
+  conversationId: string;
   taskId: string;
   branch: string;
 }): Promise<void> {
-  const { workflowId, taskId, branch } = options;
+  const { conversationId, taskId, branch } = options;
   console.log("\n3. Artifact from agent output");
 
   const withPr = await waitUntil(
     { label: "artifact recorded from agent output, held, and the author's turn ended" },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       const task = taskById(debug, taskId);
       const recorded = artifactOf(debug, task.job_id)?.external_url === PULL_REQUEST_URL;
       const held = countTaskLogLines(debug, taskId, HELD_LINE) > 0;
@@ -61,7 +61,7 @@ export async function runArtifactFromAgentOutput(options: {
   );
 
   await releaseMockReview();
-  const released = await waitForReview(workflowId, taskId);
+  const released = await waitForReview(conversationId, taskId);
   assert(
     hasOutboxMessage(
       released,
@@ -75,7 +75,7 @@ export async function runArtifactFromAgentOutput(options: {
   );
 
   const bindings = await fetchBindings();
-  const ours = bindings.filter((binding) => binding.workflow_id === workflowId);
+  const ours = bindings.filter((binding) => binding.conversation_id === conversationId);
   assert(
     ours.some(
       (binding) => binding.source === "code_pull" && binding.external_id === `${REPO_FULL_NAME}#1`,
@@ -97,11 +97,11 @@ export async function runArtifactFromAgentOutput(options: {
  * Waits for the PR stage's refiners to release the artifact. They produce no artifact of their
  * own, and each one's sandbox is destroyed. Returns the dump taken once the humans were told.
  */
-async function waitForReview(workflowId: string, taskId: string): Promise<WorkflowDebug> {
+async function waitForReview(conversationId: string, taskId: string): Promise<ConversationDebug> {
   const released = await waitUntil(
     { label: "the refiners settled and released the artifact" },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       return artifactOf(debug, taskById(debug, taskId).job_id)?.status === "ready" ? debug : null;
     },
   );

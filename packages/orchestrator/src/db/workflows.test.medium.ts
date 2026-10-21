@@ -37,6 +37,17 @@ describe("workflows", () => {
       it("moves updated_at to or past created_at", () => {
         expect(row?.updated_at.localeCompare(row.created_at)).toBeGreaterThanOrEqual(0);
       });
+
+      describe("and then with a running status that lands late", () => {
+        beforeEach(async () => {
+          await writeWorkflowRow(db, RUNNING);
+          row = await findWorkflow(db, "wf_1");
+        });
+
+        it("stays finished", () => {
+          expect(row?.status).toBe("done");
+        });
+      });
     });
 
     describe("written again with the same status, as a restart does", () => {

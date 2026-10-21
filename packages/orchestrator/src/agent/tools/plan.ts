@@ -222,8 +222,9 @@ function validateStagesKnown(definition: WorkflowDefinition, planned: string[]):
 }
 
 async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<string> {
-  const ended = validateWorkflowRunning(workflow);
-  if (ended) return ended;
+  if (workflowEnding(workflow)) {
+    return "The workflow is ending. Once it ended, a set_plan call that names a workflow definition starts the next workflow.";
+  }
   const definitions = workflow.workflowDefinitions();
   const definition = definitions.find((declared) => declared.name === input.definition);
   if (!definition) {

@@ -54,6 +54,17 @@ const start: InboundEvent = {
   acknowledge: { message: "1.0", user: "U1" },
 };
 
+const prClosed: InboundEvent = {
+  ...start,
+  id: "evt-pr",
+  kind: "pr_event",
+  actor: null,
+  reply_to: undefined,
+  acknowledge: undefined,
+  text: "PR closed",
+  pull: { repo: "acme/app", number: 7, action: "closed" },
+};
+
 let opened = 0;
 
 function createdFrom(event: InboundEvent): Scenario<Conversation> {
@@ -456,7 +467,7 @@ describe("finished workflows", () => {
         expect(added.map((entry) => entry.kind)).toContain("acknowledge");
       }));
 
-    it("tells the agent, which may start the next workflow in the conversation", () =>
+    it("tells the agent, which may plan the next workflow in the conversation", () =>
       answered(async (workflow) => {
         const inbox = await inboxOf(workflow);
         expect(inbox.some((text) => text.includes("keep going with the tickets"))).toBe(true);
@@ -508,10 +519,101 @@ describe("finished workflows", () => {
         expect(await outboxOf(workflow)).toHaveLength(before);
       }));
 
-    it("tells the agent the session is a reply channel", () =>
+    it("logs that it ignored the session", () =>
       lateSession(async (workflow) => {
-        const inbox = await inboxOf(workflow);
-        expect(inbox.some((text) => text.includes("opened an agent session on ENG-2"))).toBe(true);
+        expect(await logOf(workflow)).toContain("ignored start: the workflow is failed");
+      }));
+  });
+
+  describe("a pull request event from GitHub", () => {
+    let before: number;
+    const ignored = scenario(failed, async (workflow) => {
+      before = (await outboxOf(workflow)).length;
+      await deliver(workflow, prClosed);
+    });
+
+    it("posts nothing", () =>
+      ignored(async (workflow) => {
+        expect(await outboxOf(workflow)).toHaveLength(before);
+      }));
+
+    it("logs that it ignored the event", () =>
+      ignored(async (workflow) => {
+        expect(await logOf(workflow)).toContain("ignored pr_event: the workflow is failed");
+      }));
+
+    describe("then a review and a cancel, which people caused without writing to the workflow", () => {
+      const stillIgnored = scenario(ignored, async (workflow) => {
+        await deliver(workflow, humanReview);
+        await deliver(workflow, {
+          ...start,
+          id: "evt-late-cancel",
+          kind: "control",
+          control: "cancel",
+          text: "Issue moved to Canceled",
+          reply_to: undefined,
+          acknowledge: undefined,
+        });
+      });
+
+      it("stays failed", () =>
+        stillIgnored((workflow) => {
+          expect(workflow.store.workflowStatus()).toBe("failed");
+        }));
+
+      it("posts nothing", () =>
+        stillIgnored(async (workflow) => {
+          expect(await outboxOf(workflow)).toHaveLength(before);
+        }));
+
+      it("logs that it ignored the feedback", () =>
+        stillIgnored(async (workflow) => {
+          expect(await logOf(workflow)).toContain("ignored feedback: the workflow is failed");
+        }));
+
+      it("logs that it ignored the verbal command", () =>
+        stillIgnored(async (workflow) => {
+          expect(await logOf(workflow)).toContain("ignored control: the workflow is failed");
+        }));
+
+      describe("then a status question", () => {
+        const asked = scenario(stillIgnored, async (workflow) => {
+          await deliver(workflow, {
+            ...start,
+            id: "evt-late-status",
+            kind: "status",
+            text: "status?",
+          });
+        });
+
+        it("answers with the status", () =>
+          asked(async (workflow) => {
+            const after = await outboxOf(workflow);
+            expect(after.slice(before).map((entry) => entry.kind)).toEqual(["status"]);
+          }));
+
+        it("stays failed, so a question reopens nothing", () =>
+          asked((workflow) => {
+            expect(workflow.store.workflowStatus()).toBe("failed");
+          }));
+      });
+    });
+  });
+
+  describe("a status question after the workflow finished", () => {
+    let recorder: RecordingNotifier;
+    const asked = scenario(plannedWorkflow, async (workflow) => {
+      recorder = new RecordingNotifier(NO_CHANNELS, () => {});
+      workflow.notifier = recorder;
+      await workflow.post({ type: "info", text: "working" });
+      await failWorkflow(workflow, "boom");
+      await deliver(workflow, { ...start, id: "evt-late-status", kind: "status", text: "status?" });
+    });
+
+    it("closes the Slack session once, and keeps it open for the answer", () =>
+      asked(() => {
+        expect(recorder.options.map((option) => option.finished)).toEqual([false, true, true]);
+        expect(recorder.options.at(-1)?.keepSession).toBe(true);
       }));
   });
 });

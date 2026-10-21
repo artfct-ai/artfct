@@ -4,11 +4,11 @@
  */
 import {
   artifactOf,
-  fetchWorkflowDebug,
+  fetchConversationDebug,
   hasOutboxMessage,
   taskById,
   waitUntil,
-  type WorkflowDebug,
+  type ConversationDebug,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
 import { STAGE_NAMES } from "../config";
@@ -17,17 +17,17 @@ import { waitForSandboxDestroyed } from "../sandbox";
 import { postGithubWebhook } from "../webhooks";
 
 /** Inputs for the merge step. `branch` is the head ref the task pushed to. */
-export type MergeOptions = { workflowId: string; taskId: string; branch: string };
+export type MergeOptions = { conversationId: string; taskId: string; branch: string };
 
 /** Closes the PR as merged and waits for the workflow to finish. Returns the final dump. */
-async function mergePr(options: MergeOptions): Promise<WorkflowDebug> {
-  const { workflowId, taskId, branch } = options;
+async function mergePr(options: MergeOptions): Promise<ConversationDebug> {
+  const { conversationId, taskId, branch } = options;
   await postGithubWebhook(
     "pull_request",
     pullRequestEvent("closed", mergedPullRequest(pullRequestFixture(branch)), samFixture),
   );
   const done = await waitUntil({ label: "workflow done and linear issue completed" }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     const finished =
       debug.workflow?.status === "ended" &&
       debug.workflow_end?.ends_as === "done" &&
@@ -66,7 +66,7 @@ async function mergePr(options: MergeOptions): Promise<WorkflowDebug> {
 }
 
 /** A workflow the tracker started narrates itself there. The chat never hears about it. */
-function assertNothingOnChat(last: WorkflowDebug): void {
+function assertNothingOnChat(last: ConversationDebug): void {
   assert(
     !hasOutboxMessage(last, (message) => message.channel === "chat"),
     "the Linear workflow addressed no chat message from its first event to its last",
@@ -75,7 +75,7 @@ function assertNothingOnChat(last: WorkflowDebug): void {
 }
 
 /** Runs step 5 and returns the final debug dump for the summary line. */
-export async function runMerge(options: MergeOptions): Promise<WorkflowDebug> {
+export async function runMerge(options: MergeOptions): Promise<ConversationDebug> {
   console.log("\n5. Merge");
   const done = await mergePr(options);
   assertNothingOnChat(done);

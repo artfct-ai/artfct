@@ -142,3 +142,41 @@ describe("finish_workflow", () => {
       }));
   });
 });
+
+describe("set_plan on a workflow that is done", () => {
+  let endedId: string;
+  const planned = scenario(freshDurableRuntime, async (workflow) => {
+    seedTask(workflow, { task_id: "wf_x.1", status: "done" });
+    endedId = workflow.store.requireWorkflowRow().workflow_id;
+    seedEndedWorkflow(workflow, "done");
+    const { set_plan } = planTools(workflow);
+    await set_plan.execute(
+      {
+        name: "Ship more",
+        definition: "development",
+        stages: ["design"],
+        repo: null,
+        page_parent: null,
+        reason: "more",
+      },
+      call,
+    );
+  });
+
+  it("starts the next workflow in the conversation", () =>
+    planned((workflow) => {
+      const active = workflow.store.activeWorkflow();
+      expect(active?.workflow_id).not.toBe(endedId);
+      expect(active).toMatchObject({ name: "Ship more", status: "running" });
+    }));
+
+  it("does not count the jobs of the ended workflow", () =>
+    planned((workflow) => {
+      expect(workflow.store.jobs()).toEqual([]);
+    }));
+
+  it("plans the next workflow's stages", () =>
+    planned((workflow) => {
+      expect(workflow.store.stagePlan()?.stages).toEqual(["design"]);
+    }));
+});

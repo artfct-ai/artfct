@@ -2,10 +2,14 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { RpcAck } from "@artfct-ai/contracts/types";
 import { eventMessage } from "../../agent/transcript/envelope";
 import { pullDetailOf } from "../../artifact/pull";
-import { applyEvent, verbalCommandToRun } from "./apply";
+import type { PostOptions } from "../../notify/notifier";
+import type { Recipients } from "../../notify/recipients";
+import { applyEvent, stopSessionAuthor, verbalCommandToRun } from "./apply";
 import { postReceipt } from "../feed/feed";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
 import { firstLine, type ChatMessageRef } from "../store/state";
+import { conversationStatusText } from "../status";
+import { parseVerbalCommand } from "./verbal-command";
 import { jobForEvent } from "./lookup";
 import type { TrackerSession } from "./job-session";
 import type { Applied, WorkflowRuntime } from "../types";
@@ -31,6 +35,11 @@ function instructedSessionOf(
 /** True when a person wrote to the conversation: a message in its chat thread or tracker session. */
 function isMessage(event: InboundEvent): boolean {
   return event.actor !== null && (event.kind === "prompt" || event.kind === "start");
+}
+
+/** True when a person writes the agent words that hold no verbal command. */
+function asksTheAgent(event: InboundEvent): boolean {
+  return isMessage(event) && parseVerbalCommand(event.text) === null;
 }
 
 /** An event the router routed to a conversation, with that conversation's id. */
@@ -76,8 +85,9 @@ function routesBeforeItIsSeen(workflow: WorkflowRuntime, event: InboundEvent): b
 /**
  * Every later event: dedupe, record what code must record, then tell the agent. Any other event
  * is marked seen in the same synchronous block as the first write of its effect, so a delivery
- * that a restart cuts off while it wakes the workflow lands when the host delivers it again. After
- * a workflow's end, a person's message reaches the agent, which may start the next workflow.
+ * that a restart cuts off while it wakes the workflow lands when the host delivers it again. Once
+ * the workflow's end started, only a person's words without a verbal command reach the agent, which
+ * may plan the next workflow.
  */
 export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent): Promise<RpcAck> {
   if (workflow.store.eventSeen(event.id)) return DUPLICATE;
@@ -87,12 +97,19 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   const task = job ? workflow.store.authorOrResearcherTaskOf(job.job_id) : null;
   workflow.log(task?.task_id ?? null, `event ${event.kind}${controlSuffix}`);
 
-  if (isMessage(event)) await wakeWorkflow(workflow);
-  await acknowledge(workflow, event);
-  const instructed = instructedSessionOf(workflow, event);
-  if (instructed) await postReceipt(workflow, instructed);
+  const settled = workflow.store.workflowFinished() && !asksTheAgent(event);
+  if (!settled) {
+    if (isMessage(event)) await wakeWorkflow(workflow);
+    await acknowledge(workflow, event);
+    const instructed = instructedSessionOf(workflow, event);
+    if (instructed) await postReceipt(workflow, instructed);
+  }
   if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {
     return DUPLICATE;
+  }
+  if (settled) {
+    await replyFinished(workflow, event);
+    return ACK;
   }
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
@@ -159,4 +176,37 @@ async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
   await armIdle(workflow);
   if (workflow.store.activeWorkflow()?.status === "waiting_input")
     await changeWorkflowStatus(workflow, "running");
+}
+
+/**
+ * Answer a person who writes a verbal command or another event once the workflow's end started.
+ * The workflow stays finished. A stop still ends the author's session feed.
+ */
+async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
+  const status = workflow.store.workflowStatus();
+  if (event.kind === "stop") {
+    await stopSessionAuthor(workflow, event);
+    return;
+  }
+  if (!event.reply_to || !event.actor) {
+    workflow.log(null, `ignored ${event.kind}: the workflow is ${status}`);
+    return;
+  }
+  const options: PostOptions = { keepSession: true };
+  const to = { reply_to: event.reply_to };
+  if (event.kind === "status") return postStatus(workflow, to, options);
+  await workflow.post(
+    { type: "info", text: `This workflow is ${status}. Tell me here what to do next.` },
+    to,
+    options,
+  );
+}
+
+/** Post the workflow status summary to its recipients, by default the workflow's audience. */
+async function postStatus(
+  workflow: WorkflowRuntime,
+  to?: Recipients,
+  options?: PostOptions,
+): Promise<void> {
+  await workflow.post({ type: "status", text: conversationStatusText(workflow) }, to, options);
 }

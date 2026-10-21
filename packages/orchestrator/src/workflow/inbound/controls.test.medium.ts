@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { claimBinding, listBindings } from "../../db/bindings";
 import { createDb } from "../../db/client";
+import { writeWorkflowRow } from "../../db/workflows";
 import { applyVerbalCommand } from "./controls";
 import { type FakeRuntime, seedPullRequestTask, seedTask } from "../../../test/fake-runtime";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
@@ -147,20 +148,28 @@ describe("control", () => {
 
     describe("with a binding of every kind on the workflow", () => {
       const cancelled = controlling(async (workflow) => {
+        const own = workflow.store.requireWorkflowRow().workflow_id;
+        for (const workflowId of [own, "wf_other"]) {
+          await writeWorkflowRow(db, {
+            workflow_id: workflowId,
+            conversation_id: `cv_${workflowId}`,
+            status: "running",
+          });
+        }
         await claimBinding(
           db,
           { source: "code_pull", repo: "acme/app", number: 1 },
-          { previous: null, workflowId: "wf_x" },
+          { previous: null, workflowId: own },
         );
         await claimBinding(
           db,
           { source: "code_branch", repo: "acme/app", branch: "b" },
-          { previous: null, workflowId: "wf_x" },
+          { previous: null, workflowId: own },
         );
         await claimBinding(
           db,
           { source: "tracker_issue", external_id: "iss1" },
-          { previous: null, workflowId: "wf_x" },
+          { previous: null, workflowId: own },
         );
         await claimBinding(
           db,
@@ -175,12 +184,11 @@ describe("control", () => {
           expect(result).toBeNull();
         }));
 
-      it("drops the GitHub bindings and keeps the rest", () =>
+      it("drops every binding of the workflow and keeps another workflow's", () =>
         cancelled(async () => {
           const rows = await listBindings(db);
-          expect(rows.map((row) => `${row.source}:${row.workflow_id}`).toSorted()).toEqual([
+          expect(rows.map((row) => `${row.source}:${row.workflow_id}`)).toEqual([
             "code_pull:wf_other",
-            "tracker_issue:wf_x",
           ]);
         }));
     });

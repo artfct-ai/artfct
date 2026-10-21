@@ -219,8 +219,10 @@ describe("a Slack start in a thread", () => {
 
 describe("a Slack prompt in a thread where nothing started", () => {
   let delivery: Delivery;
+  let objectsBefore: number;
 
   beforeEach(async () => {
+    objectsBefore = (await listDurableObjectIds(env.Conversation)).length;
     delivery = await deliver(env, { ...slackPrompt, id: "evt-slack-orphan" });
   });
 
@@ -229,7 +231,7 @@ describe("a Slack prompt in a thread where nothing started", () => {
   });
 
   it("opens no conversation", async () => {
-    expect(await listDurableObjectIds(env.Conversation)).toEqual([]);
+    expect(await listDurableObjectIds(env.Conversation)).toHaveLength(objectsBefore);
   });
 });
 
@@ -254,8 +256,10 @@ describe("a stop in a session whose issue has no conversation", () => {
 describe("a person's message in a session whose issue has no conversation", () => {
   let tracker: FakeTracker;
   let delivery: Delivery;
+  let objectsBefore: number;
 
   beforeEach(async () => {
+    objectsBefore = (await listDurableObjectIds(env.Conversation)).length;
     tracker = new FakeTracker();
     delivery = await deliver(
       env,
@@ -273,7 +277,7 @@ describe("a person's message in a session whose issue has no conversation", () =
   });
 
   it("opens no conversation", async () => {
-    expect(await listDurableObjectIds(env.Conversation)).toEqual([]);
+    expect(await listDurableObjectIds(env.Conversation)).toHaveLength(objectsBefore);
   });
 });
 
@@ -429,13 +433,11 @@ describe("a Linear session start", () => {
   });
 });
 
-describe("a base branch move", () => {
-  const baseMoved = (id: string, repo: string): InboundEvent => ({
-    ...prClosed,
-    id,
-    pull: { repo, action: "base_moved", base: "main" },
-  });
+function baseMoved(id: string, repo: string): InboundEvent {
+  return { ...prClosed, id, pull: { repo, action: "base_moved", base: "main" } };
+}
 
+describe("a base branch move", () => {
   describe("in a repository where two running workflows hold pull requests", () => {
     let delivery: Delivery;
 

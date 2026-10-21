@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { RouterBindingsReplay, type RouterView } from "../../test/router-bindings-replay";
+import { conversationIdOf } from "../db/conversations";
+import { RouterBindingsReplay, type PlaceName } from "../../test/router-bindings-replay";
 
 let replay: RouterBindingsReplay;
 
@@ -12,292 +13,117 @@ afterEach(async () => {
 });
 
 const never = () => false;
-const anyButAFind = (call: string) => !call.startsWith("Find");
 
-function isAbandoned(view: RouterView, workflow: number): boolean {
-  return view.rows[workflow] === "Ended" && !view.objects[workflow]?.created;
+async function openWithAWorkflow(place: PlaceName): Promise<void> {
+  const surface = place === "Thread" ? "ThreadSurface" : "SessionSurface";
+  await replay.landUntil(await replay.arrive(surface, "Start"), never);
+  await replay.landUntil(await replay.plan(place), never);
 }
 
-function runningWithAJobOnTheIssue(view: RouterView): number[] {
-  return Object.entries(view.objects)
-    .filter(([, object]) => object.hasIssueJob && !object.ended)
-    .map(([workflow]) => Number(workflow));
-}
-
-describe("two starts on two sessions of one issue, where the second read the issue unbound", () => {
-  let view: RouterView;
+describe("a tracker session event on an issue that a thread's workflow claimed", () => {
+  let delivered: string;
 
   beforeEach(async () => {
-    const first = await replay.arrive("SessionBSurface", "Start");
-    const second = await replay.arrive("SessionASurface", "Start");
-    await replay.landUntil(second, anyButAFind);
-    await replay.landUntil(first, never);
-    await replay.landUntil(second, (call) => call.startsWith("CreateWorkflow"));
-    view = replay.project();
+    await openWithAWorkflow("Thread");
+    await replay.landUntil(await replay.startWork(0, "job_on_issue"), never);
+    delivered = await replay.arrive("SessionSurface", "Reply");
+    await replay.landUntil(delivered, never);
   });
 
-  it("leaves the issue with the workflow that runs", () => {
-    expect(view.bindings.Issue).toBe(view.bindings.SessionB);
+  it("goes to the thread's conversation", async () => {
+    expect(replay.deliveryOf(delivered)).toMatchObject({
+      conversation_id: await conversationIdOf({
+        source: "chat_thread",
+        channel: "C1",
+        thread: "1.0",
+      }),
+    });
   });
 
-  it("binds the second session to the second workflow", () => {
-    expect(view.bindings.SessionA).not.toBe(view.bindings.SessionB);
+  it("does not open the issue's conversation", () => {
+    expect(replay.project().opened).toEqual(["Thread"]);
   });
 });
 
-describe("a message in a chat thread whose workflow has not returned from its create", () => {
-  let message: string;
-
+describe("a claim on the issue that lands after its workflow ended", () => {
   beforeEach(async () => {
-    const start = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(start, (call) => call.startsWith("CreateWorkflow"));
-    message = await replay.arrive("ThreadSurface", "PersonsMessage");
-    await replay.landUntil(message, never);
+    await openWithAWorkflow("Thread");
+    const job = await replay.startWork(0, "job_on_issue");
+    await replay.landUntil(job, (call) => call.startsWith("ClaimBinding"));
+    await replay.landUntil(await replay.startWork(0, "end"), never);
+    await replay.landUntil(job, never);
   });
 
-  it("takes the create over and creates the workflow", () => {
-    expect(replay.deliveryOf(message)).toMatchObject({ created: true });
-    expect(replay.project().objects[0]?.created).toBe(true);
+  it("leaves the issue unbound", () => {
+    expect(replay.project().bindings.Issue).toBeUndefined();
   });
 });
 
-describe("a person's message in a chat thread whose router invocation ended mid-create", () => {
-  let message: string;
+describe("a reply in a chat thread the router never recorded", () => {
+  let delivered: string;
 
   beforeEach(async () => {
-    const start = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(start, (call) => call.startsWith("CreateWorkflow"));
-    await replay.endRouterInvocation(start, false);
-    message = await replay.arrive("ThreadSurface", "PersonsMessage");
-    await replay.landUntil(message, never);
+    delivered = await replay.arrive("ThreadSurface", "Reply");
+    await replay.landUntil(delivered, never);
   });
 
-  it("creates the workflow the thread is bound to", () => {
-    const view = replay.project();
-    expect(view.bindings.Thread).toBe(0);
-    expect(view.objects[0]?.created).toBe(true);
-    expect(replay.deliveryOf(message)).toMatchObject({ created: true });
+  it("is dropped", () => {
+    expect(replay.deliveryOf(delivered)).toMatchObject({ dropped: expect.any(String) });
   });
 
-  it("marks the workflow's row running", () => {
-    expect(replay.project().rows[0]).toBe("Live");
+  it("does not record or open a conversation", () => {
+    expect(replay.project()).toMatchObject({ recorded: [], opened: [] });
   });
 });
 
-describe("a start that joins a workflow whose create then fails", () => {
-  let view: RouterView;
-  let joiner: string;
-
+describe("a plan's row write that lands after its workflow ended", () => {
   beforeEach(async () => {
-    const start = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(start, (call) => call.startsWith("CreateWorkflow"));
-    joiner = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(joiner, anyButAFind);
-    await replay.failCreate(start);
-    await replay.landUntil(start, never);
-    await replay.landUntil(joiner, never);
-    view = replay.project();
+    await replay.landUntil(await replay.arrive("ThreadSurface", "Start"), never);
+    const plan = await replay.plan("Thread");
+    await replay.landUntil(await replay.startWork(0, "end"), never);
+    await replay.landUntil(plan, never);
   });
 
-  it("leaves no binding on the abandoned workflow", () => {
-    const bound = Object.values(view.bindings);
-    expect(bound.filter((workflow) => isAbandoned(view, workflow))).toEqual([]);
-  });
-
-  it("starts the next workflow from the joining start", () => {
-    expect(replay.deliveryOf(joiner)).toMatchObject({ created: true });
-    expect(view.bindings.Thread).toBe(1);
-    expect(view.objects[1]?.created).toBe(true);
+  it("leaves the row ended", () => {
+    expect(replay.project().rows[0]).toBe("Ended");
   });
 });
 
-describe("a pull request bind that an instance restart cuts off", () => {
-  let view: RouterView;
-
+describe("an end whose deletes an instance restart cuts off", () => {
   beforeEach(async () => {
-    const start = await replay.arrive("SessionASurface", "Start");
-    await replay.landUntil(start, never);
-    const cut = await replay.startWork(0, "pull_request");
-    await replay.landUntil(cut, (call) => call.startsWith("BindWorkflow"));
-    await replay.restartDuringPullRequestBind(cut, false);
-    const found = await replay.startWork(0, "pull_request");
-    await replay.landUntil(found, never);
-    view = replay.project();
-  });
-
-  it("binds the pull request when the workflow finds it again", () => {
-    expect(view.bindings.Pull).toBe(0);
-    expect(view.objects[0]?.openedPulls).toEqual(["Pull"]);
-  });
-});
-
-describe("a pull request a workflow records while it ends", () => {
-  let view: RouterView;
-
-  beforeEach(async () => {
-    const start = await replay.arrive("SessionASurface", "Start");
-    await replay.landUntil(start, never);
-    const pull = await replay.startWork(0, "pull_request");
+    await openWithAWorkflow("Thread");
+    await replay.landUntil(await replay.startWork(0, "job_on_issue"), never);
     const end = await replay.startWork(0, "end");
-    await replay.landUntil(end, never);
-    await replay.landUntil(pull, never);
-    view = replay.project();
+    await replay.landUntil(end, (call) => call.startsWith("DeleteBindings"));
+    await replay.restart(end, false);
+    for (const caller of Object.keys(replay.project().calls)) {
+      await replay.landUntil(caller, never);
+    }
   });
 
-  it("stays unbound once the end removed the code host bindings", () => {
-    expect(view.bindings.Pull).toBeUndefined();
-  });
-});
-
-describe("a job start on an issue whose binding points at another running workflow", () => {
-  let view: RouterView;
-
-  beforeEach(async () => {
-    const session = await replay.arrive("SessionASurface", "Start");
-    await replay.landUntil(session, never);
-    const thread = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(thread, never);
-    const threadJob = await replay.startWork(1, "job_on_issue");
-    await replay.landUntil(threadJob, never);
-    view = replay.project();
+  it("deletes the bindings from the new instance", () => {
+    expect(replay.project().bindings).toEqual({});
   });
 
-  it("leaves the issue's binding on that workflow", () => {
-    expect(view.bindings.Issue).toBe(0);
-  });
-
-  it("starts no job on the issue", () => {
-    expect(runningWithAJobOnTheIssue(view)).toEqual([]);
+  it("ends the workflow", () => {
+    expect(replay.project().workflows[0]?.status).toBe("Done");
   });
 });
 
-describe("a job start on an issue whose binding points at a workflow that ended", () => {
-  let view: RouterView;
-
+describe("the next workflow of a conversation whose first one ended", () => {
   beforeEach(async () => {
-    const session = await replay.arrive("SessionASurface", "Start");
-    await replay.landUntil(session, never);
-    const end = await replay.startWork(0, "end");
-    await replay.landUntil(end, never);
-    const thread = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(thread, never);
-    const threadJob = await replay.startWork(1, "job_on_issue");
-    await replay.landUntil(threadJob, never);
-    view = replay.project();
+    await openWithAWorkflow("Thread");
+    await replay.landUntil(await replay.startWork(0, "job_on_issue"), never);
+    await replay.landUntil(await replay.startWork(0, "end"), never);
+    await replay.landUntil(await replay.plan("Thread"), never);
+    await replay.landUntil(await replay.startWork(1, "job_on_issue"), never);
   });
 
-  it("points the issue's binding at the job's workflow", () => {
-    expect(view.bindings.Issue).toBe(1);
+  it("takes the issue", () => {
+    expect(replay.project().bindings.Issue).toBe(1);
   });
 
-  it("starts the job", () => {
-    expect(runningWithAJobOnTheIssue(view)).toEqual([1]);
-  });
-});
-
-describe("a job start that read the issue unbound while a session start binds it to a new workflow", () => {
-  let view: RouterView;
-
-  beforeEach(async () => {
-    const thread = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(thread, never);
-    const threadJob = await replay.startWork(0, "job_on_issue");
-    await replay.landUntil(threadJob, (call) => call.startsWith("ClaimBinding"));
-    const session = await replay.arrive("SessionASurface", "Start");
-    await replay.landUntil(session, never);
-    await replay.landUntil(threadJob, never);
-    const sessionJob = await replay.startWork(1, "job_on_issue");
-    await replay.landUntil(sessionJob, never);
-    view = replay.project();
-  });
-
-  it("lets only the workflow the binding points at start a job on the issue", () => {
-    expect(runningWithAJobOnTheIssue(view)).toEqual([1]);
-  });
-});
-
-describe("a person's message in a chat thread whose workflow ended in its Durable Object", () => {
-  let view: RouterView;
-  let message: string;
-
-  beforeEach(async () => {
-    const start = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(start, never);
-    await replay.startWork(0, "end");
-    message = await replay.arrive("ThreadSurface", "PersonsMessage");
-    await replay.landUntil(message, never);
-    view = replay.project();
-  });
-
-  it("starts the next workflow", () => {
-    expect(replay.deliveryOf(message)).toMatchObject({ created: true });
-  });
-
-  it("binds the thread to it", () => {
-    expect(view.bindings.Thread).toBe(1);
-  });
-});
-
-describe("the router's invocation ends while it abandons the next workflow after an end", () => {
-  let message: string;
-
-  beforeEach(async () => {
-    const start = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(start, never);
-    const end = await replay.startWork(0, "end");
-    await replay.landUntil(end, never);
-    message = await replay.arrive("ThreadSurface", "PersonsMessage");
-    await replay.landUntil(message, (call) => call.startsWith("CreateWorkflow"));
-    await replay.failCreate(message);
-  });
-
-  describe("after the abandon landed", () => {
-    beforeEach(async () => {
-      await replay.endRouterInvocation(message, true);
-    });
-
-    it("points the thread back at the workflow that ended", () => {
-      const view = replay.project();
-      expect(view.bindings.Thread).toBe(0);
-      expect(view.rows[1]).toBe("Ended");
-    });
-  });
-
-  describe("before the abandon landed", () => {
-    beforeEach(async () => {
-      await replay.endRouterInvocation(message, false);
-    });
-
-    it("leaves the thread on the next workflow", () => {
-      expect(replay.project().bindings.Thread).toBe(1);
-    });
-
-    it("lets a person's next message create it, told of the workflow that ended", async () => {
-      const next = await replay.arrive("ThreadSurface", "PersonsMessage");
-      await replay.landUntil(next, never);
-      expect(replay.project().objects[1]).toMatchObject({ created: true, predecessor: 0 });
-    });
-  });
-});
-
-describe("a takeover of the next workflow after an end whose router invocation ended mid-create", () => {
-  let view: RouterView;
-
-  beforeEach(async () => {
-    const start = await replay.arrive("ThreadSurface", "Start");
-    await replay.landUntil(start, never);
-    const end = await replay.startWork(0, "end");
-    await replay.landUntil(end, never);
-    const message = await replay.arrive("ThreadSurface", "PersonsMessage");
-    await replay.landUntil(message, (call) => call.startsWith("CreateWorkflow"));
-    await replay.endRouterInvocation(message, false);
-    const next = await replay.arrive("ThreadSurface", "PersonsMessage");
-    await replay.landUntil(next, never);
-    view = replay.project();
-  });
-
-  it("creates the workflow with the predecessor the first create recorded", () => {
-    expect(view.predecessors).toEqual({ 1: 0 });
-    expect(view.objects[1]).toMatchObject({ created: true, predecessor: 0 });
+  it("runs a job on the issue", () => {
+    expect(replay.project().workflows[1]?.hasIssueJob).toBe(true);
   });
 });

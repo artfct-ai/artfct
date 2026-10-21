@@ -1,5 +1,5 @@
 import type { Binding, BindingSource } from "@artfct-ai/contracts/sources";
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, exists, notInArray, sql } from "drizzle-orm";
 import { FINISHED_WORKFLOW_STATUSES } from "../workflow/store/state";
 import { nowIso, type Database } from "./client";
 import { bindings, workflows } from "./schema";
@@ -48,30 +48,51 @@ export async function findBinding(db: Database, binding: Binding): Promise<strin
 /** A binding claim: point it at `workflowId` if it still points at `previous`. */
 type Claim = { previous: string | null; workflowId: string };
 
+/** The condition that a workflow's row exists and has not finished. */
+function workflowLive(workflowId: string) {
+  return and(
+    eq(workflows.workflow_id, workflowId),
+    notInArray(workflows.status, FINISHED_WORKFLOW_STATUSES),
+  );
+}
+
+/** The binding row that points `binding` at a workflow, selected only while the workflow is live. */
+function liveBindingRow(db: Database, binding: Binding, workflowId: string) {
+  return db
+    .select({
+      source: sql<BindingSource>`${binding.source}`.as("source"),
+      external_id: sql<string>`${externalId(binding)}`.as("external_id"),
+      repo: sql<string | null>`${repoOf(binding)}`.as("repo"),
+      workflow_id: workflows.workflow_id,
+      created_at: sql<string>`${nowIso()}`.as("created_at"),
+    })
+    .from(workflows)
+    .where(workflowLive(workflowId));
+}
+
 /**
- * Point a binding at a workflow if it still points at `previous`. False when another write
- * moved it first.
+ * Point a binding at a live workflow if it still points at `previous`. False when another write
+ * moved it first, or when the workflow's row finished.
  */
 export async function claimBinding(db: Database, binding: Binding, claim: Claim): Promise<boolean> {
-  const created_at = nowIso();
   if (claim.previous === null) {
     const inserted = await db
       .insert(bindings)
-      .values({
-        source: binding.source,
-        external_id: externalId(binding),
-        repo: repoOf(binding),
-        workflow_id: claim.workflowId,
-        created_at,
-      })
+      .select(liveBindingRow(db, binding, claim.workflowId))
       .onConflictDoNothing()
       .returning({ workflow_id: bindings.workflow_id });
     return inserted.length > 0;
   }
+  const liveClaimer = db
+    .select({ workflow_id: workflows.workflow_id })
+    .from(workflows)
+    .where(workflowLive(claim.workflowId));
   const moved = await db
     .update(bindings)
-    .set({ workflow_id: claim.workflowId, created_at })
-    .where(and(bindingKeyIs(binding), eq(bindings.workflow_id, claim.previous)))
+    .set({ workflow_id: claim.workflowId, created_at: nowIso() })
+    .where(
+      and(bindingKeyIs(binding), eq(bindings.workflow_id, claim.previous), exists(liveClaimer)),
+    )
     .returning({ workflow_id: bindings.workflow_id });
   return moved.length > 0;
 }
@@ -85,24 +106,9 @@ export async function bindWorkflow(
   binding: Binding,
   workflowId: string,
 ): Promise<void> {
-  const live = db
-    .select({
-      source: sql<BindingSource>`${binding.source}`.as("source"),
-      external_id: sql<string>`${externalId(binding)}`.as("external_id"),
-      repo: sql<string | null>`${repoOf(binding)}`.as("repo"),
-      workflow_id: workflows.workflow_id,
-      created_at: sql<string>`${nowIso()}`.as("created_at"),
-    })
-    .from(workflows)
-    .where(
-      and(
-        eq(workflows.workflow_id, workflowId),
-        notInArray(workflows.status, FINISHED_WORKFLOW_STATUSES),
-      ),
-    );
   await db
     .insert(bindings)
-    .select(live)
+    .select(liveBindingRow(db, binding, workflowId))
     .onConflictDoUpdate({
       target: [bindings.source, bindings.external_id],
       set: {

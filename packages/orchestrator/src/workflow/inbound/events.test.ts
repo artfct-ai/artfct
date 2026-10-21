@@ -335,6 +335,34 @@ describe("a message a person wrote", () => {
         expect(workflow.posted).toEqual([]);
       }));
   });
+
+  describe("with a verbal command in a tracker session of a finished workflow", () => {
+    const commanded = scenario(freshRuntime, async (workflow) => {
+      workflow.patchConversation({ origin: SESSION });
+      seedEndedWorkflow(workflow, "done");
+      workflow.store.addReplyTarget(SESSION);
+      await handleEvent(workflow, {
+        ...START,
+        id: "evt-pause",
+        kind: "prompt",
+        text: "pause",
+        reply_to: SESSION,
+        acknowledge: undefined,
+      });
+    });
+
+    it("answers that the workflow is finished", () =>
+      commanded((workflow) => {
+        expect(workflow.posted).toEqual([
+          { type: "info", text: "This workflow is done. Tell me here what to do next." },
+        ]);
+      }));
+
+    it("does not tell the agent", () =>
+      commanded((workflow) => {
+        expect(workflow.notes).toEqual([]);
+      }));
+  });
 });
 
 function feedPayloadsOf(workflow: FakeRuntime): unknown[] {

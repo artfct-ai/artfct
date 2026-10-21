@@ -3,7 +3,7 @@
  * configured stage, and the bridge of the first stage dials in with the expected start spec.
  * On the Linear side it refreshes the install token, acknowledges the session, and moves the issue.
  */
-import { fetchWorkflowDebug, hasLogLine, hasOutboxMessage, jobById, waitUntil } from "../admin";
+import { fetchConversationDebug, hasLogLine, hasOutboxMessage, jobById, waitUntil } from "../admin";
 import { assert, assertEqual } from "../assert";
 import { PAGE_PARENT_ID, REPO_FULL_NAME, STAGE_NAMES } from "../config";
 import {
@@ -26,23 +26,22 @@ export const FIRST_ISSUE = linearIssue(
   `Users land on /404 after login. Repo: https://github.com/${REPO_FULL_NAME}\nPage parent: ${PAGE_PARENT_ID}`,
 );
 
-/** What the document stages step needs from the first workflow: its id and the first task. */
-export type LinearStartResult = { workflowId: string; taskId: string };
+/** What the document stages step needs from the first workflow: its conversation and the first task. */
+export type LinearStartResult = { conversationId: string; taskId: string };
 
-/** Posts the `created` session event and returns the new workflow id. */
+/** Posts the `created` session event and returns the id of the conversation it opened. */
 async function createWorkflowFromLinear(): Promise<string> {
   const reply = await postLinearWebhook(
     agentSessionCreated({ sessionId: FIRST_SESSION, creator: linearDev, issue: FIRST_ISSUE }),
   );
   console.log("  ->", JSON.stringify(reply));
-  assertEqual(reply.created, true, "linear delegation created a workflow");
-  const workflowId = reply.workflow_id;
+  const conversationId = reply.conversation_id;
   assert(
-    typeof workflowId === "string" && workflowId.startsWith("wf_"),
-    "reply carries a workflow id",
+    typeof conversationId === "string" && conversationId.startsWith("cv_"),
+    "reply carries a conversation id",
     reply,
   );
-  return workflowId;
+  return conversationId;
 }
 
 /**
@@ -82,13 +81,13 @@ async function assertLinearSideEffects(): Promise<void> {
 /** Runs step 1 and returns the workflow id and the id of its first task. */
 export async function runLinearStart(): Promise<LinearStartResult> {
   console.log("\n1. Linear delegation");
-  const workflowId = await createWorkflowFromLinear();
+  const conversationId = await createWorkflowFromLinear();
   const firstStage = STAGE_NAMES[0]!;
 
   const planned = await waitUntil(
     { label: `planned: ${STAGE_NAMES.join(" -> ")}, and linear issue moved to started` },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       const isPlanned =
         debug.workflow?.status === "running" &&
         debug.stage_plan?.stages.join(",") === STAGE_NAMES.join(",") &&
@@ -106,26 +105,26 @@ export async function runLinearStart(): Promise<LinearStartResult> {
   const taskRow = await waitUntil(
     { label: "task provisioned and bridge said hello", timeoutMs: 30_000 },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       const task = debug.tasks[0];
       return task && hasLogLine(debug, "hello fresh=true") ? task : null;
     },
   );
-  assertEqual(taskRow.task_id, `${workflowId}.1`, "first task id");
-  const firstJob = jobById(await fetchWorkflowDebug(workflowId), taskRow.job_id);
-  assertEqual(firstJob.job_id, `${workflowId}-1`, "first job id");
+  assertEqual(taskRow.task_id, `${conversationId}.1`, "first task id");
+  const firstJob = jobById(await fetchConversationDebug(conversationId), taskRow.job_id);
+  assertEqual(firstJob.job_id, `${conversationId}-1`, "first job id");
   assertEqual(firstJob.stage, firstStage, "first job runs the first stage");
   assertEqual(firstJob.branch, null, "a document stage job has no branch");
   assertEqual(taskRow.sandbox?.generation, 1, "task generation");
 
   await assertStartsSince(0, 1, "mock sandbox saw one start for the first task", taskRow.task_id);
   await assertStartSpec({
-    workflowId,
+    conversationId,
     taskId: taskRow.task_id,
     stage: firstStage,
     branch: null,
     generation: 1,
   });
 
-  return { workflowId, taskId: taskRow.task_id };
+  return { conversationId, taskId: taskRow.task_id };
 }

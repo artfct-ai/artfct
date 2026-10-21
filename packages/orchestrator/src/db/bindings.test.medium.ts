@@ -31,6 +31,12 @@ async function seedWorkflow(
   await writeWorkflowRow(db, { workflow_id: workflowId, conversation_id: conversationId, status });
 }
 
+async function seedEndedBinding(binding: Binding, workflowId: string): Promise<void> {
+  await seedWorkflow(workflowId, `cv_${workflowId}`);
+  await seed(binding, workflowId);
+  await seedWorkflow(workflowId, `cv_${workflowId}`, "done");
+}
+
 describe("an empty binding table", () => {
   it("lists nothing", async () => {
     expect(await listBindings(db)).toEqual([]);
@@ -153,6 +159,12 @@ describe("bindWorkflow", () => {
 });
 
 describe("claimBinding", () => {
+  beforeEach(async () => {
+    await seedWorkflow("wf_first", "cv_first");
+    await seedWorkflow("wf_second", "cv_second");
+    await seedWorkflow("wf_next", "cv_next");
+  });
+
   describe("a binding nobody bound", () => {
     let won: boolean;
 
@@ -185,7 +197,7 @@ describe("claimBinding", () => {
 
   describe("a binding of an ended workflow", () => {
     beforeEach(async () => {
-      await seed(issue, "wf_ended");
+      await seedEndedBinding(issue, "wf_ended");
     });
 
     it("moves to a claim that found it there", async () => {
@@ -197,6 +209,24 @@ describe("claimBinding", () => {
     it("stays with a claim that found it somewhere else", async () => {
       const previous = "wf_other";
       expect(await claimBinding(db, issue, { previous, workflowId: "wf_next" })).toBe(false);
+      expect(await findBinding(db, issue)).toBe("wf_ended");
+    });
+  });
+
+  describe("by a workflow whose row finished", () => {
+    beforeEach(async () => {
+      await seedWorkflow("wf_done", "cv_done", "done");
+      await seedEndedBinding(issue, "wf_ended");
+    });
+
+    it("does not take an unbound binding", async () => {
+      expect(await claimBinding(db, page, { previous: null, workflowId: "wf_done" })).toBe(false);
+      expect(await findBinding(db, page)).toBeNull();
+    });
+
+    it("does not move a binding", async () => {
+      const previous = "wf_ended";
+      expect(await claimBinding(db, issue, { previous, workflowId: "wf_done" })).toBe(false);
       expect(await findBinding(db, issue)).toBe("wf_ended");
     });
   });

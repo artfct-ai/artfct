@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm";
+import { eq, notInArray } from "drizzle-orm";
+import { FINISHED_WORKFLOW_STATUSES } from "../workflow/store/state";
 import { nowIso, type Database } from "./client";
 import { workflows } from "./schema";
 
@@ -10,7 +11,8 @@ export type WorkflowRecord = Pick<WorkflowRow, "workflow_id" | "conversation_id"
 
 /**
  * Write the router's row of a workflow with its current status. The first write inserts it, and
- * every later one, such as a restart's write again, sets the status.
+ * every later one, such as a restart's write again, sets the status. A finished row stays finished,
+ * so a running status that lands after the end does not revive it.
  */
 export async function writeWorkflowRow(db: Database, record: WorkflowRecord): Promise<void> {
   const timestamp = nowIso();
@@ -20,6 +22,7 @@ export async function writeWorkflowRow(db: Database, record: WorkflowRecord): Pr
     .onConflictDoUpdate({
       target: workflows.workflow_id,
       set: { status: record.status, updated_at: timestamp },
+      setWhere: notInArray(workflows.status, FINISHED_WORKFLOW_STATUSES),
     });
 }
 

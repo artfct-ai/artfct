@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { claimBinding, listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
+import { writeWorkflowRow } from "../db/workflows";
 import {
   FAKE_PLANNED_WORKFLOW_ID,
   type FakeRuntime,
@@ -17,6 +18,13 @@ const STAGES = ["design", "breakdown", "implement"];
 const db = createDb(env.DB);
 
 async function bindEverything(): Promise<void> {
+  for (const workflowId of [FAKE_PLANNED_WORKFLOW_ID, "wf_other"]) {
+    await writeWorkflowRow(db, {
+      workflow_id: workflowId,
+      conversation_id: `cv_${workflowId}`,
+      status: "running",
+    });
+  }
   await claimBinding(
     db,
     { source: "documents_page", external_id: "page1" },

@@ -2,7 +2,7 @@
  * Assertions on the mock sandbox record: start specs, destroys, and bridge exits.
  * Every helper is a no-op with a log line when the smoke targets an external stack.
  */
-import { waitUntil } from "./admin";
+import { fetchConversationDebug, waitUntil } from "./admin";
 import { assert, assertEqual } from "./assert";
 import { INGRESS_URL, IS_EXTERNAL_INGRESS, NOTION_TOKEN, REPO_FULL_NAME } from "./config";
 import { STAGE_HARNESS, STAGE_MODEL } from "../../packages/orchestrator/test/smoke-config";
@@ -61,18 +61,20 @@ async function latestStart(taskId: string): Promise<StartRecord | null> {
  * line. Only the PR stage creates a task branch.
  */
 export async function assertStartSpec(options: {
-  workflowId: string;
+  conversationId: string;
   taskId: string;
   stage: string;
   branch: string | null;
   generation: number;
 }): Promise<void> {
-  const { workflowId, taskId, stage, branch, generation } = options;
+  const { conversationId, taskId, stage, branch, generation } = options;
   const start = await latestStart(taskId);
   if (!start) return skip("start spec");
-  const dialUrl = `${INGRESS_URL.replace(/^http/, "ws")}/bridge/${workflowId}/${taskId}`;
+  const { workflow } = await fetchConversationDebug(conversationId);
+  assert(workflow !== null, "start spec: the conversation has a workflow");
+  const dialUrl = `${INGRESS_URL.replace(/^http/, "ws")}/bridge/${workflow.workflow_id}/${taskId}`;
 
-  assertEqual(start.workflow_id, workflowId, "start spec workflow_id");
+  assertEqual(start.workflow_id, workflow.workflow_id, "start spec workflow_id");
   assertEqual(start.task_id, taskId, "start spec task_id");
   assertEqual(start.generation, generation, "start spec generation");
   assertEqual(start.harness, STAGE_HARNESS, "start spec harness");
@@ -116,7 +118,7 @@ export async function assertStartSpec(options: {
 
   const env = start.env;
   assertEqual(env.ARTFCT_TASK_ID, taskId, "env ARTFCT_TASK_ID");
-  assertEqual(env.ARTFCT_WORKFLOW_ID, workflowId, "env ARTFCT_WORKFLOW_ID");
+  assertEqual(env.ARTFCT_WORKFLOW_ID, conversationId, "env ARTFCT_WORKFLOW_ID");
   assertEqual(env.ARTFCT_STAGE, stage, "env ARTFCT_STAGE");
   assertEqual(env.ARTFCT_REPO, REPO_FULL_NAME, "env ARTFCT_REPO");
   assertEqual(
