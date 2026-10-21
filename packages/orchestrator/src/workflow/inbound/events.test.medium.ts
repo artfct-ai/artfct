@@ -487,9 +487,10 @@ describe("finished workflows", () => {
 
   describe("a session the tracker opens without a person", () => {
     let before: number;
+    let answer: Awaited<ReturnType<Workflow["handle"]>>;
     const lateSession = scenario(failed, async (workflow) => {
       before = (await outboxOf(workflow)).length;
-      await workflow.handle({
+      answer = await workflow.handle({
         ...start,
         id: "evt-late-session",
         kind: "start",
@@ -505,9 +506,9 @@ describe("finished workflows", () => {
         expect(await outboxOf(workflow)).toHaveLength(before);
       }));
 
-    it("logs that it ignored the session", () =>
-      lateSession(async (workflow) => {
-        expect(await logOf(workflow)).toContain("ignored start: the workflow is failed");
+    it("refuses it with the status, so the router creates the next workflow", () =>
+      lateSession(() => {
+        expect(answer).toEqual({ refused: "ended", status: "failed" });
       }));
   });
 

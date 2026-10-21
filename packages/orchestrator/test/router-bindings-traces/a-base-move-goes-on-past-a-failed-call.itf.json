@@ -26,7 +26,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
@@ -37,11 +37,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -109,7 +109,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": { "#set": [{ "tag": "SessionASurface", "value": { "#tup": [] } }] }
         },
@@ -120,11 +120,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -212,7 +212,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": { "#set": [{ "tag": "SessionASurface", "value": { "#tup": [] } }] }
         },
@@ -223,11 +223,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -312,7 +312,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -328,11 +328,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -431,7 +431,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -447,11 +447,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -553,7 +553,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -569,11 +569,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -677,7 +677,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -693,11 +693,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -801,7 +801,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -817,11 +817,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -925,7 +925,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -941,11 +941,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -1052,7 +1052,7 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -1068,11 +1068,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -1184,7 +1184,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -1200,11 +1200,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -1316,7 +1316,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": true,
           "surfaces": {
             "#set": [
@@ -1332,11 +1332,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -1462,7 +1462,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -1478,11 +1478,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -1621,7 +1621,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -1637,11 +1637,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -1768,7 +1768,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -1784,11 +1784,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -1916,7 +1916,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -1932,11 +1932,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -2074,7 +2074,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -2090,11 +2090,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -2226,7 +2226,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -2242,11 +2242,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -2388,7 +2388,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -2404,11 +2404,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -2564,7 +2564,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -2580,11 +2580,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -2740,7 +2740,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -2756,11 +2756,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -2909,7 +2909,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -2925,11 +2925,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -3066,7 +3066,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -3082,11 +3082,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -3233,7 +3233,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -3249,11 +3249,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
@@ -3406,7 +3406,7 @@
           "createFailed": false,
           "created": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
           "open": true,
-          "personWrote": true,
+          "startOrMessage": true,
           "quiet": false,
           "surfaces": {
             "#set": [
@@ -3422,11 +3422,11 @@
           "createFailed": false,
           "created": { "#set": [] },
           "open": false,
-          "personWrote": false,
+          "startOrMessage": false,
           "quiet": true,
           "surfaces": { "#set": [] }
         },
-        "messagesOnEndedWorkflows": { "#set": [] },
+        "startsOrMessagesOnEndedWorkflows": { "#set": [] },
         "movedBindings": { "#set": [] },
         "predecessors": { "#map": [] }
       },
