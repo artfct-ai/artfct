@@ -366,7 +366,7 @@ describe("control", () => {
           job_id: JOB,
           stage: "implement",
         });
-        workflow.store.enqueuePrompt(TASK, "CI went red.");
+        workflow.store.enqueuePrompt(TASK, "CI went red.", "workflow");
         await applyVerbalCommand(workflow, controlEvent("cancel"));
       });
 

@@ -731,16 +731,16 @@ describe("the activity on a job line", () => {
   it("is prompt_queued when a prompt waits for the harness", () =>
     freshRuntime((workflow) => {
       seedTask(workflow, { status: "in_review" });
-      workflow.store.enqueuePrompt("wf_x.1", "Fix the title.");
+      workflow.store.enqueuePrompt("wf_x.1", "Fix the title.", "workflow");
       expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=prompt_queued ");
     }));
 
   it("counts the instructions of a running turn apart from the prompts that wait", () =>
     freshRuntime((workflow) => {
       seedTask(workflow, {}, { prompt_in_flight: 1 });
-      workflow.store.enqueueInstruction("wf_x.1", "taken");
-      workflow.store.enqueueInstruction("wf_x.1", "steered");
-      workflow.store.enqueuePrompt("wf_x.1", "Fix the title.");
+      workflow.store.enqueuePrompt("wf_x.1", "taken", "instruction");
+      workflow.store.enqueuePrompt("wf_x.1", "steered", "instruction");
+      workflow.store.enqueuePrompt("wf_x.1", "Fix the title.", "workflow");
       const [taken, steered] = workflow.store.waitingInstructions("wf_x.1");
       workflow.store.holdTakenPrompt(taken!.id, 1);
       workflow.store.steerPrompt(steered!.id, 2);

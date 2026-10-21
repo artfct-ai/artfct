@@ -123,7 +123,7 @@ describe("onTurnEnd", () => {
         { task_id: REVIEW_TASK, role: "reviewer", job_id: JOB },
         { prompt_in_flight: 1 },
       );
-      workflow.store.enqueuePrompt(REVIEW_TASK, "Still there?");
+      workflow.store.enqueuePrompt(REVIEW_TASK, "Still there?", "workflow");
       return onTurnEnd(workflow, review, "cancelled");
     });
 
@@ -494,7 +494,7 @@ describe("onTurnEnd", () => {
         {},
         { session_id: "s1", prompt_in_flight: 1, turn_text: "Tests run." },
       );
-      workflow.store.enqueuePrompt(TASK, "next");
+      workflow.store.enqueuePrompt(TASK, "next", "workflow");
       socket = fakeConnection(TASK, 1);
       workflow.sockets.push(socket.connection);
       return onTurnEnd(workflow, author, "end_turn");
@@ -770,7 +770,7 @@ describe("onTurnEnd", () => {
     let socket: FakeSocket;
     const ended = scenario(freshRuntime, (workflow) => {
       const task = seedTask(workflow, {}, { session_id: "s1", prompt_in_flight: 1 });
-      workflow.store.enqueuePrompt(TASK, "next");
+      workflow.store.enqueuePrompt(TASK, "next", "workflow");
       socket = fakeConnection(TASK, 1);
       workflow.sockets.push(socket.connection);
       return onTurnEnd(workflow, task, "end_turn");
@@ -901,7 +901,7 @@ describe("onTurnEnd", () => {
       const polisher = seedPolisherRun(workflow);
       workflow.store.updateTask(polisher.task_id, { status: "working" });
       workflow.store.updateSandbox(polisher.task_id, { prompt_in_flight: 1 });
-      workflow.store.enqueuePrompt(polisher.task_id, "Still there?");
+      workflow.store.enqueuePrompt(polisher.task_id, "Still there?", "workflow");
       await onTurnEnd(workflow, workflow.store.requireTask(polisher.task_id), "cancelled");
     });
 
@@ -932,7 +932,7 @@ function brokenPolisher(queued: string | null, restarts = 2) {
     workflow.store.updateTask(polisher.task_id, { status: "working" });
     workflow.store.updateSandbox(polisher.task_id, { prompt_in_flight: 1 });
     workflow.store.updateTask(polisher.task_id, { restarts });
-    if (queued) workflow.store.enqueuePrompt(polisher.task_id, queued);
+    if (queued) workflow.store.enqueuePrompt(polisher.task_id, queued, "workflow");
     await onRpcError(
       workflow,
       workflow.store.requireTask(polisher.task_id),

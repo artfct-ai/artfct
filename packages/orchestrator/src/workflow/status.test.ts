@@ -205,7 +205,7 @@ describe("debugDump", () => {
   describe("a task with a queued prompt, a log line, and a transcript note", () => {
     const dumped = scenario(freshRuntime, (workflow) => {
       seedTask(workflow, {}, { bridge_token: "very-secret" });
-      workflow.store.enqueuePrompt(TASK, "later");
+      workflow.store.enqueuePrompt(TASK, "later", "workflow");
       workflow.log(TASK, "hello");
       workflow.transcript.enqueue("[note]\nqueued", "none");
     });

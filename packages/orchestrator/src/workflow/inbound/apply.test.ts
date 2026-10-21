@@ -630,7 +630,7 @@ describe("applyEvent", () => {
       { kind: "stop", text: "", reply_to: STARTING_SESSION },
       (workflow) => {
         authorWorksInStartingSession(workflow);
-        workflow.store.enqueuePrompt(TASK, "Also fix the logout.");
+        workflow.store.enqueuePrompt(TASK, "Also fix the logout.", "workflow");
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);
       },
@@ -708,7 +708,7 @@ describe("applyEvent", () => {
       { kind: "stop", text: "", reply_to: STARTING_SESSION },
       (workflow) => {
         authorWorksInStartingSession(workflow);
-        workflow.store.enqueuePrompt(TASK, "Your sandbox went away. Continue.");
+        workflow.store.enqueuePrompt(TASK, "Your sandbox went away. Continue.", "workflow");
       },
     );
 

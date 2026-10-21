@@ -326,7 +326,7 @@ describe("cancelTask and failTask", () => {
     const cancelled = scenario(freshDurableRuntime, async (workflow) => {
       const first = seedTask(workflow, {}, { hello_schedule: "h1" });
       seedTask(workflow, { task_id: SECOND_TASK });
-      workflow.store.enqueuePrompt(TASK, "pending");
+      workflow.store.enqueuePrompt(TASK, "pending", "workflow");
       await cancelTask(workflow, first, "PR closed");
     });
 

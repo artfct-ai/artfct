@@ -503,10 +503,10 @@ export class WorkflowWorld {
   private recordQueuedPrompts(): void {
     const { store } = this.workflow;
     const enqueuePrompt = store.enqueuePrompt.bind(store);
-    store.enqueuePrompt = (taskId, text) => {
+    store.enqueuePrompt = (taskId, text, kind) => {
       const texts = this.queuedPromptTexts.get(taskId) ?? [];
       this.queuedPromptTexts.set(taskId, [...texts, text]);
-      enqueuePrompt(taskId, text);
+      enqueuePrompt(taskId, text, kind);
     };
   }
 

@@ -34,7 +34,7 @@ describe("read_task", () => {
         { issue_key: "ENG-1", summary: "Opened the PR." },
         { prompt_in_flight: 1 },
       );
-      workflow.store.enqueuePrompt("wf_x.1", "later");
+      workflow.store.enqueuePrompt("wf_x.1", "later", "workflow");
       const { read_task } = readTools(workflow);
       lines = toolText(await read_task.execute({ task_id: "wf_x.1" }, call)).split("\n");
     });
@@ -55,9 +55,9 @@ describe("read_task", () => {
     it("counts them apart from the prompt that waits", () =>
       freshRuntime(async (workflow) => {
         seedTask(workflow, {}, { prompt_in_flight: 1 });
-        workflow.store.enqueueInstruction("wf_x.1", "taken");
-        workflow.store.enqueueInstruction("wf_x.1", "steered");
-        workflow.store.enqueuePrompt("wf_x.1", "later");
+        workflow.store.enqueuePrompt("wf_x.1", "taken", "instruction");
+        workflow.store.enqueuePrompt("wf_x.1", "steered", "instruction");
+        workflow.store.enqueuePrompt("wf_x.1", "later", "workflow");
         const [taken, steered] = workflow.store.waitingInstructions("wf_x.1");
         workflow.store.holdTakenPrompt(taken!.id, 1);
         workflow.store.steerPrompt(steered!.id, 2);

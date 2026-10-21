@@ -257,7 +257,7 @@ async function restartBlockedAuthor(workflow: WorkflowRuntime, taskId: string): 
   const author = workflow.store.requireTask(taskId);
   if (isTaskFinished(author.status)) return true;
   if (authorHasAPrompt(workflow, taskId)) return false;
-  workflow.store.enqueuePrompt(taskId, GAVE_UP_RESTART_TEXT);
+  workflow.store.enqueuePrompt(taskId, GAVE_UP_RESTART_TEXT, "workflow");
   const reason = `The author gave up: ${clipHead(author.summary, GAVE_UP_CHARS)}`;
   await restartOrFailTask(workflow, author, reason);
   return true;

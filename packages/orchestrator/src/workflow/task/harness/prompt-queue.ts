@@ -39,7 +39,9 @@ export async function promptTask(
   task: TaskRow,
   text: string,
 ): Promise<void> {
-  await queuePrompt(workflow, task, () => workflow.store.enqueuePrompt(task.task_id, text));
+  await queuePrompt(workflow, task, () =>
+    workflow.store.enqueuePrompt(task.task_id, text, "workflow"),
+  );
 }
 
 /**
@@ -51,7 +53,9 @@ export async function instructTask(
   task: TaskRow,
   text: string,
 ): Promise<void> {
-  await queuePrompt(workflow, task, () => workflow.store.enqueueInstruction(task.task_id, text));
+  await queuePrompt(workflow, task, () =>
+    workflow.store.enqueuePrompt(task.task_id, text, "instruction"),
+  );
 }
 
 async function queuePrompt(
@@ -164,7 +168,7 @@ export async function sendPrompt(
   const params: PromptRequest = { sessionId, prompt: [{ type: "text", text: prompt.text }] };
   const rpcId = sendRequest(workflow, task, AgentMethods.sessionPrompt, params, "prompt");
   const { queued } = prompt;
-  if (queued?.instruction) workflow.store.holdTakenPrompt(queued.id, rpcId);
+  if (queued?.kind === "instruction") workflow.store.holdTakenPrompt(queued.id, rpcId);
   else if (queued) workflow.store.dequeuePrompt(queued.id);
   steerWaitingInstructions(workflow, task);
   await armNoProgress(workflow, workflow.store.requireSandbox(task.task_id));

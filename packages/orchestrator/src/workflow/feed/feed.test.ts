@@ -495,7 +495,7 @@ describe("the session feed", () => {
     it("closes the feed when a resumed prompt waits for the sandbox", () =>
       linearOnly(async (fixture) => {
         fixture.workflow.store.updateSandbox(fixture.author.task_id, { prompt_in_flight: 0 });
-        fixture.workflow.store.enqueuePrompt(fixture.author.task_id, "Continue.");
+        fixture.workflow.store.enqueuePrompt(fixture.author.task_id, "Continue.", "workflow");
         await closeAbandonedTurnFeed(fixture.workflow, fixture.author, STOPPED_CLOSING);
         expect(stored(fixture)).toEqual([{ type: "response", body: STOPPED_TEXT }]);
       }));

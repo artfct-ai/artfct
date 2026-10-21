@@ -107,7 +107,7 @@ describe("the author's container while a polisher runs", () => {
     workflow.store.updateSandbox(TASK, { session_id: "s1" });
     socket = fakeConnection(TASK, workflow.store.requireSandbox(TASK).generation);
     workflow.sockets.push(socket.connection);
-    workflow.store.enqueuePrompt(TASK, "the checks failed");
+    workflow.store.enqueuePrompt(TASK, "the checks failed", "workflow");
     await startRefiner(workflow, author, 1);
   });
 
@@ -290,7 +290,7 @@ describe("an author prompted while a polisher held its artifact", () => {
   const released = scenario(stageWithPolishers([comments, naming]), async (workflow) => {
     const author = seedPullRequestTask(workflow, { status: "in_review" });
     await startRefiner(workflow, author, 1);
-    workflow.store.enqueuePrompt(TASK, "the checks failed");
+    workflow.store.enqueuePrompt(TASK, "the checks failed", "workflow");
     await endPolisherRun(workflow, currentRunOf(workflow), { ended: "turn" });
   });
 
@@ -314,7 +314,7 @@ describe("a polisher the artifact no longer points at", () => {
     await startRefiner(workflow, author, 1);
     const polisher = currentRunOf(workflow);
     workflow.store.setArtifactRefinerRun(JOB, null);
-    workflow.store.enqueuePrompt(TASK, "the checks failed");
+    workflow.store.enqueuePrompt(TASK, "the checks failed", "workflow");
     await endPolisherRun(workflow, polisher, { ended: "turn" });
   });
 
@@ -479,7 +479,7 @@ describe("a polisher whose push the checks report on later", () => {
 
   it("keeps its run open when it took a prompt since its turn ended", () =>
     reportedLater(async (workflow) => {
-      workflow.store.enqueuePrompt(POLISHER, "Still there?");
+      workflow.store.enqueuePrompt(POLISHER, "Still there?", "workflow");
       checksReport(workflow, { state: "passed", settled_at: at(0) });
       await recheckAt(workflow, CHECKS_GRACE_MS);
       expect(workflow.store.requireTask(POLISHER).status).not.toBe("done");
