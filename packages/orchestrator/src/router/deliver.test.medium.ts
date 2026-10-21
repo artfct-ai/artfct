@@ -72,9 +72,6 @@ async function seedWorkflow(
     if (conversation.store.conversation()) return;
     conversation.store.openConversation({
       conversation_id: conversationId,
-      request_title: "",
-      request_text: "",
-      request_links: [],
       origin: null,
     });
   });

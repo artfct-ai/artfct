@@ -140,7 +140,7 @@ describe("acknowledge", () => {
         const acks = (await outboxOf(workflow)).filter((entry) => entry.kind === "acknowledge");
         expect(acks.map((entry) => entry.payload)).toEqual([
           { message: "1.0", user: "U1", title: "fix the flaky test" },
-          { message: "1.5", user: "U1", title: "fix the flaky test" },
+          { message: "1.5", user: "U1" },
         ]);
       }));
   });
@@ -168,20 +168,14 @@ describe("acknowledge", () => {
   });
 
   describe("a bare mention, which Slack maps to an empty title and empty text", () => {
-    let recorder: RecordingNotifier;
     const bare = createdFrom({ ...start, id: "evt-bare", title: "", text: "" });
 
-    it("titles the request rather than storing the empty string", () =>
-      bare((workflow) => {
-        expect(workflow.store.requireConversation().request_title).toBe("task");
-      }));
-
-    it("sends that title to Slack, never an empty one", () =>
+    it("titles the thread rather than sending Slack the empty string", () =>
       bare(async (workflow) => {
-        recorder = new RecordingNotifier(NO_CHANNELS, () => {});
-        workflow.notifier = recorder;
-        await workflow.release();
-        expect(recorder.releases).toEqual([{ finished: false, title: "task" }]);
+        const acks = (await outboxOf(workflow)).filter((entry) => entry.kind === "acknowledge");
+        expect(acks.map((entry) => entry.payload)).toEqual([
+          { message: "1.0", user: "U1", title: "task" },
+        ]);
       }));
   });
 
@@ -645,9 +639,9 @@ describe("the thread title between turns", () => {
       await workflow.release();
     });
 
-    it("leaves the thread on the first line the person typed", () =>
+    it("keeps the thread's title", () =>
       unplanned(() => {
-        expect(recorder.releases).toEqual([{ finished: false, title: "fix the flaky test" }]);
+        expect(recorder.releases).toEqual([{ finished: false, title: undefined }]);
       }));
   });
 });

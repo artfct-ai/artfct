@@ -6,6 +6,7 @@ CREATE TABLE `agent_inbox` (
 	`wake` text DEFAULT 'none' NOT NULL,
 	`reply_to` text,
 	`chat_message` text,
+	`links` text,
 	`taken` integer DEFAULT false NOT NULL,
 	`reacted` integer DEFAULT false NOT NULL
 );
@@ -49,9 +50,6 @@ CREATE TABLE `boards` (
 CREATE TABLE `conversation` (
 	`conversation_id` text PRIMARY KEY NOT NULL,
 	`origin` text,
-	`request_title` text NOT NULL,
-	`request_text` text NOT NULL,
-	`request_links` text NOT NULL,
 	`opened_at` text NOT NULL
 );
 --> statement-breakpoint
@@ -239,6 +237,8 @@ CREATE TABLE `workflows` (
 	`name` text NOT NULL,
 	`reason` text NOT NULL,
 	`repo` text,
+	`request_text` text NOT NULL,
+	`request_links` text NOT NULL,
 	`idle_schedule` text,
 	`created_at` text NOT NULL
 );

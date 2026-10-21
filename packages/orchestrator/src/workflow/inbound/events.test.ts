@@ -187,6 +187,7 @@ describe("a message a person wrote", () => {
         expect(workflow.notes.map((note) => note.from)).toEqual([
           {
             body: "also add a test",
+            links: [],
             reply_to: THREAD,
             chat_message: { channel: "C1", message: "1.5" },
           },
@@ -248,7 +249,7 @@ describe("a message a person wrote", () => {
     it("tells the agent where to answer, without a chat message", () =>
       prompted((workflow) => {
         expect(workflow.notes.map((note) => note.from)).toEqual([
-          { body: "also add a test", reply_to: SESSION, chat_message: undefined },
+          { body: "also add a test", links: [], reply_to: SESSION, chat_message: undefined },
         ]);
       }));
 

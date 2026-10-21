@@ -21,7 +21,7 @@ export async function postToRecipients(
   };
   const targets = recipientsOf(audience, event, to);
   const finished = workflow.store.workflowFinished();
-  const title = workflow.store.workflowName();
+  const title = workflow.store.workflowRow()?.name;
   const destination = destinationFor(event);
   for (const target of targets) {
     if (destination === "channel") {
@@ -39,7 +39,7 @@ export async function releaseChatThreads(
 ): Promise<void> {
   const targets = only ? [only] : workflow.store.replyTargets();
   const finished = workflow.store.workflowFinished();
-  const title = workflow.store.workflowName();
+  const title = workflow.store.workflowRow()?.name;
   for (const target of targets) {
     if (target.source === "chat") await workflow.notifier.release(target, finished, title);
   }

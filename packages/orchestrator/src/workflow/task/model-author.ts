@@ -198,7 +198,7 @@ async function producePage(
   if (text === null) return { target: null };
   if (!text) return { failure: "The model answered with no document text." };
   const stage = workflow.stageForTask(task);
-  const title = modelAuthorPageTitle(workflow.store.workflowName(), stage.name);
+  const title = modelAuthorPageTitle(workflow.store.requireWorkflowRow().name, stage.name);
   const root = workflow.store.stagePlan()?.root_page;
   if (
     rootPageStage(workflow.workflowDefinition())?.name === stage.name &&

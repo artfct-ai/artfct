@@ -575,13 +575,9 @@ export class WorkflowWorld {
       });
     }
     const stage = STAGE_OF[setup.artifact];
-    workflow.patchConversation({
-      request_title: "Fix login",
-      request_text: "Fix the login redirect.",
-      origin: ORIGINS[setup.origin],
-    });
+    workflow.patchConversation({ origin: ORIGINS[setup.origin] });
     workflow.store.addReplyTarget(ORIGINS[setup.origin]);
-    patchPlan(workflow, { repo: REPO });
+    patchPlan(workflow, { name: "Fix login", request_text: "Fix the login redirect.", repo: REPO });
     await writeRouterWorkflowStatus(workflow);
     patchStagePlan(workflow, {
       stages: [stage],

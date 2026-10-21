@@ -1222,8 +1222,8 @@ export class AgentTurnsReplay {
     const body = `Fix the flaky test with ${NAMED_MODEL} (inbox ${id}).${LONG_DETAIL}`;
     const from: WroteFrom =
       target.source === "chat"
-        ? { body, reply_to: target, chat_message: { channel: target.channel, message } }
-        : { body, reply_to: target };
+        ? { body, links: [], reply_to: target, chat_message: { channel: target.channel, message } }
+        : { body, links: [], reply_to: target };
     if (target.source === "chat") {
       await this.runtime.notifier.acknowledge(target, { message, user: "U1" }, "Replay");
     }

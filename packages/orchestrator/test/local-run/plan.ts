@@ -101,12 +101,13 @@ export async function planLocalRun(
   workflow.gatewayInstance = gateway(config, secrets);
   workflow.store.openConversation({
     conversation_id: "local",
-    request_title: request.title,
-    request_text: request.request,
-    request_links: [],
     origin: null,
   });
-  patchPlan(workflow, { repo: request.repoFull ?? null });
+  patchPlan(workflow, {
+    name: request.title,
+    request_text: request.request,
+    repo: request.repoFull ?? null,
+  });
 
   const seeded = await seedRun(workflow, loaded, request);
   if ("error" in seeded) return seeded;

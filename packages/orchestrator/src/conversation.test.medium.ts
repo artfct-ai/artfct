@@ -21,9 +21,6 @@ async function seedProvisioningTask(workflow: Conversation, name: string): Promi
   await workflow.status("wf_none");
   workflow.store.openConversation({
     conversation_id: name,
-    request_title: "",
-    request_text: "",
-    request_links: [],
     origin: null,
   });
   patchPlan(workflow, {});

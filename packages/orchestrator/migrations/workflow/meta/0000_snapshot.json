@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0957f3ba-027f-432e-80f3-5c1ebcba7994",
+  "id": "c827b2ac-dc45-4427-9a7b-ea5a538e2c5d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "agent_inbox": {
@@ -52,6 +52,13 @@
         },
         "chat_message": {
           "name": "chat_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "links": {
+          "name": "links",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -318,27 +325,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
-        },
-        "request_title": {
-          "name": "request_title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_text": {
-          "name": "request_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_links": {
-          "name": "request_links",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
           "autoincrement": false
         },
         "opened_at": {
@@ -1445,6 +1431,20 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false,
+          "autoincrement": false
+        },
+        "request_text": {
+          "name": "request_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_links": {
+          "name": "request_links",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
         "idle_schedule": {

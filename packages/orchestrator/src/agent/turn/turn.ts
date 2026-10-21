@@ -124,11 +124,9 @@ type ModelPass = { text: string; steps: number; endedByTool: boolean };
 export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
   const takenRow = workflow.transcript.takeInbox();
   if (takenRow === null) return;
-  const taken = workflow.transcript.taken();
   const messages = workflow.transcript
     .takenMessages()
     .flatMap((row) => (row.body === null ? [] : [row.body]));
-  const prompts = messages.length ? messages : taken.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
   const start = await armTurnWatchdog(workflow, takenRow);
   const answering = workflow.transcript.answering();
@@ -137,7 +135,7 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
     firstRow: start.firstRow,
     boardChanged: start.boardChanged,
     messages,
-    requestText: prompts.join("\n"),
+    requestText: workflow.transcript.takenRequest().text,
     answering,
   });
   const owesTheReply = await disarmTurnWatchdog(workflow, start.startedAt);

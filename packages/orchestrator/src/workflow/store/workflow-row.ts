@@ -21,7 +21,7 @@ import {
   type WorkflowEnd,
 } from "./state";
 
-/** The one row of the conversation: its id, its origin, and its opening request. */
+/** The one row of the conversation: its id and its origin. */
 export type ConversationRow = typeof conversation.$inferSelect;
 
 /** One workflow of the conversation: its status, its plan, and its idle alarm. */
@@ -39,7 +39,7 @@ export type NewConversation = Omit<ConversationRow, "opened_at">;
 /** What the plan that creates a workflow sets. */
 export type NewWorkflow = Pick<
   WorkflowRow,
-  "workflow_id" | "definition" | "name" | "reason" | "repo"
+  "workflow_id" | "definition" | "name" | "reason" | "repo" | "request_text" | "request_links"
 > & { subject: Subject | null };
 
 /** The workflow row columns code changes after the create. */
@@ -124,11 +124,6 @@ export class WorkflowRowStore extends BoardStore {
     if (Object.keys(patch).length === 0) return;
     const { workflow_id } = this.requireWorkflowRow();
     this.db.update(workflows).set(patch).where(eq(workflows.workflow_id, workflow_id)).run();
-  }
-
-  /** What every reader calls the work: the workflow's name, else the opening request's title. */
-  workflowName(): string {
-    return this.workflowRow()?.name ?? this.requireConversation().request_title;
   }
 
   /** The status every reader outside the store sees: the end's status from the start of the end. */

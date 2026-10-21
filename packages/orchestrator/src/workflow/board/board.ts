@@ -54,7 +54,7 @@ export function boardTask(workflow: WorkflowRuntime, task: TaskRow): BoardTask {
     task_id: task.task_id,
     number: sequenceFromJobId(job.job_id) ?? 0,
     ticket_key: job.issue_key,
-    workflow_name: boardText(workflow.store.workflowName()).slice(0, NAME_CHARS),
+    workflow_name: boardText(workflow.store.requireWorkflowRow().name).slice(0, NAME_CHARS),
     work: boardWork(task, job),
     status: task.status,
     paused: task.paused_at !== null,

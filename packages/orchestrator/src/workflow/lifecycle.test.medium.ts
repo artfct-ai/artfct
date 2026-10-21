@@ -585,8 +585,7 @@ describe("startJob", () => {
   describe("a stage the config names", () => {
     const started = acting(async (workflow) => {
       planned(workflow);
-      patchPlan(workflow, { repo: "acme/app" });
-      workflow.patchConversation({ request_title: "Fix it", request_text: "Fix it please" });
+      patchPlan(workflow, { name: "Fix it", request_text: "Fix it please", repo: "acme/app" });
       await writeRouterWorkflowStatus(workflow);
       return startJob(workflow, {
         stage: "implement",

@@ -91,7 +91,7 @@ export async function startJob(
   const { input } = options;
   const issue = input.kind === "issue" ? input.issue : null;
   const target = input.kind === "target" ? input.target : null;
-  const title = issue?.title ?? options.title ?? opened.request_title;
+  const title = issue?.title ?? options.title ?? store.requireWorkflowRow().name;
   const branch = stage.branch ? (options.continued_branch ?? branchName(jobId, title)) : null;
   const issueLinked = issue !== null && workflow.store.jobByIssue(issue.id) !== null;
   workflow.store.insertJob({

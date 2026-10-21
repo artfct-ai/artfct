@@ -29,7 +29,7 @@ function personWrote(workflow: FakeRuntime, text: string): void {
     { ...asked, text },
     { first: false, job: null, artifact: null, notes: [] },
   );
-  workflow.transcript.enqueue(message, "message", { body: text });
+  workflow.transcript.enqueue(message, "message", { body: text, links: [] });
 }
 
 type Stuck = { workflow: FakeRuntime; decisions: HangingDecisions; elapsedMs: number };

@@ -33,11 +33,6 @@ export const conversation = sqliteTable("conversation", {
   conversation_id: text().primaryKey(),
   /** Where the conversation started. Null when the opening event did not name a place. */
   origin: text({ mode: "json" }).$type<ReplyTarget>(),
-  /** The title of the opening event, or the first line of its text. Names the conversation before a plan names a workflow. */
-  request_title: text().notNull(),
-  /** The text and the links of the opening event. Every workflow of the conversation works from them. */
-  request_text: text().notNull(),
-  request_links: text({ mode: "json" }).$type<string[]>().notNull(),
   opened_at: text().notNull(),
 });
 
@@ -56,6 +51,9 @@ export const workflows = sqliteTable("workflows", {
   reason: text().notNull(),
   /** The full name of the repository. Null when the last plan did not name one. */
   repo: text(),
+  /** What the turn that created the workflow was asked, and the links people sent with it. */
+  request_text: text().notNull(),
+  request_links: text({ mode: "json" }).$type<string[]>().notNull(),
   /** The schedule id of the idle alarm that posts the sleep note. Null while it is not armed. */
   idle_schedule: text(),
   created_at: text().notNull(),
@@ -399,6 +397,8 @@ export const agentInbox = sqliteTable("agent_inbox", {
   reply_to: text({ mode: "json" }).$type<ReplyTarget>(),
   /** The chat message the person wrote, which the first reply may react to. Null for anything else. */
   chat_message: text({ mode: "json" }).$type<ChatMessageRef>(),
+  /** The links the person sent with their words. Null on a row no person wrote. */
+  links: text({ mode: "json" }).$type<string[]>(),
   /** True once the running turn took the row. The turn deletes it when it ends. */
   taken: integer({ mode: "boolean" }).notNull().default(false),
   /** True once the thumbs-up landed on the row's chat message. */

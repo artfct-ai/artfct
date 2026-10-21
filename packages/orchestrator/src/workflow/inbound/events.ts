@@ -65,16 +65,15 @@ export async function deliverToConversation(
   workflow.store.openConversation({
     conversation_id: conversationId,
     origin: event.reply_to ?? null,
-    request_title: event.title || firstLine(event.text),
-    request_text: event.text,
-    request_links: event.links,
   });
   workflow.log(null, `opened from ${event.kind}`);
-  await acknowledge(workflow, event);
+  await acknowledge(workflow, event, event.title || firstLine(event.text));
   await workflow.tellAgent(
     eventMessage(event, { first: true, job: null, artifact: null, notes: [] }),
     "message",
-    event.actor ? { body: event.text.trim(), chat_message: chatMessageOf(event) } : undefined,
+    event.actor
+      ? { body: event.text.trim(), links: event.links, chat_message: chatMessageOf(event) }
+      : undefined,
   );
   return ACK;
 }
@@ -104,7 +103,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
 
   if (!answeredAsFinished(workflow, event)) {
     if (isMessage(event)) await wakeWorkflow(workflow);
-    await acknowledge(workflow, event);
+    await acknowledge(workflow, event, workflow.store.workflowRow()?.name);
     const instructed = instructedSessionOf(workflow, event);
     if (instructed) await postReceipt(workflow, instructed);
   }
@@ -143,7 +142,12 @@ async function tellAgentAbout(
     }),
     applied.wake,
     event.actor
-      ? { body: told.text.trim(), reply_to: event.reply_to, chat_message: chatMessageOf(event) }
+      ? {
+          body: told.text.trim(),
+          links: told.links,
+          reply_to: event.reply_to,
+          chat_message: chatMessageOf(event),
+        }
       : undefined,
   );
 }
@@ -164,10 +168,16 @@ async function releaseIfSilent(
   await workflow.release(event.reply_to);
 }
 
-/** Show the chat thread the message was received by putting it in its working status. */
-async function acknowledge(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
+/**
+ * Show the chat thread the message was received by putting it in its working status, under the
+ * title the work goes by.
+ */
+async function acknowledge(
+  workflow: WorkflowRuntime,
+  event: InboundEvent,
+  title: string | undefined,
+): Promise<void> {
   if (!event.acknowledge || event.reply_to?.source !== "chat") return;
-  const title = workflow.store.workflowName();
   await workflow.notifier.acknowledge(event.reply_to, event.acknowledge, title);
 }
 
