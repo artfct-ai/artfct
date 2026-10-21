@@ -131,6 +131,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | acknowledgement | How a chat thread shows a person that their message arrived. The thread enters its working status when the workflow takes the message. When that takes longer than a few seconds, the message gets the eyes reaction until the working status appears. | `Acknowledge`, `Notifier.acknowledge`, `deliverWithChatAck` | receipt |
 | binding | A code host, tracker or chat key that routes events to one workflow, such as a pull request, an issue, a session or a chat thread. | `bindings` row, `Binding` | |
 | delivery | One time a host sends an event to the workflow. A host may send one event more than once. An instance restart fails the deliveries in flight, and the host may send them again. | `deliver`, `RpcAck.duplicate` | webhook call |
+| takeover of a create | An event that finds its workflow's create not returned marks the router's row running and creates the workflow with that event. Today a person's start or message does this. | `takeOverCreate`, `takeOverWorkflowCreate` | retry create |
+| predecessor | The ended workflow whose binding a new workflow claimed. The router records it with the binding claim, and the new workflow's first turn hears that it ended. | `workflow_predecessors` row, `endedWorkflowId` | |
 | person | One human actor. | `Actor` | |
 | the humans | The people a workflow reports to. | | |
 | access | Who is authorized to give the deployment work. A tracker or chat user is authorized as a member of the team set for that app. A code host user is authorized when they may push to the repository. The deployment ignores what an unauthorized user writes. | `Access`, `resolveActor` | |

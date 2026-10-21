@@ -25,6 +25,10 @@ module routerBindingsTypes {
   /// What one binding pointed at when a delivery or a job start read it: no workflow, or one workflow.
   type Bound = Unbound | BoundTo(int)
 
+  /// The workflow that ended on a binding before a person's message started the next workflow there,
+  /// or none.
+  type Predecessor = NoPredecessor | PredecessorOf(int)
+
   /// The status of a workflow row in D1. A missing row reads as not ended. The router inserts a row
   /// `New`. A takeover of the create marks it `Live`, so an abandon of the first create leaves it.
   type RowStatus = New | Live | Ended
@@ -47,8 +51,8 @@ module routerBindingsTypes {
   /// A base move reads the workflows with a pull request bound, then hands the event to each one
   /// left, the smallest first. Each phase after the route is read names the workflow the delivery
   /// joins, creates, or hands the base move to. Checking names the workflow of the binding it
-  /// checks, and restoring names the workflow the binding points back at. A person's event that
-  /// finds its workflow not created takes the create over, then creates it.
+  /// checks. A create that threw is abandoned in one batch. A person's event that finds its workflow
+  /// not created takes the create over, then creates it.
   type DeliveryPhase =
     | ReadingPulls
     | FanningOut({ workflow: int, left: Set[int] })
@@ -60,9 +64,7 @@ module routerBindingsTypes {
     | Inserting(int)
     | Binding(int)
     | Creating(int)
-    | Unbinding(int)
-    | Restoring({ workflow: int, restoredTo: int })
-    | MarkingFailed(int)
+    | Abandoning(int)
     | TakingOver(int)
 
   /// A binding the route read that pointed at a workflow, by its place in the event's bindings.
@@ -73,7 +75,8 @@ module routerBindingsTypes {
 
   /// One event in the router. `found` is what each binding pointed at when the route was read.
   /// `joined` is the place of the binding whose workflow the delivery joins. `won` lists the
-  /// places of the bindings a new workflow claimed, in the order it claimed them.
+  /// places of the bindings a new workflow claimed, in the order it claimed them. `predecessor` is
+  /// the one the delivery's create names.
   type Delivery = {
     surface: Surface,
     kind: EventKind,
@@ -83,6 +86,7 @@ module routerBindingsTypes {
     joined: int,
     replaced: Replaced,
     won: List[int],
+    predecessor: Predecessor,
   }
 
   /// Where a workflow's own D1 work stands: its end, a job start on the issue, or a pull request it records.
@@ -99,19 +103,23 @@ module routerBindingsTypes {
 
   /// What the Durable Object of one workflow knows. `hasIssueJob` is true while it has an
   /// unfinished job on the issue. `openedPulls` holds the pull requests it recorded once their bind
-  /// returned. `unbound` is true once its end removed its code host bindings.
+  /// returned. `unbound` is true once its end removed its code host bindings. `predecessor` is the
+  /// one its create named, which its first turn hears of.
   type WorkflowObject = {
     created: bool,
     ended: bool,
     hasIssueJob: bool,
     openedPulls: Set[Key],
     unbound: bool,
+    predecessor: Predecessor,
   }
 
   /// The router's tables, the Durable Objects, and every delivery and workflow operation in flight.
+  /// `predecessors` is the router's record of each next workflow's predecessor.
   type World = {
     bindings: Key -> int,
     rows: int -> RowStatus,
+    predecessors: int -> int,
     objects: int -> WorkflowObject,
     deliveries: int -> Delivery,
     operations: int -> WorkflowOperation,
@@ -141,16 +149,24 @@ module routerBindingsTypes {
 
   /// What the last step showed that its end state does not: a fanned-out call threw and the fan-out
   /// went on to the next workflow, an instance restart cut off the status write of a workflow end,
-  /// or one cut off the bind of a pull request the workflow found.
+  /// or one cut off the bind of a pull request the workflow found. The router's invocation ended
+  /// during an abandon or a rebind, an abandon found its create taken over, or the create after a
+  /// takeover named a predecessor.
   type StepWitnesses = {
     fanOutWentOnPastAFailure: bool,
     restartCutTheEndStatusWrite: bool,
     restartCutThePullRequestBind: bool,
+    routerEndedAnAbandon: bool,
+    routerEndedARebind: bool,
+    abandonFoundATakeover: bool,
+    takeoverNamedAPredecessor: bool,
   }
 
-  /// What observers saw over the trace.
+  /// What observers saw over the trace. `predecessors` holds the workflow a binding pointed at,
+  /// ended, when a next workflow's first claim moved it.
   type History = {
     movedBindings: Set[{ key: Key, from: int }],
+    predecessors: int -> int,
     eventsBeforeCreate: Set[int],
     messagesOnEndedWorkflows: Set[int],
     batch: Batch,
@@ -178,8 +194,14 @@ module routerBindings {
 
   pure val CODE_SOURCES: Set[Source] = Set(CodePull)
 
-  pure val NEW_OBJECT: WorkflowObject =
-    { created: false, ended: false, hasIssueJob: false, openedPulls: Set(), unbound: false }
+  pure val NEW_OBJECT: WorkflowObject = {
+    created: false,
+    ended: false,
+    hasIssueJob: false,
+    openedPulls: Set(),
+    unbound: false,
+    predecessor: NoPredecessor,
+  }
 
   pure val EMPTY_BATCH: Batch = {
     open: false,
@@ -197,6 +219,7 @@ module routerBindings {
   pure val INITIAL_WORLD: World = {
     bindings: Map(),
     rows: Map(),
+    predecessors: Map(),
     objects: Map(),
     deliveries: Map(),
     operations: Map(),
@@ -205,11 +228,19 @@ module routerBindings {
     nextOperation: 0,
   }
 
-  pure val NO_STEP_WITNESSES: StepWitnesses =
-    { fanOutWentOnPastAFailure: false, restartCutTheEndStatusWrite: false, restartCutThePullRequestBind: false }
+  pure val NO_STEP_WITNESSES: StepWitnesses = {
+    fanOutWentOnPastAFailure: false,
+    restartCutTheEndStatusWrite: false,
+    restartCutThePullRequestBind: false,
+    routerEndedAnAbandon: false,
+    routerEndedARebind: false,
+    abandonFoundATakeover: false,
+    takeoverNamedAPredecessor: false,
+  }
 
   pure val INITIAL_HISTORY: History = {
     movedBindings: Set(),
+    predecessors: Map(),
     eventsBeforeCreate: Set(),
     messagesOnEndedWorkflows: Set(),
     batch: EMPTY_BATCH,
@@ -286,9 +317,7 @@ module routerBindings {
     | Inserting(workflow) => Set(workflow)
     | Binding(workflow) => Set(workflow)
     | Creating(workflow) => Set(workflow)
-    | Unbinding(workflow) => Set(workflow)
-    | Restoring(restore) => Set(restore.workflow)
-    | MarkingFailed(workflow) => Set(workflow)
+    | Abandoning(workflow) => Set(workflow)
     | TakingOver(workflow) => Set(workflow)
   }
 
@@ -297,6 +326,8 @@ module routerBindings {
   pure def isRebinding(phase: DeliveryPhase): bool = match phase { | Rebinding(_) => true | _ => false }
 
   pure def isCreating(phase: DeliveryPhase): bool = match phase { | Creating(_) => true | _ => false }
+
+  pure def isAbandoning(phase: DeliveryPhase): bool = match phase { | Abandoning(_) => true | _ => false }
 
   pure def boundOf(state: World, key: Key): Bound =
     if (state.bindings.keys().contains(key)) BoundTo(state.bindings.get(key)) else Unbound
@@ -364,9 +395,7 @@ module routerBindings {
       | Inserting(workflow) => InsertWorkflow(workflow)
       | Binding(_) => ClaimBinding(surfaceKeys[delivery.index])
       | Creating(workflow) => CreateWorkflow(workflow)
-      | Unbinding(workflow) => DeleteBindings(workflow)
-      | Restoring(_) => ClaimBinding(surfaceKeys[delivery.index])
-      | MarkingFailed(workflow) => SetStatus(workflow)
+      | Abandoning(workflow) => DeleteBindings(workflow)
       | TakingOver(workflow) => TakeOverCreate(workflow)
     }
   }
@@ -381,15 +410,28 @@ module routerBindings {
     | PullBinds(pull) => BindWorkflow({ key: pull, workflow: operation.workflow })
   }
 
+  /// The workflow that ended at the binding the next workflow claims first, if one did.
+  pure def replacedWorkflow(delivery: Delivery): Predecessor = match delivery.replaced {
+    | ReplacedAt(index) => match delivery.found[index] { | BoundTo(ended) => PredecessorOf(ended) | Unbound => NoPredecessor }
+    | NothingReplaced => NoPredecessor
+  }
+
   /// The route is read. A person's start, or a person's message on a binding whose workflow ended,
   /// starts the next workflow by claiming the binding whose workflow ended, else the first binding.
-  /// Every other event is dropped, a start without a person too.
+  /// The workflow that ended there is the next workflow's predecessor. Every other event is
+  /// dropped, a start without a person too.
   pure def decideRoute(state: World, id: int, delivery: Delivery): World = {
     val startsNext = delivery.kind == Start or (delivery.kind == PersonsMessage and delivery.replaced != NothingReplaced)
     if (not(startsNext)) finishDelivery(state, id)
     else {
       val workflow = state.nextWorkflow
-      val claiming = { ...delivery, phase: Claiming(workflow), index: firstClaimIndex(delivery), won: List() }
+      val claiming = {
+        ...delivery,
+        phase: Claiming(workflow),
+        index: firstClaimIndex(delivery),
+        won: List(),
+        predecessor: replacedWorkflow(delivery),
+      }
       withDelivery({ ...state, nextWorkflow: workflow + 1 }, id, claiming)
     }
   }
@@ -454,13 +496,19 @@ module routerBindings {
     rebindFrom(claimed, id, delivery, workflow, delivery.index + 1)
   }
 
-  /// A lost claim on the binding the next workflow starts from reads the route again.
+  /// The claim of the binding the next workflow starts from records its predecessor in the same
+  /// batch. A lost claim records nothing and reads the route again.
   pure def afterClaim(state: World, id: int, delivery: Delivery, workflow: int): World = {
     val key = keysOf(delivery.surface)[delivery.index]
     val previous = delivery.found[delivery.index]
-    if (claimWins(state, key, previous))
-      withDelivery(claim(state, key, previous, workflow), id, { ...delivery, phase: Inserting(workflow), won: List(delivery.index) })
-    else withDelivery(state, id, { ...delivery, phase: Reading, found: List(), index: 0, replaced: NothingReplaced })
+    if (claimWins(state, key, previous)) {
+      val claimed = claim(state, key, previous, workflow)
+      val recorded = match delivery.predecessor {
+        | PredecessorOf(ended) => { ...claimed, predecessors: claimed.predecessors.put(workflow, ended) }
+        | NoPredecessor => claimed
+      }
+      withDelivery(recorded, id, { ...delivery, phase: Inserting(workflow), won: List(delivery.index) })
+    } else withDelivery(state, id, { ...delivery, phase: Reading, found: List(), index: 0, replaced: NothingReplaced, predecessor: NoPredecessor })
   }
 
   /// Claim, from `from`, each other binding for the next workflow, then create it.
@@ -483,47 +531,33 @@ module routerBindings {
     bindFrom(claim(state, key, previous, workflow), id, { ...delivery, won: won }, workflow, delivery.index + 1)
   }
 
-  /// Point the next binding the abandoned workflow claimed back at the workflow it pointed at,
-  /// unless another delivery bound it since. Then mark the abandoned workflow failed.
-  pure def restoreNext(state: World, id: int, delivery: Delivery, workflow: int): World = {
-    val left = delivery.won.foldl(List(), (restorable, index) => match delivery.found[index] {
-      | BoundTo(restoredTo) => restorable.append({ index: index, workflow: restoredTo })
-      | Unbound => restorable
-    })
-    if (left.length() == 0) withDelivery(state, id, { ...delivery, phase: MarkingFailed(workflow), won: List() })
+  /// The abandon of a create that threw is one batch, and it acts only while the row is new. The
+  /// bindings the new workflow won go, each points back at the workflow it pointed at unless
+  /// another delivery bound it since, and the row ends. A takeover of the create that marked the
+  /// row first keeps them all.
+  pure def afterAbandon(state: World, id: int, delivery: Delivery, workflow: int): World =
+    if (not(rowNew(state, workflow))) finishDelivery(state, id)
     else {
-      val rest = left.slice(1, left.length()).foldl(List(), (places, place) => places.append(place.index))
-      val restore = Restoring({ workflow: workflow, restoredTo: left[0].workflow })
-      withDelivery(state, id, { ...delivery, phase: restore, index: left[0].index, won: rest })
+      val surfaceKeys = keysOf(delivery.surface)
+      val sources = delivery.won.foldl(Set(), (found, index) => found.union(Set(sourceOf(surfaceKeys[index]))))
+      val restored = delivery.won.foldl(unbind(state, workflow, sources), (current, index) => match delivery.found[index] {
+        | BoundTo(restoredTo) => claim(current, surfaceKeys[index], Unbound, restoredTo)
+        | Unbound => current
+      })
+      finishDelivery({ ...restored, rows: restored.rows.put(workflow, Ended) }, id)
     }
-  }
-
-  /// The abandon removes the bindings the new workflow won only while its row is new. A takeover of
-  /// the create that marked the row first keeps them, and the delivery ends.
-  pure def afterUnbind(state: World, id: int, delivery: Delivery, workflow: int): World = {
-    val surfaceKeys = keysOf(delivery.surface)
-    val sources = delivery.won.foldl(Set(), (found, index) => found.union(Set(sourceOf(surfaceKeys[index]))))
-    if (rowNew(state, workflow)) restoreNext(unbind(state, workflow, sources), id, delivery, workflow)
-    else finishDelivery(state, id)
-  }
-
-  pure def afterRestore(state: World, id: int, delivery: Delivery, workflow: int, restoredTo: int): World = {
-    val key = keysOf(delivery.surface)[delivery.index]
-    restoreNext(claim(state, key, Unbound, restoredTo), id, delivery, workflow)
-  }
-
-  pure def afterMarkFailed(state: World, id: int, workflow: int): World =
-    finishDelivery({ ...state, rows: state.rows.put(workflow, Ended) }, id)
 
   /// The takeover marks the row while the binding the delivery joined through still points at the
-  /// workflow and the row has not ended, then creates the workflow. It claimed no binding, so a
-  /// create that throws undoes nothing. Otherwise the route is read again.
+  /// workflow and the row has not ended, and reads the predecessor the router recorded in the same
+  /// batch. Then it creates the workflow with that predecessor. It claimed no binding, so a create
+  /// that throws undoes nothing. Otherwise the route is read again.
   pure def afterTakeOver(state: World, id: int, delivery: Delivery, workflow: int): World = {
     val key = keysOf(delivery.surface)[delivery.joined]
     if (boundOf(state, key) == BoundTo(workflow) and not(rowEnded(state, workflow))) {
       val marked = { ...state, rows: state.rows.put(workflow, Live) }
-      withDelivery(marked, id, { ...delivery, phase: Creating(workflow), won: List() })
-    } else withDelivery(state, id, { ...delivery, phase: Reading, found: List(), index: 0, replaced: NothingReplaced, won: List() })
+      val predecessor = if (state.predecessors.keys().contains(workflow)) PredecessorOf(state.predecessors.get(workflow)) else NoPredecessor
+      withDelivery(marked, id, { ...delivery, phase: Creating(workflow), won: List(), predecessor: predecessor })
+    } else withDelivery(state, id, { ...delivery, phase: Reading, found: List(), index: 0, replaced: NothingReplaced, won: List(), predecessor: NoPredecessor })
   }
 
   /// The workflows that a pull request binding points at.
@@ -563,17 +597,19 @@ module routerBindings {
       | Inserting(workflow) => afterInsert(state, id, delivery, workflow)
       | Binding(workflow) => afterBind(state, id, delivery, workflow)
       | Creating(_) => state
-      | Unbinding(workflow) => afterUnbind(state, id, delivery, workflow)
-      | Restoring(restore) => afterRestore(state, id, delivery, restore.workflow, restore.restoredTo)
-      | MarkingFailed(workflow) => afterMarkFailed(state, id, workflow)
+      | Abandoning(workflow) => afterAbandon(state, id, delivery, workflow)
       | TakingOver(workflow) => afterTakeOver(state, id, delivery, workflow)
     }
   }
 
-  /// The Durable Object of a new workflow took its first event.
+  /// The Durable Object of a new workflow took its first event, with the predecessor the create
+  /// names. A Durable Object that another create made first takes it as a later event.
   pure def createReturned(state: World, id: int): World = {
-    val created = targetsOf(state.deliveries.get(id).phase)
-    finishDelivery(created.fold(state, (before, workflow) => withObject(before, workflow, object => { ...object, created: true })), id)
+    val delivery = state.deliveries.get(id)
+    val created = targetsOf(delivery.phase)
+    val made = created.fold(state, (before, workflow) => withObject(before, workflow, object =>
+      if (object.created) object else { ...object, created: true, predecessor: delivery.predecessor }))
+    finishDelivery(made, id)
   }
 
   /// The Durable Object create threw, so the router undoes the bindings the new workflow won. A
@@ -583,7 +619,7 @@ module routerBindings {
     match delivery.phase {
       | Creating(workflow) =>
           if (delivery.won.length() == 0) finishDelivery(state, id)
-          else withDelivery(state, id, { ...delivery, phase: Unbinding(workflow) })
+          else withDelivery(state, id, { ...delivery, phase: Abandoning(workflow) })
       | _ => state
     }
   }
@@ -689,11 +725,25 @@ module routerBindings {
           if (isPersonsEvent(delivery.kind) and not(objectOf(before, workflow).created)) Set(workflow) else Set()
       | _ => Set()
     }
+    val predecessors = match delivery.phase {
+      | Claiming(workflow) => {
+          val key = keysOf(delivery.surface)[delivery.index]
+          match boundOf(before, key) {
+            | BoundTo(ended) =>
+                if (delivery.replaced == ReplacedAt(delivery.index) and boundOf(after, key) == BoundTo(workflow))
+                  past.predecessors.put(workflow, ended)
+                else past.predecessors
+            | Unbound => past.predecessors
+          }
+        }
+      | _ => past.predecessors
+    }
     val closes = after.deliveries.keys().size() == 0
     val batch = { ...past.batch, reachedBeforeCreate: past.batch.reachedBeforeCreate.union(reachedBeforeCreate) }
     {
       ...past,
       movedBindings: past.movedBindings.union(movedFromRunning(before, after)),
+      predecessors: predecessors,
       eventsBeforeCreate: past.eventsBeforeCreate.union(took.filter(workflow => not(objectOf(before, workflow).created))),
       messagesOnEndedWorkflows:
         if (isPersonsEvent(delivery.kind))
@@ -725,6 +775,7 @@ module routerBindings {
       joined: 0,
       replaced: NothingReplaced,
       won: List(),
+      predecessor: NoPredecessor,
     }
     val routed = if (kind == BaseMoved) Set() else Set(surface)
     val batch = if (history.batch.open)
@@ -742,11 +793,15 @@ module routerBindings {
   /// The call a delivery waits on lands, and the delivery runs to its next call.
   action deliveryResumes: bool = {
     nondet delivery = world.deliveries.keys().filter(id => not(isCreating(world.deliveries.get(id).phase))).oneOf()
+    val phase = world.deliveries.get(delivery).phase
     val after = resumeDelivery(world, delivery)
     all {
       world' = after,
       history' = recordDeliveryStep(history, world, after, delivery),
-      stepWitnesses' = NO_STEP_WITNESSES,
+      stepWitnesses' = {
+        ...NO_STEP_WITNESSES,
+        abandonFoundATakeover: isAbandoning(phase) and targetsOf(phase).forall(workflow => not(rowNew(world, workflow))),
+      },
     }
   }
 
@@ -767,7 +822,13 @@ module routerBindings {
     nondet delivery = world.deliveries.keys().filter(id => isCreating(world.deliveries.get(id).phase)).oneOf()
     val after = createReturned(world, delivery)
     val recorded = recordDeliveryStep(history, world, after, delivery)
-    val created = targetsOf(world.deliveries.get(delivery).phase)
+    val creating = world.deliveries.get(delivery)
+    val created = targetsOf(creating.phase)
+    val namedAfterATakeover = and {
+      creating.won.length() == 0,
+      creating.predecessor != NoPredecessor,
+      created.forall(workflow => not(objectOf(world, workflow).created)),
+    }
     all {
       world' = after,
       history' = {
@@ -778,7 +839,7 @@ module routerBindings {
             { ...recorded.lastBatch, created: recorded.lastBatch.created.union(created) }
           else recorded.lastBatch,
       },
-      stepWitnesses' = NO_STEP_WITNESSES,
+      stepWitnesses' = { ...NO_STEP_WITNESSES, takeoverNamedAPredecessor: namedAfterATakeover },
     }
   }
 
@@ -794,32 +855,51 @@ module routerBindings {
   }
 
   /// The phases in which the router's invocation may end mid-create: from the first claim of a new
-  /// workflow until its create returns, and while a takeover marks the row or creates the workflow.
+  /// workflow until its create returns or its abandon lands, and while a takeover marks the row or
+  /// creates the workflow.
   pure def endsMidCreate(phase: DeliveryPhase): bool = match phase {
     | Claiming(_) => true
     | Inserting(_) => true
     | Binding(_) => true
     | Creating(_) => true
+    | Abandoning(_) => true
     | TakingOver(_) => true
     | _ => false
   }
 
-  /// The router's invocation ends while a delivery creates a workflow or takes its create over, such
-  /// as on a deploy, or a cancel after the host hung up. The call the delivery waits on landed or
-  /// not. A create that reached the Durable Object finishes there. The delivery never resumes.
+  /// The delivery's state once the router's invocation ended while it waited on its call. The call
+  /// landed or not. A create that reached the Durable Object finishes there. The delivery never resumes.
+  pure def cutDelivery(state: World, id: int, landed: bool): World = {
+    val written =
+      if (not(landed)) state
+      else if (isCreating(state.deliveries.get(id).phase)) createReturned(state, id)
+      else resumeDelivery(state, id)
+    finishDelivery(written, id)
+  }
+
+  /// The router's invocation ends while a delivery creates a workflow, abandons one whose create
+  /// threw, or takes a create over, such as on a deploy, or a cancel after the host hung up.
   action routerInvocationEndsMidCreate: bool = {
     nondet delivery = world.deliveries.keys().filter(id => endsMidCreate(world.deliveries.get(id).phase)).oneOf()
     nondet landed = Set(true, false).oneOf()
-    val phase = world.deliveries.get(delivery).phase
-    val written =
-      if (not(landed)) world
-      else if (isCreating(phase)) createReturned(world, delivery)
-      else resumeDelivery(world, delivery)
-    val after = finishDelivery(written, delivery)
+    val after = cutDelivery(world, delivery, landed)
     all {
       world' = after,
       history' = recordDeliveryStep(withBatch(history, { ...history.batch, routerDied: true }), world, after, delivery),
-      stepWitnesses' = NO_STEP_WITNESSES,
+      stepWitnesses' = { ...NO_STEP_WITNESSES, routerEndedAnAbandon: isAbandoning(world.deliveries.get(delivery).phase) },
+    }
+  }
+
+  /// The router's invocation ends while a start that a running workflow took rebinds its bindings.
+  /// The bindings it did not reach keep pointing where they did, as if the rebind were slower.
+  action routerInvocationEndsMidRebind: bool = {
+    nondet delivery = world.deliveries.keys().filter(id => isRebinding(world.deliveries.get(id).phase)).oneOf()
+    nondet landed = Set(true, false).oneOf()
+    val after = cutDelivery(world, delivery, landed)
+    all {
+      world' = after,
+      history' = recordDeliveryStep(history, world, after, delivery),
+      stepWitnesses' = { ...NO_STEP_WITNESSES, routerEndedARebind: true },
     }
   }
 
@@ -928,6 +1008,7 @@ module routerBindings {
     workflowOpensThePullRequest,
     workflowCallReturns,
     instanceRestartCutsThePullRequestBind,
+    routerInvocationEndsMidRebind,
   }
 
   /// A workflow's create fails, the router's invocation ends mid-create, a workflow ends, or a
@@ -983,6 +1064,25 @@ module routerBindings {
     not(excused) implies batch.reachedBeforeCreate.forall(workflow => objectOf(world, workflow).created)
   }
 
+  /// A chat or tracker binding that pointed at a workflow when overlapping deliveries began points at
+  /// a workflow once they end. An abandon puts back each binding it took, even when the router's
+  /// invocation ends during it.
+  val aBindingStaysBoundThroughItsDeliveries: bool = {
+    val batch = history.lastBatch
+    batch.before.keys().forall(key =>
+      (sourceOf(key) != CodePull and isBound(batch.before.get(key).bound)) implies isBound(batch.after.get(key).bound))
+  }
+
+  /// A created workflow heard of the workflow that ended where it started, whichever delivery
+  /// created it: the one that started it, or a takeover of its create.
+  val aWorkflowHearsOfItsPredecessor: bool =
+    world.objects.keys().forall(workflow => {
+      val predecessor =
+        if (history.predecessors.keys().contains(workflow)) PredecessorOf(history.predecessors.get(workflow))
+        else NoPredecessor
+      objectOf(world, workflow).created implies objectOf(world, workflow).predecessor == predecessor
+    })
+
   /// A running workflow's recorded pull request is bound to it.
   val aRecordedPullRequestIsBoundToItsWorkflow: bool =
     world.objects.keys().forall(workflow =>
@@ -1020,9 +1120,7 @@ module routerBindings {
   pure def routerCreatesOrAbandons(phase: DeliveryPhase): bool = match phase {
     | Binding(_) => true
     | Creating(_) => true
-    | Unbinding(_) => true
-    | Restoring(_) => true
-    | MarkingFailed(_) => true
+    | Abandoning(_) => true
     | TakingOver(_) => true
     | _ => false
   }
@@ -1183,6 +1281,22 @@ module routerBindings {
   /// Witness for `aRecordedPullRequestIsBoundToItsWorkflow`: an instance restart cut off the bind of
   /// a pull request the workflow found.
   val aRestartCutThePullRequestBind: bool = stepWitnesses.restartCutThePullRequestBind
+
+  /// Witness for `aBindingStaysBoundThroughItsDeliveries`: the router's invocation ended while it
+  /// abandoned a create that threw.
+  val aRouterDeathCutAnAbandon: bool = stepWitnesses.routerEndedAnAbandon
+
+  /// Witness for `aDeliveryLeavesTheBindingsOfARunningWorkflow`: the router's invocation ended while
+  /// a start that a running workflow took rebinds its bindings.
+  val aRouterDeathCutARebind: bool = stepWitnesses.routerEndedARebind
+
+  /// Witness for `aDeliveryLeavesTheBindingsOfARunningWorkflow`: the abandon of a create that threw
+  /// found that a person's event took the create over, and kept its bindings.
+  val anAbandonFoundATakeover: bool = stepWitnesses.abandonFoundATakeover
+
+  /// Witness for `aWorkflowHearsOfItsPredecessor`: the create after a takeover named the predecessor
+  /// the router recorded.
+  val aTakeoverNamedThePredecessor: bool = stepWitnesses.takeoverNamedAPredecessor
 
   /// Witness for `aPersonsMessageNeverReachesAnEndedWorkflow`: a person wrote on a binding whose workflow ended.
   val aPersonWroteAfterAnEnd: bool =

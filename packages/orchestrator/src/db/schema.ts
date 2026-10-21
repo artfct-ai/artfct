@@ -27,6 +27,15 @@ export const workflows = sqliteTable("workflows", {
 });
 
 /**
+ * The predecessor of each workflow a person's message started on a binding whose workflow ended.
+ * A takeover of the create reads it, so the workflow still hears of its predecessor.
+ */
+export const workflowPredecessors = sqliteTable("workflow_predecessors", {
+  workflow_id: text().primaryKey(),
+  predecessor_id: text().notNull(),
+});
+
+/**
  * The Linear OAuth app install. One deployment serves one workspace, so the table holds at
  * most one row. The app-actor token is refreshed in place.
  */
