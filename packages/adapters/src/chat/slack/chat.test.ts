@@ -182,11 +182,16 @@ describe("SlackChat messages", () => {
 
   describe("a channel message", () => {
     let calls: Call[];
+    let posted: { ts: string };
 
     beforeEach(async () => {
       const slack = slackChat(() => ({ ok: true, ts: "9.9" }));
-      await slack.chat.postChannelMessage("C1", "hello everyone");
+      posted = await slack.chat.postChannelMessage("C1", "hello everyone");
       calls = slack.calls;
+    });
+
+    it("returns the posted message, the root of its thread", () => {
+      expect(posted).toEqual({ ts: "9.9" });
     });
 
     it("posts to chat.postMessage", () => {

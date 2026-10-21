@@ -29,6 +29,7 @@ Check each step in order. The first one that is not done is the next step.
 | Prerequisites | `node --version` is 22 or later and `docker info` passes | Install what is missing. Docker is not needed with the published sandbox image in the deploy guide. |
 | Scaffold | `orchestrator/artfct.yaml` exists | Run `npx artfct init` in the clone of the deployment repo. |
 | Database | `database_id` in `orchestrator/wrangler.jsonc` is not `<your D1 database id>` | Run `npx wrangler d1 create artfct --binding DB --update-config --config orchestrator/wrangler.jsonc`. |
+| Queue | `npx wrangler queues info trigger-firings` finds the queue | Run `npx wrangler queues create trigger-firings`. |
 | Dependencies | `node_modules/@artfct-ai/core` exists and git tracks a lockfile | Install with the user's package manager, then have the user commit the files and the lockfile. `init` does not install or commit. |
 | Settings files | `orchestrator/.dev.vars` and `ingress/.dev.vars` exist | Copy each `.dev.vars.example` to `.dev.vars`. |
 | Required settings | `PUBLIC_URL` and `OPEN_ROUTER_API_KEY` in `orchestrator/.dev.vars` and `ADMIN_TOKEN` in `ingress/.dev.vars` are set | Have the user fill them in. `PUBLIC_URL` is `https://artfct-ingress.<subdomain>.workers.dev`. The user finds the subdomain in the Cloudflare dashboard under Workers & Pages. |

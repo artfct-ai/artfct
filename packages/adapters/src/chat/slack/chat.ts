@@ -80,8 +80,10 @@ export class SlackChat implements Chat {
   }
 
   /** Post in the channel itself, outside any thread. */
-  async postChannelMessage(channel: string, text: string): Promise<void> {
-    await this.chatPostMessage({ channel, text: toSlackMrkdwn(text) });
+  async postChannelMessage(channel: string, text: string): Promise<{ ts: string }> {
+    const posted = await this.chatPostMessage({ channel, text: toSlackMrkdwn(text) });
+    if (!posted.ts) throw new Error("slack chat.postMessage: response carries no ts");
+    return { ts: posted.ts };
   }
 
   async updateMessage(channel: string, ts: string, text: string): Promise<void> {

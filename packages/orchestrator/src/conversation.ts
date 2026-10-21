@@ -70,6 +70,8 @@ import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
 import { postToRecipients, releaseChatThreads, showWorking } from "./workflow/posts";
 import { openWorkflowDb } from "./workflow/store/db";
 import { deliverToConversation } from "./workflow/inbound/events";
+import { fireWorkflow } from "./workflow/inbound/firing";
+import type { ConversationFiring, FiringAnswer } from "./triggers/types";
 import {
   armWorkflowEndAlarm,
   onIdle,
@@ -217,6 +219,11 @@ export class Conversation extends Agent<Env> implements WorkflowRuntime, Convers
     return this.inSpan(`event ${event.kind}`, null, () => {
       return deliverToConversation(this, { conversationId, event });
     });
+  }
+
+  async fire(conversationId: string, firing: ConversationFiring): Promise<FiringAnswer> {
+    await this.lifecycle.start();
+    return this.inSpan("firing", null, () => fireWorkflow(this, { conversationId, firing }));
   }
 
   async status(workflowId: string): Promise<WorkflowSummary | null> {

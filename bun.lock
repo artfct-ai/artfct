@@ -113,6 +113,7 @@
         "agents": "^0.28.1",
         "ai": "^7.0.145",
         "cloudflare": "^7.3.0",
+        "croner": "^10.0.1",
         "diff": "^9.0.0",
         "drizzle-orm": "^0.45.4",
         "hono": "^4.13.13",
@@ -158,6 +159,7 @@
         "@cloudflare/sandbox": "^1.0.1",
         "agents": "^0.28.1",
         "ai": "^7.0.145",
+        "croner": "^10.0.1",
         "drizzle-orm": "^0.45.4",
         "yaml": "^2.9.1",
         "zod": "^4.6.7",
@@ -934,6 +936,8 @@
     "cors": ["cors@2.8.6", "", { "dependencies": { "object-assign": "^4", "vary": "^1" } }, "sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw=="],
 
     "cron-schedule": ["cron-schedule@6.0.0", "", {}, "sha512-BoZaseYGXOo5j5HUwTaegIog3JJbuH4BbrY9A1ArLjXpy+RWb3mV28F/9Gv1dDA7E2L8kngWva4NWisnLTyfgQ=="],
+
+    "croner": ["croner@10.0.1", "", {}, "sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g=="],
 
     "cross-spawn": ["cross-spawn@7.0.6", "", { "dependencies": { "path-key": "^3.1.0", "shebang-command": "^2.0.0", "which": "^2.0.1" } }, "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA=="],
 

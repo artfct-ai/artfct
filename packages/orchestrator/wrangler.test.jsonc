@@ -21,6 +21,9 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Conversation", "Sandbox", "SandboxLarge"] },
   ],
+  "queues": {
+    "producers": [{ "binding": "TRIGGER_FIRINGS", "queue": "trigger-firings" }],
+  },
   "d1_databases": [
     { "binding": "DB", "database_name": "artfct", "migrations_dir": "migrations/d1" },
   ],

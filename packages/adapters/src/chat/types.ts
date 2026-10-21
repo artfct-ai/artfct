@@ -59,8 +59,8 @@ export interface Chat {
   postThreadReply(channel: string, threadTs: string, text: string): Promise<{ ts: string }>;
   /** Post one thread message as is, never split. */
   postThreadMessage(channel: string, threadTs: string, text: string): Promise<{ ts: string }>;
-  /** Post one message in the channel itself, outside any thread. */
-  postChannelMessage(channel: string, text: string): Promise<void>;
+  /** Post one message in the channel itself, outside any thread. Returns it, the root of its thread. */
+  postChannelMessage(channel: string, text: string): Promise<{ ts: string }>;
   updateMessage(channel: string, ts: string, text: string): Promise<void>;
   /** Delete one message in a channel or thread. */
   deleteMessage(channel: string, ts: string): Promise<void>;

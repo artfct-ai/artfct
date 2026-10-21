@@ -1,0 +1,52 @@
+import { chat } from "../clients";
+import { registeredConfig } from "../config/register-config";
+import { createDb } from "../db/client";
+import { deleteFiringThreadsBefore } from "../db/firing-threads";
+import type { Env } from "../env";
+import { consumeFiring, type FiringConsumer } from "./consumer";
+import { scheduledFirings } from "./schedule";
+import type { TriggerFiring } from "./types";
+
+/** How long the firing queue holds a message. A start line record is read only within it. */
+const FIRING_RETENTION_MS = 4 * 24 * 60 * 60 * 1000;
+
+/**
+ * The scheduled run of one minute. Queue a firing for each schedule trigger that matches the
+ * scheduled minute, then delete the start line records the queue can no longer need.
+ */
+export async function runScheduledMinute(env: Env, scheduledTime: number): Promise<void> {
+  const firings = scheduledFirings(registeredConfig().workflowDefinitions, scheduledTime);
+  if (firings.length) await env.TRIGGER_FIRINGS.sendBatch(firings.map((body) => ({ body })));
+  await deleteFiringThreadsBefore(createDb(env.DB), new Date(scheduledTime - FIRING_RETENTION_MS));
+}
+
+/**
+ * The firing queue's consumer. Each message is one attempt, acknowledged once the conversation
+ * took the firing or the next attempt is sent. A message whose attempt throws is delivered again.
+ */
+export async function consumeFiringBatch(
+  env: Env,
+  batch: MessageBatch<TriggerFiring>,
+): Promise<void> {
+  const { config, workflowDefinitions } = registeredConfig();
+  const consumer: FiringConsumer = {
+    db: createDb(env.DB),
+    chat: chat(env, config.adapters.chat.provider),
+    definitions: workflowDefinitions,
+    fire: (conversationId, firing) => {
+      return env.Conversation.getByName(conversationId).fire(conversationId, firing);
+    },
+    sendAttempt: async (firing, delaySeconds) => {
+      await env.TRIGGER_FIRINGS.send(firing, { delaySeconds });
+    },
+  };
+  for (const message of batch.messages) {
+    try {
+      await consumeFiring(consumer, message.body);
+      message.ack();
+    } catch (error) {
+      console.error(`a firing attempt threw, so the queue delivers it again: ${String(error)}`);
+      message.retry();
+    }
+  }
+}

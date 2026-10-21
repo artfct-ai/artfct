@@ -9,6 +9,7 @@ import type { Config } from "../config/config";
 import type { WorkflowDefinition } from "../config/workflow-definition";
 import type { GatewayProvider } from "../config/gateway";
 import type { McpCapability } from "../config/adapters";
+import type { ConversationFiring, FiringAnswer } from "../triggers/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ArtifactKind, RpcAck, WorkflowSummary } from "@artfct-ai/contracts/types";
 import type { Artifact } from "../artifact/types";
@@ -165,6 +166,8 @@ export interface WorkflowRuntime {
 export interface ConversationRpc {
   /** Take an event the router routed here. The first event opens the conversation. */
   handle(conversationId: string, event: InboundEvent): Promise<RpcAck>;
+  /** Start the workflow a trigger fired, unless the conversation saw the firing or has an active workflow. */
+  fire(conversationId: string, firing: ConversationFiring): Promise<FiringAnswer>;
   /** The status summary of a workflow. Null unless it is the conversation's latest workflow. */
   status(workflowId: string): Promise<WorkflowSummary | null>;
   /** Everything the conversation stores, for admins. */

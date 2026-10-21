@@ -15,6 +15,8 @@ const CREATE_DATABASE_ARGS = [
   "orchestrator/wrangler.jsonc",
 ];
 
+const CREATE_QUEUE_ARGS = ["queues", "create", "trigger-firings"];
+
 type InitStep = {
   step: string;
   recovery: string;
@@ -35,9 +37,17 @@ const INIT_STEPS: InitStep[] = [
       if (exitCode !== 0) throw new Error(`wrangler d1 create exited with ${exitCode}.`);
     },
   },
+  {
+    step: "Create the queue that carries trigger firings",
+    recovery: `Fix the problem, then create the queue by hand:\nwrangler ${CREATE_QUEUE_ARGS.join(" ")}`,
+    run: async ({ runWrangler }) => {
+      const exitCode = await runWrangler(CREATE_QUEUE_ARGS);
+      if (exitCode !== 0) throw new Error(`wrangler queues create exited with ${exitCode}.`);
+    },
+  },
 ];
 
-/** Scaffold a deployment repo from the template and create its D1 database. It leaves the install and the commit to the person. */
+/** Scaffold a deployment repo from the template and create its D1 database and its queue. It leaves the install and the commit to the person. */
 export async function runInit(environment: InitEnvironment): Promise<InitReport> {
   for (const { step, recovery, run } of INIT_STEPS) {
     environment.announceStep(step);
