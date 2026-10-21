@@ -38,9 +38,6 @@ export async function fireWorkflow(
     workflow.store.openConversation({
       conversation_id: conversationId,
       origin,
-      request_title: name,
-      request_text: trigger.prompt,
-      request_links: [],
     });
   }
   workflow.store.createWorkflow({
@@ -49,6 +46,8 @@ export async function fireWorkflow(
     name,
     reason: `Fired by ${firedBy}`,
     repo: null,
+    request_text: trigger.prompt,
+    request_links: [],
     subject: null,
   });
   await workflow.tellAgent(
