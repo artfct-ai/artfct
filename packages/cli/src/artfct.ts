@@ -25,6 +25,7 @@ switch (command.kind) {
       runWrangler: command.offline
         ? null
         : (args) => runProcess("npx", ["--no", "wrangler", ...args], repoDir),
+      runGh: command.offline ? null : (args) => runProcess("gh", args, repoDir),
     });
     process.stdout.write(formatChecksReport(reports));
     if (reports.some((report) => report.outcome === "failed")) process.exitCode = 1;

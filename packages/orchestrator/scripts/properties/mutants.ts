@@ -2591,6 +2591,62 @@ export const MUTANTS: Mutant[] = [
     propertyFile: "../adapters/src/documents/notion/inbound.property.ts",
   },
   {
+    id: "W520",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (the whole trigger name)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "      const githubEvent = githubEventOfVendorEventName(trigger.event);\n",
+    replace:
+      '      const githubEvent = trigger.event.startsWith("github.") ? trigger.event : null;\n',
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
+  },
+  {
+    id: "W521",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (the first missing event only)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "    problems: unreceived.map(\n",
+    replace: "    problems: unreceived.slice(0, 1).map(\n",
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
+  },
+  {
+    id: "W522",
+    invariant: "cliSecretInvariants::cliNeverShowsASecret (subscription check's gh failure)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "GitHub App ${appLogin}. ${result.stderr.trim()}`.trim(),\n",
+    replace:
+      'GitHub App ${appLogin}. ${result.stderr.trim()} ${process.env.GH_TOKEN ?? ""}`.trim(),\n',
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W523",
+    invariant: "cliSecretInvariants::cliSendsNoSecret (subscription check's gh arguments)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: '  const command = ["api", `apps/${encodeURIComponent(appLogin)}`];\n',
+    replace:
+      '  const command = ["api", `apps/${encodeURIComponent(appLogin)}`, "-H", `authorization: token ${process.env.GH_TOKEN ?? ""}`];\n',
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W524",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (a GitHub error skips)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: '  if (result.exitCode !== 0) {\n    return {\n      outcome: "failed",\n      problems: [\n',
+    replace:
+      '  if (result.exitCode !== 0) {\n    return {\n      outcome: "skipped",\n      detail: "the GitHub CLI failed",\n      problems: [\n',
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
+  },
+  {
+    id: "W525",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (events every App receives)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "  const received = new Set([...appEvents, ...EVENTS_EVERY_APP_RECEIVES]);\n",
+    replace: "  const received = new Set(appEvents);\n",
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
+  },
+  {
     id: "W440",
     invariant: "workflowLifecycle::workflowKeepsItsDefinition",
     path: "src/agent/tools/plan.ts",

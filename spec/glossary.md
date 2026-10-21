@@ -155,6 +155,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | access | Who is authorized to give the deployment work. A tracker or chat user is authorized as a member of the team set for that app. A code host user is authorized when they may push to the repository. The deployment ignores what an unauthorized user writes. | `Access`, `resolveActor` | |
 | team | The group whose members `access` authorizes: one tracker team, one chat workspace. An app without a team authorizes every user who reaches the bot. | `access.tracker_team`, `access.chat_team` | |
 | screen | The decision by the decisions model that text from outside the deployment may enter a model request. Text that fails, or that the screen cannot check, is quarantined, and code writes a fixed line in its place. | `screenText`, `Screened` | |
+| event subscription | The vendor events an app is set to receive. A trigger on an event outside it does not fire. `artfct check` reads the GitHub App's through the GitHub CLI. | `checkGithubEventSubscription`, the GitHub App's `events` | webhook list |
 
 ## Orchestrator agent
 

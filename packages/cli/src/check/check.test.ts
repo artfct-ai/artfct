@@ -30,12 +30,12 @@ function templateCopyWithAccess(access: string): string {
 }
 
 async function accessReport(repoDir: string) {
-  const reports = await runChecks({ repoDir, runWrangler: loggedIn });
+  const reports = await runChecks({ repoDir, runWrangler: loggedIn, runGh: null });
   return reports.find((report) => report.check === "access");
 }
 
 async function documentsReport(repoDir: string) {
-  const reports = await runChecks({ repoDir, runWrangler: loggedIn });
+  const reports = await runChecks({ repoDir, runWrangler: loggedIn, runGh: null });
   return reports.find((report) => report.check === "documents credential");
 }
 
@@ -54,6 +54,7 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir: TEMPLATE_DIR,
       runWrangler: loggedIn,
+      runGh: null,
     });
     expect(reports.map((report) => [report.check, report.outcome])).toEqual([
       ["Cloudflare credential", "passed"],
@@ -62,6 +63,7 @@ describe("runChecks", () => {
       ["access", "failed"],
       ["skills", "passed"],
       ["sandbox image", "passed"],
+      ["GitHub event subscription", "passed"],
     ]);
   });
 
@@ -111,7 +113,7 @@ describe("runChecks", () => {
 
   it("reports an access key the schema does not know", async () => {
     const repoDir = templateCopyWithAccess("access:\n  slack_team: T0123ABCD\n");
-    const reports = await runChecks({ repoDir, runWrangler: loggedIn });
+    const reports = await runChecks({ repoDir, runWrangler: loggedIn, runGh: null });
     expect(formatChecksReport(reports)).toContain("artfct.yaml breaks the config schema");
   });
 
@@ -119,6 +121,7 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir: TEMPLATE_DIR,
       runWrangler: loggedIn,
+      runGh: null,
     });
     expect(reports.find((report) => report.check === "config")).toEqual({
       check: "config",
@@ -133,6 +136,7 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir,
       runWrangler: loggedIn,
+      runGh: null,
     });
     const config = reports.find((report) => report.check === "config");
     expect(config?.outcome).toBe("failed");
@@ -150,6 +154,7 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir,
       runWrangler: loggedIn,
+      runGh: null,
     });
     const report = formatChecksReport(reports);
     expect(report).toContain("artfct.yaml breaks the config schema");
@@ -165,6 +170,7 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir,
       runWrangler: loggedIn,
+      runGh: null,
     });
     expect(reports.find((report) => report.check === "config")).toEqual({
       check: "config",
@@ -193,6 +199,7 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir,
       runWrangler: loggedIn,
+      runGh: null,
     });
     const skills = reports.find((report) => report.check === "skills");
     expect(skills?.outcome).toBe("failed");
@@ -218,6 +225,7 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir: TEMPLATE_DIR,
       runWrangler: async () => ({ exitCode: 1, stdout: '{"loggedIn":false}', stderr: "" }),
+      runGh: null,
     });
     expect(
       reports.filter((report) => report.outcome === "failed").map((report) => report.check),
@@ -230,6 +238,7 @@ describe("runChecks", () => {
       runWrangler: async () => {
         throw new Error("spawn npx ENOENT");
       },
+      runGh: null,
     });
     expect(reports[0]).toEqual({
       check: "Cloudflare credential",
@@ -244,9 +253,11 @@ describe("runChecks", () => {
     const reports = await runChecks({
       repoDir,
       runWrangler: loggedIn,
+      runGh: null,
     });
     expect(reports.map((report) => report.outcome)).toEqual([
       "passed",
+      "failed",
       "failed",
       "failed",
       "failed",
@@ -256,7 +267,7 @@ describe("runChecks", () => {
   });
 
   it("skips the Cloudflare credential offline and runs the other checks", async () => {
-    const reports = await runChecks({ repoDir: TEMPLATE_DIR, runWrangler: null });
+    const reports = await runChecks({ repoDir: TEMPLATE_DIR, runWrangler: null, runGh: null });
     expect(reports[0]).toEqual({
       check: "Cloudflare credential",
       outcome: "skipped",

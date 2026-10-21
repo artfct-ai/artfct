@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it, spyOn } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
+  appendFileSync,
   chmodSync,
   cpSync,
   mkdirSync,
@@ -33,6 +34,7 @@ import {
 import { parseGithubManifestForm } from "../test/github-browser";
 import { packagedTemplate, TEMPLATE_DIR } from "../test/template";
 import { formatChecksReport, runChecks } from "./check/check";
+import type { RunGh } from "./check/types";
 import { connectGithubApp } from "./connect/code/github/connect";
 import { exchangeGithubManifestCode } from "./connect/code/github/exchange";
 import { describeError } from "./describe-error";
@@ -111,6 +113,8 @@ type BrokenField = "webhook_secret null" | "pem empty" | "id text" | "slug missi
 
 type MalformedBody = "bare secret" | "truncated";
 
+type GhAnswer = "the App's events" | "bad credentials";
+
 type ConnectScenario = {
   nonce: string;
   org: string | undefined;
@@ -130,6 +134,9 @@ type ConnectScenario = {
   malformedBody: MalformedBody;
   brokenField: BrokenField;
   checkReadsUnreadableDevVars: boolean;
+  githubTrigger: boolean;
+  ghAnswer: GhAnswer;
+  ghToken: SecretShape;
   foreign: ForeignPlan[];
 };
 
@@ -143,6 +150,7 @@ type ConnectRun = {
   clientSecret: string;
   shown: ShownText[];
   requests: OutboundRequest[];
+  ghCalls: string[][];
   foreignRequests: ForeignRequest[];
   reachableAt: string[];
   probedAddresses: number;
@@ -259,6 +267,9 @@ const connectScenario: fc.Arbitrary<ConnectScenario> = fc.record({
     "slug missing",
   ),
   checkReadsUnreadableDevVars: fc.boolean(),
+  githubTrigger: fc.boolean(),
+  ghAnswer: fc.constantFrom<GhAnswer>("the App's events", "bad credentials"),
+  ghToken: secretShape(1),
   foreign: fc.array(foreignPlan, { maxLength: 4 }),
 });
 
@@ -274,6 +285,8 @@ const reached = new Map<string, number>(
     "address outside loopback probed",
     "check read a set NOTION_TOKEN",
     "check read an unreadable .dev.vars",
+    "check read the App's events through gh",
+    "check read a failed gh answer",
     "multi-line secret written",
   ].map((name) => [name, 0]),
 );
@@ -384,6 +397,7 @@ function prepareConnectRun(scenario: ConnectScenario): ConnectRun {
     clientSecret,
     shown: [],
     requests: [],
+    ghCalls: [],
     foreignRequests: [],
     reachableAt: [],
     probedAddresses: 0,
@@ -706,6 +720,33 @@ async function connectUntilSettled(run: ConnectRun): Promise<"settled" | "hung">
   return Promise.race([connected, hung]);
 }
 
+function fakeGh(run: ConnectRun, ghToken: string): RunGh {
+  return async (args) => {
+    run.ghCalls.push(args);
+    const [command, path] = args;
+    if (command === "auth" && path === "token") {
+      return { exitCode: 0, stdout: `${ghToken}\n`, stderr: "" };
+    }
+    if (command !== "api" || path !== `apps/${run.scenario.slug}`) {
+      return { exitCode: 1, stdout: "", stderr: `unknown command "${args.join(" ")}" for "gh"\n` };
+    }
+    if (run.scenario.ghAnswer === "bad credentials") {
+      reach("check read a failed gh answer");
+      return {
+        exitCode: 1,
+        stdout: '{"message":"Bad credentials","status":"401"}',
+        stderr: "gh: Bad credentials (HTTP 401)\n",
+      };
+    }
+    reach("check read the App's events through gh");
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify({ slug: run.scenario.slug, events: ["pull_request", "push"] }),
+      stderr: "",
+    };
+  };
+}
+
 async function checkDeployment(run: ConnectRun): Promise<void> {
   const devVarsPath = join(run.repoDir, ORCHESTRATOR_DEV_VARS);
   const devVarsMode = statSync(devVarsPath, { throwIfNoEntry: false })?.mode;
@@ -716,7 +757,26 @@ async function checkDeployment(run: ConnectRun): Promise<void> {
   } else if (/^NOTION_TOKEN=.+/m.test(readDeploymentFile(run.repoDir, ORCHESTRATOR_DEV_VARS))) {
     reach("check read a set NOTION_TOKEN");
   }
-  const reports = await runChecks({ repoDir: run.repoDir, runWrangler: null });
+  if (run.scenario.githubTrigger) {
+    appendFileSync(
+      join(run.repoDir, "orchestrator/workflows/development.yaml"),
+      "\ntriggers:\n  - event: github.pull_request.opened\n    prompt: Review it.\n",
+    );
+  }
+  const ghToken = secretValue(run, { shape: run.scenario.ghToken, home: null, issued: false });
+  const ghTokenBefore = process.env.GH_TOKEN;
+  process.env.GH_TOKEN = ghToken;
+  let reports;
+  try {
+    reports = await runChecks({
+      repoDir: run.repoDir,
+      runWrangler: null,
+      runGh: fakeGh(run, ghToken),
+    });
+  } finally {
+    if (ghTokenBefore === undefined) delete process.env.GH_TOKEN;
+    else process.env.GH_TOKEN = ghTokenBefore;
+  }
   if (unreadable) chmodSync(devVarsPath, devVarsMode & 0o777);
   run.shown.push({ channel: "artfct check", text: formatChecksReport(reports) });
 }
@@ -784,7 +844,11 @@ describe("CLI secret invariants", () => {
             reachWrites(run, files, before);
             cliNeverShowsASecret({ shown: run.shown, markers: run.markers });
             cliWritesASecretOnlyToItsOwnDevVars({ files, markers: run.markers });
-            cliSendsNoSecret({ requests: run.requests, markers: run.markers });
+            cliSendsNoSecret({
+              requests: run.requests,
+              ghCalls: run.ghCalls,
+              markers: run.markers,
+            });
             if (run.openedUrl !== null) {
               loopbackServerAnswersOnlyItsOwnFlow({
                 openedUrl: run.openedUrl,
