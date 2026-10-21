@@ -2,7 +2,11 @@ import type { JsonValue } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { ownGithubLogins } from "./inbound-shared";
 import { githubVendorEvent } from "./vendor-event";
-import { githubVendorEventName, isGithubPullRequestEventName } from "./vendor-event-name";
+import {
+  githubEventOfVendorEventName,
+  githubVendorEventName,
+  isGithubPullRequestEventName,
+} from "./vendor-event-name";
 
 const CONTEXT = { deliveryId: "d-1", ownLogins: ownGithubLogins("orchestrator-app") };
 const repository = { full_name: "acme/app" };
@@ -32,6 +36,22 @@ describe("githubVendorEventName", () => {
 
   it("names an event without an action by the event alone", () => {
     expect(githubVendorEventName("push", { ref: "refs/heads/main" })).toBe("github.push");
+  });
+});
+
+describe("githubEventOfVendorEventName", () => {
+  it("reads back the event of a name with an action", () => {
+    expect(
+      githubEventOfVendorEventName(githubVendorEventName("check_run", { action: "completed" })),
+    ).toBe("check_run");
+  });
+
+  it("reads back the event of a name without an action", () => {
+    expect(githubEventOfVendorEventName(githubVendorEventName("push", {}))).toBe("push");
+  });
+
+  it("does not read another vendor's name", () => {
+    expect(githubEventOfVendorEventName("slack.member_joined_channel")).toBeNull();
   });
 });
 

@@ -22,8 +22,15 @@ export type DeploymentFiles = { files: DeploymentFile[]; markers: SecretMarker[]
 /** One request that left the CLI process. */
 export type OutboundRequest = { method: string; url: string; headers: string[]; body: string };
 
-/** Every request that left the CLI process during a run, and the secrets the run held. */
-export type OutboundRequests = { requests: OutboundRequest[]; markers: SecretMarker[] };
+/**
+ * Every request that left the CLI process during a run, each GitHub CLI command it ran by its
+ * arguments, and the secrets the run held.
+ */
+export type OutboundRequests = {
+  requests: OutboundRequest[];
+  ghCalls: string[][];
+  markers: SecretMarker[];
+};
 
 /** One request that did not come from the browser flow, and how the loopback server answered it. */
 export type ForeignRequest = { request: string; status: number; advancedTheFlow: boolean };
@@ -45,6 +52,8 @@ const LOOPBACK_HOSTS = new Set(["127.0.0.1", "[::1]", "localhost"]);
 
 const GITHUB_MANIFEST_EXCHANGE =
   /^https:\/\/api\.github\.com\/app-manifests\/[^/?#]+\/conversions$/;
+
+const GITHUB_APP_READ = /^apps\/[^/?#\s]+$/;
 
 function violated(name: string, detail: string): never {
   throw new Error(`${name}: ${detail}`);
@@ -89,8 +98,20 @@ export function cliWritesASecretOnlyToItsOwnDevVars(record: DeploymentFiles): vo
   }
 }
 
-/** The CLI sends a secret to nobody. Only the GitHub manifest code exchange leaves it, and that request carries no secret. */
+/**
+ * The CLI sends a secret to nobody. Only the GitHub manifest code exchange leaves it, and the
+ * GitHub CLI runs only the read of the GitHub App. Neither carries a secret.
+ */
 export function cliSendsNoSecret(record: OutboundRequests): void {
+  for (const args of record.ghCalls) {
+    const [command, path, ...rest] = args;
+    if (command !== "api" || path === undefined || !GITHUB_APP_READ.test(path) || rest.length) {
+      violated("cliSendsNoSecret", `the CLI ran gh ${args.join(" ")}, which is not the App read`);
+    }
+    const [marker] = markersIn(args.join("\n"), record.markers);
+    if (marker === undefined) continue;
+    violated("cliSendsNoSecret", `gh ${path} carried the secret part ${marker.token}`);
+  }
   for (const request of record.requests) {
     if (request.method !== "POST" || !GITHUB_MANIFEST_EXCHANGE.test(request.url)) {
       violated(
