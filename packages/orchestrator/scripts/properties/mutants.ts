@@ -2377,6 +2377,16 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W430",
+    invariant:
+      "sessionFeedInvariants::everyClosingReplyLands (a reply held behind failed narration gives up at once)",
+    path: "src/workflow/feed/feed.ts",
+    find: "  if (workflow.now() - Date.parse(reply.ended_at) >= FEED_GIVES_UP_AFTER_MS) {\n",
+    replace:
+      "  if (\n    workflow.store.sessionFeed(reply.activity.task_id)?.narration ||\n    workflow.now() - Date.parse(reply.ended_at) >= FEED_GIVES_UP_AFTER_MS\n  ) {\n",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
     id: "W360",
     invariant: "cliSecretInvariants::cliNeverShowsASecret (parse error of the conversion body)",
     path: "../cli/src/connect/code/github/exchange.ts",

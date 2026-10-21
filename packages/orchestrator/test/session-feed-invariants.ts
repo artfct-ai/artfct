@@ -111,22 +111,30 @@ export function everyNarrationLinePostsInOrder(
   }
 }
 
-/** The closing reply of a turn end: its activity id, when its turn ended, and the lines before it. */
-export type ClosingTurn = { id: string; endedAt: number; linesBefore: number };
+/**
+ * The closing reply of a turn end: its activity id, when its turn ended, the lines before it, and
+ * whether its post as the turn ended could land.
+ */
+export type ClosingTurn = {
+  id: string;
+  endedAt: number;
+  linesBefore: number;
+  couldLandAtItsEnd: boolean;
+};
 
 /** A closing reply that folded into the narration as its author's next turn started, and when. */
 export type FoldedReply = { id: string; body: string; at: number };
 
 /**
  * Every closing reply lands: under its activity id, or as a line of the narration it folded into,
- * unless that narration was given up. Only a reply whose tracker refused its posts from its turn
- * end until the give-up span after it may be lost. `postableAt` holds each moment the tracker took
- * posts.
+ * unless that narration was given up. Only a reply whose tracker refused its posts, or failed the
+ * narration that waits ahead of it, from its turn end until the give-up span after it may be lost.
+ * `alarmCouldLandAt` holds each moment a closing reply's alarm fired and its post could land.
  */
 export function everyClosingReplyLands(
   posts: FeedPost[],
   closings: ClosingTurn[],
-  postableAt: number[],
+  alarmCouldLandAt: number[],
   givesUpAfterMs: number,
   folds: { folded: FoldedReply[]; givenUp: string[] },
 ): void {
@@ -143,9 +151,9 @@ export function everyClosingReplyLands(
       }
       continue;
     }
-    const couldLand = postableAt.some(
-      (at) => at >= closing.endedAt && at <= closing.endedAt + givesUpAfterMs,
-    );
+    const couldLand =
+      closing.couldLandAtItsEnd ||
+      alarmCouldLandAt.some((at) => at > closing.endedAt && at <= closing.endedAt + givesUpAfterMs);
     if (couldLand) {
       violated(
         "everyClosingReplyLands",
