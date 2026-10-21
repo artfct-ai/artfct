@@ -1,3 +1,4 @@
+import type { PromptKind } from "../src/workflow/store/schema";
 import type { WorkflowStore } from "../src/workflow/store/tasks";
 
 /** The kinds of queued prompts that the specs tell apart. */
@@ -13,8 +14,13 @@ export function waitingPromptsInQueue(store: WorkflowStore) {
 }
 
 /** The spec kind of a queued prompt row. */
-export function specQueuedPromptOf(row: { instruction: number }): SpecQueuedPrompt {
-  return row.instruction ? "Instruction" : "OtherPrompt";
+export function specQueuedPromptOf(row: { kind: PromptKind }): SpecQueuedPrompt {
+  switch (row.kind) {
+    case "instruction":
+      return "Instruction";
+    case "workflow":
+      return "OtherPrompt";
+  }
 }
 
 /** The prompts that wait for the task's next turn, and whether its running turn holds an instruction. */

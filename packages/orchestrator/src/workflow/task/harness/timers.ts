@@ -85,7 +85,7 @@ export async function nudgeOrRestartStalledTask(
     return "restarted";
   }
   workflow.log(task.task_id, "stalled. nudging.");
-  workflow.store.enqueuePrompt(task.task_id, NUDGE_TEXT);
+  workflow.store.enqueuePrompt(task.task_id, NUDGE_TEXT, "workflow");
   if (!sandbox.prompt_in_flight) {
     workflow.store.updateSandbox(task.task_id, { nudged: 1 });
     return "nudged";

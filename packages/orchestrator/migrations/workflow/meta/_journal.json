@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1792521457726,
-      "tag": "0000_grey_changeling",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1792524734599,
-      "tag": "0001_flaky_stick",
+      "when": 1792541995474,
+      "tag": "0000_fine_namorita",
       "breakpoints": true
     }
   ]

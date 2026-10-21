@@ -67,8 +67,8 @@ type Destroyed = { workflow: FakeRuntime; socket: FakeSocket; other: FakeSocket 
 const destroyed: Scenario<Destroyed> = (run) =>
   freshRuntime(async (workflow) => {
     const task = seedTask(workflow);
-    workflow.store.enqueuePrompt(TASK, "later");
-    workflow.store.enqueuePrompt("wf_x.2", "keep");
+    workflow.store.enqueuePrompt(TASK, "later", "workflow");
+    workflow.store.enqueuePrompt("wf_x.2", "keep", "workflow");
     const socket = fakeConnection(TASK, 1);
     const other = fakeConnection("wf_x.2", 1);
     workflow.sockets.push(socket.connection, other.connection);

@@ -344,8 +344,8 @@ describe("WorkflowStore", () => {
 
   describe("prompt queue", () => {
     const twoQueued = scenario(freshStore, (store) => {
-      store.enqueuePrompt("t1", "a");
-      store.enqueuePrompt("t2", "b");
+      store.enqueuePrompt("t1", "a", "workflow");
+      store.enqueuePrompt("t2", "b", "workflow");
     });
 
     it("clears one task's prompts and keeps the other's", () =>
@@ -364,11 +364,11 @@ describe("WorkflowStore", () => {
 
   describe("steered instructions", () => {
     const steered = scenario(freshStore, (store) => {
-      store.enqueueInstruction("t1", "out");
-      store.enqueueInstruction("t1", "taken");
-      store.enqueueInstruction("t1", "waiting");
-      store.enqueuePrompt("t1", "check results");
-      store.enqueueInstruction("t2", "other task");
+      store.enqueuePrompt("t1", "out", "instruction");
+      store.enqueuePrompt("t1", "taken", "instruction");
+      store.enqueuePrompt("t1", "waiting", "instruction");
+      store.enqueuePrompt("t1", "check results", "workflow");
+      store.enqueuePrompt("t2", "other task", "instruction");
       const [out, taken] = store.waitingInstructions("t1");
       store.steerPrompt(out!.id, 10);
       store.steerPrompt(taken!.id, 11);

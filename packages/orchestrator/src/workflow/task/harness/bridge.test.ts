@@ -357,7 +357,7 @@ describe("onBridgeLost", () => {
         {},
         { session_id: "s1", prompt_in_flight: 1, bridge_closed_at: longGone() },
       );
-      workflow.store.enqueuePrompt(TASK, "Address the review.");
+      workflow.store.enqueuePrompt(TASK, "Address the review.", "workflow");
       await onBridgeLost(workflow, ALARM);
     });
 

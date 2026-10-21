@@ -112,7 +112,7 @@ describe("control", () => {
       let socket: FakeSocket;
       const resumed = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow, { paused_at: PAUSED_AT }, { session_id: "s1", prompt_in_flight: 1 });
-        workflow.store.enqueuePrompt(TASK, "held");
+        workflow.store.enqueuePrompt(TASK, "held", "workflow");
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);
         await applyVerbalCommand(workflow, controlEvent("resume"));
@@ -136,7 +136,7 @@ describe("control", () => {
       let socket: FakeSocket;
       const resumed = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow, { paused_at: PAUSED_AT }, { session_id: "s1" });
-        workflow.store.enqueuePrompt(TASK, "held");
+        workflow.store.enqueuePrompt(TASK, "held", "workflow");
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);
         await applyVerbalCommand(workflow, controlEvent("resume"));

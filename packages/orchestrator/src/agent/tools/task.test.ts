@@ -267,7 +267,7 @@ describe("task tools", () => {
     let result: string;
     const refused = scenario(freshRuntime, async (workflow) => {
       seedTask(workflow);
-      workflow.store.enqueuePrompt("wf_x.1", "pending");
+      workflow.store.enqueuePrompt("wf_x.1", "pending", "workflow");
       const { cancel_task } = taskTools(workflow);
       result = toolText(
         await cancel_task.execute({ task_id: "wf_x.1", reason: "wrong repo" }, call),

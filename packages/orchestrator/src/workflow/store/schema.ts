@@ -24,6 +24,9 @@ export type RpcPurpose =
 /** Where a steered instruction stands: its steer awaits an answer, or the running turn took it. */
 export type SteerStatus = "out" | "taken";
 
+/** Who a queued prompt is from: a person's instruction, or a workflow prompt the workflow writes. */
+export type PromptKind = "instruction" | "workflow";
+
 /** The workflow, from the event that created it. One row. Its existence means it was created. */
 export const workflow = sqliteTable("workflow", {
   /** The router's name for the Durable Object. */
@@ -344,8 +347,8 @@ export const promptQueue = sqliteTable("prompt_queue", {
   id: integer().primaryKey({ autoIncrement: true }),
   task_id: text().notNull(),
   text: text().notNull(),
-  /** 1 for a person's instruction, which the running turn may take as a steer. */
-  instruction: integer().notNull().default(0),
+  /** An instruction is the only kind the running turn may take as a steer. */
+  kind: text().$type<PromptKind>().notNull(),
   created_at: text().notNull(),
 });
 

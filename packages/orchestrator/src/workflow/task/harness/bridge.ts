@@ -321,7 +321,7 @@ export async function recoverLostTurn(workflow: WorkflowRuntime, task: TaskRow):
     session_id: null,
   });
   if (!workflow.store.peekPrompt(task.task_id)) {
-    workflow.store.enqueuePrompt(task.task_id, LOST_SANDBOX_TEXT);
+    workflow.store.enqueuePrompt(task.task_id, LOST_SANDBOX_TEXT, "workflow");
   }
   await drainQueue(workflow, workflow.store.requireTask(task.task_id));
 }

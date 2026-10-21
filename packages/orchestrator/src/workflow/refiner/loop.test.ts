@@ -300,7 +300,7 @@ describe("settleRefinersForAuthor", () => {
   it("does nothing while the author answers findings", () =>
     freshRuntime(async (workflow) => {
       const task = seedPullRequestTask(workflow);
-      workflow.store.enqueuePrompt(TASK, "fix it");
+      workflow.store.enqueuePrompt(TASK, "fix it", "workflow");
       await settleRefinersForAuthor(workflow, task);
       expect(workflow.store.refinerRunsOf(JOB)).toEqual([]);
     }));
@@ -434,7 +434,7 @@ describe("taskQuiet", () => {
   it("is false while a prompt waits for the author", () =>
     freshRuntime((workflow) => {
       const task = seedPullRequestTask(workflow);
-      workflow.store.enqueuePrompt(TASK, "fix it");
+      workflow.store.enqueuePrompt(TASK, "fix it", "workflow");
       expect(taskQuiet(workflow, task)).toBe(false);
     }));
 
@@ -886,7 +886,7 @@ describe("a reviewer list with several entries", () => {
       patchStageReviewers(workflow, twoEntries);
       await settleRefinersForAuthor(workflow, seedPullRequestTask(workflow));
       const first = reviewerOf(workflow);
-      workflow.store.enqueuePrompt(TASK, "a human asked for more work");
+      workflow.store.enqueuePrompt(TASK, "a human asked for more work", "workflow");
       await onReviewerFinished(workflow, first, "");
     });
 
@@ -1233,7 +1233,7 @@ describe("a judge entry", () => {
         const second = workflow.store
           .refinerRunsOf(JOB)
           .findLast((run) => run.refiner_index === 1)!;
-        workflow.store.enqueuePrompt(TASK, "a human asked for more work");
+        workflow.store.enqueuePrompt(TASK, "a human asked for more work", "workflow");
         await onReviewerFinished(workflow, second, "");
       },
     );

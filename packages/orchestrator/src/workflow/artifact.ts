@@ -42,7 +42,7 @@ export async function detectArtifactAfterTurn(
   };
   return recordFoundArtifact(workflow, task, find, (reason) => {
     workflow.log(task.task_id, `output not recorded: it is not the subject`);
-    workflow.store.enqueuePrompt(task.task_id, reason);
+    workflow.store.enqueuePrompt(task.task_id, reason, "workflow");
   });
 }
 

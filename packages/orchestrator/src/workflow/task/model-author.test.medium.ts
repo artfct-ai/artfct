@@ -302,7 +302,7 @@ describe("runModelAuthorTurn", () => {
       patchModelExecution(workflow);
       workflow.modelInstance = new EchoModel(reviseAnswer(SCRIPTED_NO_REVIEW));
       const author = seedModelAuthor(workflow);
-      workflow.store.enqueuePrompt(author.task_id, "Name the identity provider.");
+      workflow.store.enqueuePrompt(author.task_id, "Name the identity provider.", "workflow");
       await runModelAuthorTurn(workflow, author);
     });
 

@@ -46,7 +46,7 @@ describe("startFollowUp", () => {
   describe("an author with a prompt waiting", () => {
     const queued = scenario(freshRuntime, (workflow) => {
       const task = seedIdleAuthor(workflow, "ready");
-      workflow.store.enqueuePrompt(task.task_id, "fix the lint");
+      workflow.store.enqueuePrompt(task.task_id, "fix the lint", "workflow");
       startFollowUp(workflow, task);
     });
 

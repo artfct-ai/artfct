@@ -205,7 +205,7 @@ describe("onBridgeMessage", () => {
         const nudged = scenario(sessionOf(REVIEW), async ({ workflow, socket }) => {
           seedTask(workflow, { stage: "implement" });
           seedReviewInFlight(workflow, socket);
-          workflow.store.enqueuePrompt(REVIEW, "Still there?");
+          workflow.store.enqueuePrompt(REVIEW, "Still there?", "workflow");
           const id = workflow.store.insertRpc(REVIEW, "session/prompt", "prompt");
           await onBridgeMessage(
             workflow,
@@ -290,7 +290,7 @@ describe("onBridgeMessage", () => {
       const failed = scenario(sessionOf(TASK), async ({ workflow, socket }) => {
         seedTask(workflow, {}, { session_id: "s1", prompt_in_flight: 1 });
         const id = workflow.store.insertRpc(TASK, "session/prompt", "prompt");
-        workflow.store.enqueuePrompt(TASK, "next");
+        workflow.store.enqueuePrompt(TASK, "next", "workflow");
         workflow.sockets.push(socket.connection);
         await onBridgeMessage(
           workflow,

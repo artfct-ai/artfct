@@ -100,7 +100,14 @@ CREATE TABLE `prompt_queue` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`task_id` text NOT NULL,
 	`text` text NOT NULL,
+	`kind` text NOT NULL,
 	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `prompt_steers` (
+	`prompt_id` integer PRIMARY KEY NOT NULL,
+	`rpc_id` integer NOT NULL,
+	`status` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `reply_targets` (

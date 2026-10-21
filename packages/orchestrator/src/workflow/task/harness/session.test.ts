@@ -52,7 +52,7 @@ describe("onBridgeHello", () => {
   describe("a reconnect with a prompt queued", () => {
     const reconnected = scenario(sessionOf(TASK), async ({ workflow, socket }) => {
       seedTask(workflow, {}, { session_id: "s1", bridge_closed_at: new Date().toISOString() });
-      workflow.store.enqueuePrompt(TASK, "next");
+      workflow.store.enqueuePrompt(TASK, "next", "workflow");
       await hello(workflow, socket, false);
     });
 
@@ -81,7 +81,7 @@ describe("onBridgeHello", () => {
         {},
         { session_id: "s1", credential_expires_at: new Date(Date.now() + 60_000).toISOString() },
       );
-      workflow.store.enqueuePrompt(TASK, "next");
+      workflow.store.enqueuePrompt(TASK, "next", "workflow");
       await hello(workflow, socket, false);
     });
 

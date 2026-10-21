@@ -14,7 +14,7 @@ import {
   sessionFeeds,
   tasks,
 } from "./schema";
-import type { RpcPurpose } from "./schema";
+import type { PromptKind, RpcPurpose } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
 import { WorkflowRowStore } from "./workflow-row";
 
@@ -23,7 +23,7 @@ export type JobRow = typeof jobs.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type SandboxRow = typeof sandboxes.$inferSelect;
 export type SessionFeedRow = typeof sessionFeeds.$inferSelect;
-export type QueuedPrompt = Pick<typeof promptQueue.$inferSelect, "id" | "text" | "instruction">;
+export type QueuedPrompt = Pick<typeof promptQueue.$inferSelect, "id" | "text" | "kind">;
 export type PromptSteerRow = typeof promptSteers.$inferSelect;
 /** How many of a task's queued prompts wait, are steered into its running turn, or were taken by it. */
 export type PromptCounts = { waiting: number; steered: number; taken: number };
@@ -434,19 +434,12 @@ export class WorkflowStore extends WorkflowRowStore {
     return this.handshakeOfTask.get({ taskId }) !== undefined;
   }
 
-  enqueuePrompt(taskId: string, text: string): void {
-    this.db.insert(promptQueue).values({ task_id: taskId, text, created_at: now() }).run();
+  /** Queue a prompt for the task's next turn. A running turn may take an instruction as a steer. */
+  enqueuePrompt(taskId: string, text: string, kind: PromptKind): void {
+    this.db.insert(promptQueue).values({ task_id: taskId, text, kind, created_at: now() }).run();
   }
 
-  /** Queue a person's instruction, which the running turn may take as a steer. */
-  enqueueInstruction(taskId: string, text: string): void {
-    this.db
-      .insert(promptQueue)
-      .values({ task_id: taskId, text, instruction: 1, created_at: now() })
-      .run();
-  }
-
-  /** Queue a prompt ahead of every prompt that waits. */
+  /** Queue a workflow prompt ahead of every prompt that waits. */
   enqueuePromptFirst(taskId: string, text: string): void {
     const head = this.db
       .select({ id: promptQueue.id })
@@ -455,7 +448,10 @@ export class WorkflowStore extends WorkflowRowStore {
       .limit(1)
       .get();
     const id = head ? head.id - 1 : undefined;
-    this.db.insert(promptQueue).values({ id, task_id: taskId, text, created_at: now() }).run();
+    this.db
+      .insert(promptQueue)
+      .values({ id, task_id: taskId, text, kind: "workflow", created_at: now() })
+      .run();
   }
 
   /** The oldest prompt that waits for the next turn. A steered instruction does not wait. */
@@ -465,12 +461,12 @@ export class WorkflowStore extends WorkflowRowStore {
 
   /** The person instructions that wait, oldest first. */
   waitingInstructions(taskId: string): QueuedPrompt[] {
-    return this.waitingPrompts(taskId, eq(promptQueue.instruction, 1)).all();
+    return this.waitingPrompts(taskId, eq(promptQueue.kind, "instruction")).all();
   }
 
   private waitingPrompts(taskId: string, ...filters: SQL[]) {
     return this.db
-      .select({ id: promptQueue.id, text: promptQueue.text, instruction: promptQueue.instruction })
+      .select({ id: promptQueue.id, text: promptQueue.text, kind: promptQueue.kind })
       .from(promptQueue)
       .leftJoin(promptSteers, eq(promptSteers.prompt_id, promptQueue.id))
       .where(and(eq(promptQueue.task_id, taskId), isNull(promptSteers.prompt_id), ...filters))

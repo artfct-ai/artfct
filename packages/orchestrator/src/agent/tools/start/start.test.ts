@@ -298,7 +298,7 @@ describe("cancel_job", () => {
     let result: string;
     const cancelledNow = scenario(freshRuntime, async (workflow) => {
       seedTask(workflow, { task_id: "wf_x.1" });
-      workflow.store.enqueuePrompt("wf_x.1", "pending");
+      workflow.store.enqueuePrompt("wf_x.1", "pending", "workflow");
       const { cancel_job } = startTools(workflow);
       result = toolText(await cancel_job.execute({ job_id: "wf_x-1", reason: "wrong repo" }, call));
     });
