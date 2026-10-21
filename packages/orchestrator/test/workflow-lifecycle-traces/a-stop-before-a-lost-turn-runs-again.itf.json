@@ -234,7 +234,7 @@
           "#set": []
         },
         "endingPosts": [],
-        "idleArmed": true,
+        "idleArmed": false,
         "issueMoves": {
           "#bigint": "0"
         },
@@ -259,15 +259,15 @@
           }
         },
         "status": {
-          "tag": "New",
+          "tag": "NoWorkflow",
           "value": {
             "#tup": []
           }
         },
         "subject": {
-          "tag": "SubjectIssue",
+          "tag": "NoSubject",
           "value": {
-            "#bigint": "0"
+            "#tup": []
           }
         },
         "taskEndAlarms": {

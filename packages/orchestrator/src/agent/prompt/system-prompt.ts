@@ -83,7 +83,7 @@ const BLOCKS: RuleBlock[] = [
   {
     rules: END_RULES,
     tools: [FINISH_WORKFLOW, FAIL_WORKFLOW],
-    needed: (workflow) => workflow.store.plan() !== null,
+    needed: (workflow) => workflow.store.workflowRow() !== null,
   },
   { rules: TASK_RULES, tools: [], needed: always },
   { rules: RUNTIME_RULES, tools: [], needed: mayStartWork },
@@ -163,7 +163,7 @@ function definitionLines(definitions: readonly WorkflowDefinition[]): string[] {
 function workLines(workflow: WorkflowRuntime, config: Config, turn: TurnFacts): string[] {
   const mayStart = mayStartWork(workflow, turn);
   const runtime = mayStart ? [...runtimeLines(config), ""] : [];
-  if (workflow.store.plan() === null) {
+  if (workflow.store.workflowRow() === null) {
     if (!turn.requestsWork) return [];
     const definitions = workflow.workflowDefinitions();
     return [
@@ -225,20 +225,21 @@ export function activeToolNames(
 
 function stateLines(workflow: WorkflowRuntime, turn: TurnFacts): string[] {
   const { store } = workflow;
-  const created = store.requireWorkflowRow();
-  const plan = store.plan();
+  const created = store.workflowRow();
   const stagePlan = store.stagePlan();
   const active = store.activeAuthorAndResearcherTasks();
   return [
     "## Current state",
     "Read from the store and the hosts for this request. Say whether a task runs, and where page comments are, only from these lines, never from earlier messages. `activity=running` means a turn of the task runs now. `activity=idle` means it runs nothing and nothing is queued for it. `queued_prompts` counts the prompts that wait for the task's next turn. `taken_instructions` counts the person instructions its running turn took, so its author has read them. `steered_instructions` counts the ones sent into its running turn that its harness has not answered yet. A count of zero is left out. `held_comments` counts the comments on the page that its author has not received.",
-    `Workflow: ${created.workflow_id} status=${created.status}`,
-    plan
-      ? `Workflow definition: ${plan.definition}`
+    created
+      ? `Workflow: ${created.workflow_id} status=${created.status}`
+      : "Workflow: none. Chatting does not start one.",
+    created
+      ? `Workflow definition: ${created.definition}`
       : "Workflow definition: not set. The workflow starts when set_plan names one.",
     `Name: ${store.workflowName()}`,
     `Plan: ${stagePlan ? stagePlan.stages.join(" -> ") : "not set"}`,
-    `Repository: ${plan?.repo ?? "none"}`,
+    `Repository: ${created?.repo ?? "none"}`,
     `Page parent: ${stagePlan?.page_parent ?? "none"}`,
     `Root page: ${stagePlan?.root_page?.url ?? "none"}`,
     `Active jobs: ${active.length} of ${jobSlotsOf(stagePlan)} slots`,

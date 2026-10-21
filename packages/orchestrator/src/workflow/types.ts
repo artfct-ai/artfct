@@ -166,18 +166,22 @@ export interface WorkflowRuntime {
   now(): number;
 }
 
-/** Why a workflow did not take an event the router handed it: it is not created yet, or it ended. */
+/** Why a conversation did not take an event the router handed it: it is not opened yet, or its workflow ended. */
 export type EventRefusal =
   | { refused: "not_created" }
   | { refused: "ended"; status: WorkflowStatus };
 
 /** The RPC surface of the Workflow Durable Object. The orchestrator entrypoint calls it. */
 export interface WorkflowRpc {
-  /** Start the workflow from its first event and the ended workflow it follows. */
-  create(workflowId: string, event: InboundEvent, endedWorkflowId: string | null): Promise<RpcAck>;
+  /** Open the conversation from its first event and the ended workflow it follows. */
+  create(
+    conversationId: string,
+    event: InboundEvent,
+    endedWorkflowId: string | null,
+  ): Promise<RpcAck>;
   /** Take a later event, or refuse it so the router routes it elsewhere. */
   handle(event: InboundEvent): Promise<RpcAck | EventRefusal>;
-  /** The status summary. Null before the create. */
+  /** The status summary of the workflow. Null before a plan creates one. */
   status(): Promise<WorkflowSummary | null>;
   debug(): Promise<unknown>;
 }

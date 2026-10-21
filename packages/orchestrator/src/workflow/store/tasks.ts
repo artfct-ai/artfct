@@ -71,6 +71,7 @@ function rulingStateOf(row: typeof rulings.$inferSelect): RulingState {
  */
 export type NewJob = Omit<
   JobRow,
+  | "workflow_id"
   | "created_at"
   | "research_payload"
   | "selection"
@@ -140,7 +141,6 @@ export class WorkflowStore extends WorkflowRowStore {
     .from(jobs)
     .where(eq(jobs.job_id, sql.placeholder("jobId")))
     .prepare();
-  private readonly allJobs = this.db.select().from(jobs).orderBy(jobs.created_at).prepare();
   private readonly sandboxOfTask = this.db
     .select()
     .from(sandboxes)
@@ -171,7 +171,7 @@ export class WorkflowStore extends WorkflowRowStore {
     return this.allTasks.all();
   }
 
-  /** How many tasks the workflow started. The store never deletes a task, so it numbers the next. */
+  /** How many tasks the conversation started. The store never deletes a task, so it numbers the next. */
   taskCount(): number {
     return this.db.select({ total: count() }).from(tasks).get()?.total ?? 0;
   }
@@ -267,11 +267,19 @@ export class WorkflowStore extends WorkflowRowStore {
     return job;
   }
 
+  /** The jobs of the workflow, oldest first. Empty before a workflow. */
   jobs(): JobRow[] {
-    return this.allJobs.all();
+    const workflow = this.workflowRow();
+    if (!workflow) return [];
+    return this.db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.workflow_id, workflow.workflow_id))
+      .orderBy(jobs.created_at)
+      .all();
   }
 
-  /** How many jobs the workflow started. The store never deletes a job, so it numbers the next. */
+  /** How many jobs the conversation started. The store never deletes a job, so it numbers the next. */
   jobCount(): number {
     return this.db.select({ total: count() }).from(jobs).get()?.total ?? 0;
   }
@@ -296,7 +304,7 @@ export class WorkflowStore extends WorkflowRowStore {
   insertJob(job: NewJob): void {
     this.db
       .insert(jobs)
-      .values({ ...job, created_at: now() })
+      .values({ ...job, workflow_id: this.requireWorkflowRow().workflow_id, created_at: now() })
       .run();
   }
 

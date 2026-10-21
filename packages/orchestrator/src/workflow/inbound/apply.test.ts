@@ -49,7 +49,7 @@ const STARTING_SESSION = {
 } as const;
 
 function authorWorksInStartingSession(workflow: FakeRuntime): void {
-  workflow.store.updateWorkflow({ origin: STARTING_SESSION });
+  workflow.patchConversation({ origin: STARTING_SESSION });
   workflow.store.addReplyTarget(STARTING_SESSION);
   seedTask(workflow, { issue_id: "ENG-1" }, { session_id: "acp-1", prompt_in_flight: 1 });
 }
@@ -584,7 +584,7 @@ describe("applyEvent", () => {
       freshRuntime,
       { kind: "prompt", text: "what changed?", reply_to: STARTING_SESSION },
       (workflow) => {
-        workflow.store.updateWorkflow({ origin: STARTING_SESSION });
+        workflow.patchConversation({ origin: STARTING_SESSION });
         workflow.store.addReplyTarget(STARTING_SESSION);
         seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
       },
@@ -607,7 +607,7 @@ describe("applyEvent", () => {
       freshRuntime,
       { kind: "stop", text: "", reply_to: STARTING_SESSION },
       (workflow) => {
-        workflow.store.updateWorkflow({ origin: STARTING_SESSION });
+        workflow.patchConversation({ origin: STARTING_SESSION });
         workflow.store.addReplyTarget(STARTING_SESSION);
         seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
         socket = fakeConnection(TASK, 1);

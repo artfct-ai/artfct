@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5f26627f-94cb-403d-8f2c-42166e5528d2",
+  "id": "0957f3ba-027f-432e-80f3-5c1ebcba7994",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "agent_inbox": {
@@ -83,8 +83,8 @@
     "agent_turn": {
       "name": "agent_turn",
       "columns": {
-        "workflow_id": {
-          "name": "workflow_id",
+        "conversation_id": {
+          "name": "conversation_id",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
@@ -303,6 +303,58 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "conversation": {
+      "name": "conversation",
+      "columns": {
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "request_title": {
+          "name": "request_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_text": {
+          "name": "request_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_links": {
+          "name": "request_links",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "events": {
       "name": "events",
       "columns": {
@@ -334,6 +386,13 @@
           "name": "job_id",
           "type": "text",
           "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -1266,65 +1325,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "workflow": {
-      "name": "workflow",
-      "columns": {
-        "workflow_id": {
-          "name": "workflow_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_title": {
-          "name": "request_title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_text": {
-          "name": "request_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_links": {
-          "name": "request_links",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "origin": {
-          "name": "origin",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "idle_schedule": {
-          "name": "idle_schedule",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "workflow_end": {
       "name": "workflow_end",
       "columns": {
@@ -1371,13 +1371,51 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "workflow_plan": {
-      "name": "workflow_plan",
+    "workflow_subject": {
+      "name": "workflow_subject",
       "columns": {
         "workflow_id": {
           "name": "workflow_id",
           "type": "text",
           "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tracker_id": {
+          "name": "tracker_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "workflows": {
+      "name": "workflows",
+      "columns": {
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -1408,33 +1446,16 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "workflow_subject": {
-      "name": "workflow_subject",
-      "columns": {
-        "workflow_id": {
-          "name": "workflow_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
         },
-        "kind": {
-          "name": "kind",
+        "idle_schedule": {
+          "name": "idle_schedule",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "tracker_id": {
-          "name": "tracker_id",
+        "created_at": {
+          "name": "created_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

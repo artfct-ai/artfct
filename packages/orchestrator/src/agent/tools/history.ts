@@ -80,7 +80,7 @@ export function historyTools(workflow: WorkflowRuntime, turn?: TurnDecisions) {
 
 /** The chat thread the request came from: its origin when that is chat, else any chat target. */
 function chatTarget(workflow: WorkflowRuntime): ChatTarget | null {
-  const { origin } = workflow.store.requireWorkflowRow();
+  const { origin } = workflow.store.requireConversation();
   if (origin?.source === "chat") return origin;
   return workflow.store.replyTargets().find((target) => target.source === "chat") ?? null;
 }

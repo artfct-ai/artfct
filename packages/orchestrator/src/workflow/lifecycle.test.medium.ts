@@ -585,8 +585,8 @@ describe("startJob", () => {
     const started = acting(async (workflow) => {
       planned(workflow);
       patchPlan(workflow, { repo: "acme/app" });
-      workflow.store.updateWorkflow({ request_title: "Fix it", request_text: "Fix it please" });
-      await createWorkflow(db, workflow.store.requireWorkflowRow().workflow_id);
+      workflow.patchConversation({ request_title: "Fix it", request_text: "Fix it please" });
+      await createWorkflow(db, workflow.store.requireConversation().conversation_id);
       return startJob(workflow, {
         stage: "implement",
         brief: "Make the test pass.",
@@ -660,7 +660,7 @@ describe("startJob", () => {
   describe("a job that claims an issue for a request that came from chat", () => {
     const claimed = acting((workflow) => {
       planned(workflow);
-      workflow.store.updateWorkflow({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
+      workflow.patchConversation({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
       return startJob(workflow, {
         stage: "implement",
         brief: "Fix it.",
@@ -690,7 +690,7 @@ describe("startJob", () => {
   describe("a second job on an issue a chat request already linked", () => {
     const claimedAgain = acting(async (workflow) => {
       planned(workflow);
-      workflow.store.updateWorkflow({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
+      workflow.patchConversation({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
       const input = { kind: "issue", issue: ISSUE } as const;
       await startJob(workflow, { stage: "implement", brief: "Fix it.", input });
       return startJob(workflow, { stage: "implement", brief: "Fix it again.", input });
@@ -708,7 +708,7 @@ describe("startJob", () => {
   describe("a job that claims an issue for a request that came from the tracker", () => {
     const claimed = acting((workflow) => {
       planned(workflow);
-      workflow.store.updateWorkflow({
+      workflow.patchConversation({
         origin: { source: "tracker", session_id: "sess-1", issue_id: "issue-1" },
       });
       return startJob(workflow, {

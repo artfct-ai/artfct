@@ -6,8 +6,8 @@ import type { WorkflowRuntime } from "./types";
 /** Status summary: the plan, the active jobs with their artifacts, the cost, and the end. */
 export function summarize(workflow: WorkflowRuntime): WorkflowSummary {
   const { store } = workflow;
-  const { workflow_id } = store.requireWorkflowRow();
-  const plan = store.plan();
+  const workflow_id = store.requireConversation().conversation_id;
+  const created = store.requireWorkflowRow();
   const stagePlan = store.stagePlan();
   return {
     workflow_id,
@@ -16,8 +16,8 @@ export function summarize(workflow: WorkflowRuntime): WorkflowSummary {
     jobs: store.activeAuthorAndResearcherTasks().map((task) => jobSummary(workflow, task)),
     concurrency: jobSlotsOf(stagePlan),
     cost_usd: store.workflowCost(),
-    repo: plan?.repo ? { full: plan.repo } : null,
-    reason: store.workflowEnd()?.reason ?? plan?.reason ?? null,
+    repo: created.repo ? { full: created.repo } : null,
+    reason: store.workflowEnd()?.reason ?? created.reason,
   };
 }
 
@@ -40,6 +40,18 @@ function jobSummary(workflow: WorkflowRuntime, task: TaskRow): JobSummary {
       ? { kind: artifact.kind, url: artifact.external_url, status: artifact.status }
       : null,
   };
+}
+
+/**
+ * The status message for chat channels and the agent: the workflow's summary, or one line for a
+ * conversation before a plan creates its workflow.
+ */
+export function conversationStatusText(workflow: WorkflowRuntime): string {
+  if (!workflow.store.workflowRow()) {
+    const cost = workflow.store.workflowCost().toFixed(2);
+    return `No workflow runs in this conversation yet. Cost so far: $${cost}`;
+  }
+  return statusText(summarize(workflow));
 }
 
 /** The summary as a short message for chat channels. */
@@ -70,10 +82,10 @@ function artifactText(job: JobSummary): string {
 export function debugDump(workflow: WorkflowRuntime) {
   const { store } = workflow;
   return {
+    conversation: store.conversation(),
     workflow: store.workflowRow(),
     workflow_end: store.workflowEnd(),
     agent_turn: store.agentTurn(),
-    plan: store.plan(),
     stage_plan: store.stagePlan(),
     subject: store.subject(),
     reply_targets: store.replyTargets(),

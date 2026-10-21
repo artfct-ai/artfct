@@ -29,7 +29,7 @@ const BRANCH_BINDING = { source: "code_branch", repo: "acme/app", branch: BRANCH
 async function seedQueuedTaskOnABranch(workflow: FakeRuntime, restarts: number): Promise<void> {
   const db = sqliteD1();
   workflow.env = { ...workflow.env, DB: db };
-  await createWorkflow(createDb(db), workflow.store.requireWorkflowRow().workflow_id);
+  await createWorkflow(createDb(db), workflow.store.requireConversation().conversation_id);
   workflow.codeHostInstance = new FakeCodeHost();
   patchPlan(workflow, { repo: "acme/app" });
   seedTask(workflow, { status: "queued", stage: "design", branch: BRANCH, restarts });

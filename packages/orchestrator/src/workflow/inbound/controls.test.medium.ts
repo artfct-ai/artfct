@@ -302,7 +302,7 @@ describe("control", () => {
     describe("from the subject issue", () => {
       const cancelled = controlling(
         (workflow) => {
-          workflow.store.updateWorkflow({
+          workflow.patchConversation({
             origin: { source: "tracker", session_id: "sess", issue_id: "iss1", team_id: "team" },
           });
           workflow.store.writeSubject({ kind: "issue", issue_id: "iss1" });

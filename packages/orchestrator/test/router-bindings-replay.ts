@@ -9,7 +9,11 @@ import type { Env } from "../src/env";
 import { deliver } from "../src/router/deliver";
 import { recordArtifact } from "../src/workflow/artifact";
 import { applyVerbalCommand } from "../src/workflow/inbound/controls";
-import { createWorkflow, eventRefusalOf, type WorkflowStart } from "../src/workflow/inbound/events";
+import {
+  eventRefusalOf,
+  openConversation,
+  type ConversationStart,
+} from "../src/workflow/inbound/events";
 import { completeWorkflow, failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
@@ -552,7 +556,7 @@ export class RouterBindingsReplay {
       getByName: (name: string) => ({
         create: (workflowId: string, event: InboundEvent, endedWorkflowId: string | null) =>
           this.gate.hold(`CreateWorkflow(${this.specIdOf(name)})`, () =>
-            this.createRuntime(name, { workflowId, event, endedWorkflowId }),
+            this.createRuntime(name, { conversationId: workflowId, event, endedWorkflowId }),
           ),
         handle: (event: InboundEvent) =>
           this.gate.hold(
@@ -801,7 +805,7 @@ export class RouterBindingsReplay {
     const status = ENDED_STATUSES[this.nextEndedStatus % ENDED_STATUSES.length]!;
     this.nextEndedStatus += 1;
     await this.endWorkflowWith(runtime, status);
-    this.unbound.add(runtime.store.requireWorkflowRow().workflow_id);
+    this.unbound.add(runtime.store.requireConversation().conversation_id);
   }
 
   private async endWorkflowWith(runtime: FakeRuntime, status: EndedStatus): Promise<void> {
@@ -840,7 +844,7 @@ export class RouterBindingsReplay {
 
   /** The author finds its pull request. One whose earlier find a restart cut off finds it again. */
   private async openPullRequest(runtime: FakeRuntime, pull: PullKeyName): Promise<void> {
-    const workflowId = runtime.store.requireWorkflowRow().workflow_id;
+    const workflowId = runtime.store.requireConversation().conversation_id;
     const taskId = `${workflowId}.9`;
     const author =
       runtime.store.task(taskId) ??
@@ -849,11 +853,10 @@ export class RouterBindingsReplay {
   }
 
   /** The real create path. The subject is the issue, as the plan of a workflow from a thread names it. */
-  private async createRuntime(name: string, start: WorkflowStart): Promise<RpcAck> {
+  private async createRuntime(name: string, start: ConversationStart): Promise<RpcAck> {
     const runtime = this.runtimeOf(name);
-    const created = await createWorkflow(runtime, start);
-    if (!runtime.store.workflowRow() || runtime.store.plan()) return created;
-    runtime.store.updateWorkflow({ status: "running" });
+    const created = await openConversation(runtime, start);
+    if (!runtime.store.conversation() || runtime.store.workflowRow()) return created;
     patchPlan(runtime, {});
     patchStagePlan(runtime, { job_slots: 2 });
     if (!runtime.store.subject()) runtime.store.writeSubject({ kind: "issue", issue_id: ISSUE.id });

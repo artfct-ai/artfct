@@ -1019,7 +1019,7 @@ export class AgentTurnsReplay {
         ref: { kind: "page", page_id: PAGE_ID },
       });
       const { origin, reply_targets: targets } = SPEC_SETUPS[setup];
-      runtime.store.updateWorkflow({ origin });
+      runtime.patchConversation({ origin });
       for (const target of targets) runtime.store.addReplyTarget(target);
       const { orchestrator } = runtime.config();
       runtime.patchConfig({

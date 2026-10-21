@@ -49,7 +49,8 @@ export async function applyVerbalCommand(
 /**
  * A cancel on a tracker issue other than the subject issue cancels that issue's job alone, and
  * the notice answers the people who wrote from `answering`. One on an issue whose job is over,
- * or whose artifact the host accepted, is left alone, and so is one while the workflow ends.
+ * or whose artifact the host accepted, is left alone, and so is one while the workflow ends or
+ * before a plan creates it.
  * Everything else cancels the workflow.
  * Returns the reason it was left alone, or null.
  */
@@ -78,6 +79,11 @@ async function cancel(
     await cancelTask(workflow, task, reason);
     await workflow.post({ type: "info", text: `Cancelled job ${owner.job_id}.` }, { answering });
     return null;
+  }
+  if (!workflow.store.activeWorkflow()) {
+    const why = "the conversation has no workflow";
+    workflow.log(null, `cancel ignored: ${why} (${reason})`);
+    return why;
   }
   if (workflowEnding(workflow)) {
     const why = "the workflow is already ending";

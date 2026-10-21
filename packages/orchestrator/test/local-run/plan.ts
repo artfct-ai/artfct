@@ -99,16 +99,13 @@ export async function planLocalRun(
   workflow.codeHostInstance = codeHost(secrets);
   workflow.documentsInstance = documents(config, secrets);
   workflow.gatewayInstance = gateway(config, secrets);
-  workflow.store.createWorkflow({
-    workflow_id: "local",
+  workflow.store.openConversation({
+    conversation_id: "local",
     request_title: request.title,
     request_text: request.request,
     request_links: [],
     origin: null,
-    subject: null,
   });
-  workflow.store.updateWorkflow({ status: "running" });
-  patchPlan(workflow, {});
   patchPlan(workflow, { repo: request.repoFull ?? null });
 
   const seeded = await seedRun(workflow, loaded, request);
@@ -146,10 +143,10 @@ export async function planLocalRun(
     skills: loadHarnessSkills(settings.skill),
     harness: workflow.harness(sandbox.harness),
     adapters: config.adapters,
-    workflowId: workflow.store.requireWorkflowRow().workflow_id,
+    workflowId: workflow.store.requireConversation().conversation_id,
     publicUrl: "",
-    repo: workflow.store.plan()?.repo ?? null,
-    commitAuthor: workflow.store.plan()?.repo
+    repo: workflow.store.workflowRow()?.repo ?? null,
+    commitAuthor: workflow.store.workflowRow()?.repo
       ? ((await workflow.code()?.commitAuthor()) ?? null)
       : null,
     workflowRepoToken: minted?.workflowRepoToken ?? null,

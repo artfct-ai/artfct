@@ -242,14 +242,14 @@ function reviewerFirstPrompt(
   const artifact = workflow.store.artifact(job.job_id);
   const kind = artifact ? workflow.artifact(artifact.kind) : null;
   const entry = reviewerEntryOf(workflow, task);
-  const created = workflow.store.requireWorkflowRow();
+  const request = workflow.store.requireConversation();
   if (!artifact || !kind?.review || !entry) {
     return "The artifact or the reviewer entry you were started for is gone. Say so in one line and stop.";
   }
   const subject = {
     url: artifact.external_url,
-    title: created.request_title,
-    request: created.request_text,
+    title: request.request_title,
+    request: request.request_text,
     brief: job.brief,
     entryInstructions: harness.invokeSkill(entry.skill),
     artifact: kind.instructions,
@@ -270,16 +270,16 @@ function polisherFirstPrompt(
   const job = workflow.store.requireJob(task.job_id);
   const artifact = workflow.store.artifact(job.job_id);
   const refiner = refinerAt(workflow.stageFor(job), refinerIndexOf(task));
-  const created = workflow.store.requireWorkflowRow();
-  const repo = workflow.store.plan()?.repo;
+  const request = workflow.store.requireConversation();
+  const repo = workflow.store.workflowRow()?.repo;
   const kind = artifact ? workflow.artifact(artifact.kind) : null;
   if (!artifact || !kind || refiner?.role !== "polisher") {
     return "The artifact or the polisher entry you were started for is gone. Say so in one line and stop.";
   }
   return polishPrompt({
     url: artifact.external_url,
-    title: created.request_title,
-    request: created.request_text,
+    title: request.request_title,
+    request: request.request_text,
     brief: job.brief,
     instructions: harness.invokeSkill(refiner.entry.skill),
     repo: repo ? { full: repo, notes: kind.repositoryInstructions() } : null,
@@ -290,8 +290,8 @@ function polisherFirstPrompt(
 
 /** What a task reads about its job. */
 export function taskContext(workflow: WorkflowRuntime, task: TaskRow): TaskContext {
-  const created = workflow.store.requireWorkflowRow();
-  const repo = workflow.store.plan()?.repo;
+  const request = workflow.store.requireConversation();
+  const repo = workflow.store.workflowRow()?.repo;
   const job = workflow.store.requireJob(task.job_id);
   const kind = workflow.artifact(workflow.stageFor(job).artifact);
   const precedingJob = job.preceding_job_id
@@ -299,9 +299,9 @@ export function taskContext(workflow: WorkflowRuntime, task: TaskRow): TaskConte
     : null;
   return {
     brief: job.brief,
-    title: created.request_title,
-    text: created.request_text,
-    links: created.request_links,
+    title: request.request_title,
+    text: request.request_text,
+    links: request.request_links,
     repo: repo ? { full: repo, notes: kind.repositoryInstructions() } : null,
     branch: job.branch,
     previous_artifacts: workflow.store.previousArtifacts(job.job_id).map((artifact) => ({

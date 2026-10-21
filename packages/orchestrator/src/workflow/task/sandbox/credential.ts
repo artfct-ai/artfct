@@ -21,7 +21,7 @@ export async function mintWorkflowRepoToken(
   task: TaskRow,
 ): Promise<MintedToken | null> {
   const code = workflow.code();
-  const repo = workflow.store.plan()?.repo;
+  const repo = workflow.store.workflowRow()?.repo;
   if (!code || !repo) return null;
   const permissions = task.role === "reviewer" ? reviewerPermissions(workflow, task) : undefined;
   try {
@@ -51,7 +51,7 @@ export async function mintSandboxGithubTokens(
   workflow: WorkflowRuntime,
   task: TaskRow,
 ): Promise<SandboxGithubTokens | null> {
-  const workflowRepo = workflow.store.plan()?.repo;
+  const workflowRepo = workflow.store.workflowRow()?.repo;
   const workflowRepoToken = await mintWorkflowRepoToken(workflow, task);
   if (!workflowRepo || !workflowRepoToken) return null;
   const allReposReadToken = await mintAllReposReadToken(workflow, task);

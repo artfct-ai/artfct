@@ -1234,7 +1234,7 @@ export class HarnessSessionReplay {
     const dialRequest = new Request(
       bridgeDialUrl(
         "https://artfct.test",
-        workflow.store.requireWorkflowRow().workflow_id,
+        workflow.store.requireConversation().conversation_id,
         this.taskId,
       ),
       { headers: bridgeTokenHeaders(bridge.token) },

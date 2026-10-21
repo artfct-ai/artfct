@@ -69,7 +69,7 @@ import {
 import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
 import { postToRecipients, releaseChatThreads, showWorking } from "./workflow/posts";
 import { openWorkflowDb } from "./workflow/store/db";
-import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/events";
+import { eventRefusalOf, handleEvent, openConversation } from "./workflow/inbound/events";
 import {
   armWorkflowEndAlarm,
   onIdle,
@@ -217,12 +217,12 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
   }
 
   async create(
-    workflowId: string,
+    conversationId: string,
     event: InboundEvent,
     endedWorkflowId: string | null,
   ): Promise<RpcAck> {
     await this.lifecycle.start();
-    return createWorkflow(this, { workflowId, event, endedWorkflowId });
+    return openConversation(this, { conversationId, event, endedWorkflowId });
   }
 
   async handle(event: InboundEvent): Promise<RpcAck | EventRefusal> {
@@ -406,8 +406,8 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
   /** Run one entry point in a span that names the workflow and the task, so a trace is found by either. */
   private inSpan<Result>(name: string, taskId: string | null, run: () => Result): Result {
     return tracing.enterSpan(name, (span) => {
-      const workflowId = this.store.workflowRow()?.workflow_id;
-      if (workflowId) span.setAttribute("workflow.id", workflowId);
+      const conversationId = this.store.conversation()?.conversation_id;
+      if (conversationId) span.setAttribute("workflow.id", conversationId);
       if (taskId) span.setAttribute("task.id", taskId);
       return run();
     });
@@ -424,7 +424,7 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
   workflowDefinition(): WorkflowDefinition {
     return storedWorkflowDefinition(
       this.workflowDefinitions(),
-      this.store.plan()?.definition ?? null,
+      this.store.workflowRow()?.definition ?? null,
     );
   }
 
@@ -507,7 +507,7 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
 
   log(taskId: string | null, line: string): void {
     this.store.appendLog(taskId, line);
-    const workflowId = this.store.workflowRow()?.workflow_id ?? null;
+    const workflowId = this.store.conversation()?.conversation_id ?? null;
     const where = [workflowId, taskId].filter(Boolean).join("/");
     console.log({
       message: `[${where}] ${line}`,
@@ -584,7 +584,7 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
       code: () => this.code(),
       documents: () => this.documents(),
       tracker: () => this.tracker(),
-      repo: () => this.store.plan()?.repo ?? null,
+      repo: () => this.store.workflowRow()?.repo ?? null,
       log: (line) => this.log(null, line),
     });
   }

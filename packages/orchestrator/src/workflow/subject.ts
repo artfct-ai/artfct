@@ -43,7 +43,7 @@ export async function setWorkflowSubject(
 ): Promise<void> {
   workflow.store.writeSubject(subject);
   workflow.log(null, `subject: ${subject.kind} ${subjectId(subject)}`);
-  const { origin } = workflow.store.requireWorkflowRow();
+  const { origin } = workflow.store.requireConversation();
   if (subject.kind !== "issue" || origin?.source !== "chat") return;
   await workflow.notifier.linkChatThread({ issue_id: subject.issue_id }, origin);
 }
@@ -62,13 +62,13 @@ export async function validateOutputIsSubject(
   return `Your output names another ${ref.kind} than the subject of this workflow, ${shown}. A workflow works only its own subject. Put the work in ${shown} and end your turn with its link.`;
 }
 
-/** Validate that a plan names the subject the workflow already has. Null when it does, and when it has none. */
+/** Validate that a plan names the subject the workflow has. Null when it does. */
 export async function validatePlanKeepsSubject(
   workflow: WorkflowRuntime,
+  subject: Subject,
   ref: TrackerRef,
 ): Promise<string | null> {
-  const subject = workflow.store.subject();
-  if (!subject || refNamesSubject(subject, ref)) return null;
+  if (refNamesSubject(subject, ref)) return null;
   const shown = await shownSubject(workflow, subject);
   return `The subject of this workflow is ${shown}, and it never changes. Leave subject out, and ask the person to start a new workflow for the other ${ref.kind}.`;
 }

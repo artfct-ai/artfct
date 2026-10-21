@@ -18,7 +18,7 @@ import {
   type FakeRuntime,
   type FakeSocket,
 } from "../../../../test/fake-runtime";
-import { freshStore } from "../../../../test/fresh-store";
+import { plannedStore } from "../../../../test/fresh-store";
 import { scenario, type Scenario } from "../../../../test/scenario";
 import { RECONNECT_CEILING_MS } from "./prompt-queue";
 import { MAX_RESTARTS } from "../../lifecycle";
@@ -378,7 +378,7 @@ function dial(taskId: string, headers: Record<string, string>): Request {
 }
 
 describe("authorizeBridge", () => {
-  const withTask = scenario(freshStore, (store) => {
+  const withTask = scenario(plannedStore, (store) => {
     store.insertJob({
       job_id: "j1",
       stage: "implement",

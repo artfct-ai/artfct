@@ -95,7 +95,8 @@ const ENG_1_INPUT: JobInput = {
 
 describe("validateInputNotInWork", () => {
   describe("an issue whose only job failed", () => {
-    const failed = scenario(freshWorkflow(), (workflow) => {
+    const failed = scenario(freshWorkflow(), async (workflow) => {
+      await startWorkflow(workflow);
       seedJob(workflow, "j1", "t1", { issue: ENG_1 });
       workflow.store.updateTask("t1", { status: "failed" });
     });
@@ -371,8 +372,12 @@ describe("start_job on an issue another workflow started a job on", () => {
   describe("after that workflow ended", () => {
     const started = issueStartedByAnotherWorkflow(async (firstWorkflow) => {
       const db = createDb(env.DB);
-      await createWorkflow(db, firstWorkflow.store.requireWorkflowRow().workflow_id);
-      await setWorkflowStatus(db, firstWorkflow.store.requireWorkflowRow().workflow_id, "done");
+      await createWorkflow(db, firstWorkflow.store.requireConversation().conversation_id);
+      await setWorkflowStatus(
+        db,
+        firstWorkflow.store.requireConversation().conversation_id,
+        "done",
+      );
     });
 
     it("starts the job", () =>
@@ -384,7 +389,7 @@ describe("start_job on an issue another workflow started a job on", () => {
       started(async ({ workflow }) => {
         const issue = { source: "tracker_issue", external_id: "ENG-1" } as const;
         expect(await findBinding(createDb(env.DB), issue)).toBe(
-          workflow.store.requireWorkflowRow().workflow_id,
+          workflow.store.requireConversation().conversation_id,
         );
       }));
   });

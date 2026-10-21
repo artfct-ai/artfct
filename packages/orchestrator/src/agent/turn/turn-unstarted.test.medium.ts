@@ -21,7 +21,7 @@ describe("a turn of a workflow that has not started", () => {
 
     it("leaves the workflow new", () =>
       finished((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("new");
+        expect(workflow.store.workflowRow()).toBeNull();
       }));
 
     it("posts no result", () =>
@@ -35,7 +35,7 @@ describe("a turn of a workflow that has not started", () => {
 
     it("leaves the workflow new", () =>
       failed((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("new");
+        expect(workflow.store.workflowRow()).toBeNull();
       }));
   });
 });

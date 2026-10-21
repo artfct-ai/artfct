@@ -275,9 +275,9 @@ describe("agent turn", () => {
   describe("a request that names no repository", () => {
     const asked = settledWorkflow(null);
 
-    it("stays new while it waits for the answer", () =>
+    it("does not create a workflow while it waits for the answer", () =>
       asked((debug) => {
-        expect(debug.workflow.status).toBe("new");
+        expect(debug.workflow).toBeNull();
       }));
 
     it("acknowledges the request first, then asks its question", () =>

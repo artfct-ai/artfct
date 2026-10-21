@@ -39,7 +39,7 @@ describe("recordArtifact", () => {
   const recorded: Scenario<FakeRuntime> = scenario(freshDurableRuntime, async (workflow) => {
     await createWorkflow(
       createDb(workflow.env.DB),
-      workflow.store.requireWorkflowRow().workflow_id,
+      workflow.store.requireConversation().conversation_id,
     );
     await recordArtifact(workflow, seedAuthor(workflow), TARGET);
   });

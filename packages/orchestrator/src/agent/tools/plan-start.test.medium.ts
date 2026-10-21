@@ -44,7 +44,7 @@ describe("set_plan on a workflow that has not started", () => {
 
     it("stores the repository without a stage plan", () =>
       started((workflow) => {
-        expect(workflow.store.plan()?.repo).toBe("acme/app");
+        expect(workflow.store.workflowRow()?.repo).toBe("acme/app");
         expect(workflow.store.stagePlan()).toBeNull();
       }));
 
@@ -58,7 +58,7 @@ describe("set_plan on a workflow that has not started", () => {
       it("refuses and does not start the workflow", () =>
         refused((workflow) => {
           expect(result).toMatch(/^Repository acme\/other is not reachable/);
-          expect(workflow.store.plan()).toBeNull();
+          expect(workflow.store.workflowRow()).toBeNull();
         }));
     });
   });
@@ -66,7 +66,7 @@ describe("set_plan on a workflow that has not started", () => {
   describe("the call that starts a workflow from a tracker issue, without stages", () => {
     let result: string;
     const started = scenario(unstartedDurableRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
+      workflow.patchConversation({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
@@ -89,7 +89,10 @@ describe("set_plan on a workflow that has not started", () => {
     it("stores the workflow definition and the name, and runs without stages", () =>
       started((workflow) => {
         expect(workflow.store.requireWorkflowRow().status).toBe("running");
-        expect(workflow.store.plan()).toMatchObject({ definition: "development", name: "Ship it" });
+        expect(workflow.store.workflowRow()).toMatchObject({
+          definition: "development",
+          name: "Ship it",
+        });
         expect(workflow.store.stagePlan()).toBeNull();
       }));
 
@@ -133,7 +136,7 @@ describe("set_plan on a workflow that has not started", () => {
 
   describe("the call that starts a workflow from a tracker issue, with stages", () => {
     const planned = scenario(unstartedDurableRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
+      workflow.patchConversation({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       await set_plan.execute(
         {
@@ -151,7 +154,7 @@ describe("set_plan on a workflow that has not started", () => {
     it("starts the workflow and sets the plan", () =>
       planned((workflow) => {
         expect(workflow.store.requireWorkflowRow().status).toBe("running");
-        expect(workflow.store.plan()?.definition).toBe("development");
+        expect(workflow.store.workflowRow()?.definition).toBe("development");
         expect(workflow.store.stagePlan()?.stages).toEqual(["implement"]);
       }));
 
@@ -190,7 +193,7 @@ describe("set_plan on a workflow that has not started", () => {
     it("starts the workflow on that workflow definition", () =>
       incident((workflow) => {
         expect(workflow.store.requireWorkflowRow().status).toBe("running");
-        expect(workflow.store.plan()?.definition).toBe("incident");
+        expect(workflow.store.workflowRow()?.definition).toBe("incident");
         expect(workflow.workflowDefinition().name).toBe("incident");
       }));
   });

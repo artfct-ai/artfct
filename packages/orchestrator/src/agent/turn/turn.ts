@@ -346,7 +346,7 @@ async function modelPass(
     tools,
     activeTools: () => (awaitingFirstReply() ? firstReplyTools : activeTools),
     maxSteps: config.max_steps,
-    identity: orchestratorIdentity(workflow.store.requireWorkflowRow().workflow_id),
+    identity: orchestratorIdentity(workflow.store.requireConversation().conversation_id),
     abortSignal: signal,
     stopTools: endingTools,
     onStep: async (step) => {

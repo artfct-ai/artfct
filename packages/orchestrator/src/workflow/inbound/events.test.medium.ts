@@ -85,26 +85,38 @@ function createdFrom(
 
 const freshWorkflow = createdFrom(start);
 
+const plannedWorkflow = scenario(freshWorkflow, startWorkflow);
+
 function firstTaskId(workflow: Workflow): string {
-  return `${workflow.store.requireWorkflowRow().workflow_id}.1`;
+  return `${workflow.store.requireConversation().conversation_id}.1`;
 }
 
 function firstJobId(workflow: Workflow): string {
-  return `${workflow.store.requireWorkflowRow().workflow_id}-1`;
+  return `${workflow.store.requireConversation().conversation_id}-1`;
 }
 
-describe("the subject of a new workflow", () => {
-  it("is the issue of the tracker session it started from", () =>
-    createdFrom({
-      ...start,
-      reply_to: { source: "tracker", session_id: "s-1", issue_id: "ENG-1" },
-      acknowledge: undefined,
-    })((workflow) => {
+describe("the subject of the workflow a plan creates", () => {
+  const fromSession = createdFrom({
+    ...start,
+    reply_to: { source: "tracker", session_id: "s-1", issue_id: "ENG-1" },
+    acknowledge: undefined,
+  });
+
+  it("is unset before the plan", () =>
+    fromSession((workflow) => {
+      expect(workflow.store.subject()).toBeNull();
+    }));
+
+  it("is the issue of the tracker session the conversation started from", () =>
+    scenario(
+      fromSession,
+      startWorkflow,
+    )((workflow) => {
       expect(workflow.store.subject()).toEqual({ kind: "issue", issue_id: "ENG-1" });
     }));
 
   it("is unset for a workflow from a chat thread", () =>
-    freshWorkflow((workflow) => {
+    plannedWorkflow((workflow) => {
       expect(workflow.store.subject()).toBeNull();
     }));
 });
@@ -160,7 +172,7 @@ describe("acknowledge", () => {
 
     it("titles the request rather than storing the empty string", () =>
       bare((workflow) => {
-        expect(workflow.store.requireWorkflowRow().request_title).toBe("task");
+        expect(workflow.store.requireConversation().request_title).toBe("task");
       }));
 
     it("sends that title to Slack, never an empty one", () =>
@@ -210,7 +222,7 @@ describe("release", () => {
 
   describe("an event the workflow answers itself", () => {
     let kinds: string[];
-    const handled = scenario(freshWorkflow, async (workflow) => {
+    const handled = scenario(plannedWorkflow, async (workflow) => {
       const before = (await outboxOf(workflow)).length;
       await workflow.handle({
         ...start,
@@ -417,7 +429,7 @@ describe("human reviews", () => {
 });
 
 describe("finished workflows", () => {
-  const failed = scenario(freshWorkflow, (workflow) => failWorkflow(workflow, "boom"));
+  const failed = scenario(plannedWorkflow, (workflow) => failWorkflow(workflow, "boom"));
 
   it("reports the failure", () =>
     failed((workflow) => {
@@ -588,7 +600,7 @@ describe("finished workflows", () => {
 
   describe("a status question after the workflow finished", () => {
     let recorder: RecordingNotifier;
-    const asked = scenario(freshWorkflow, async (workflow) => {
+    const asked = scenario(plannedWorkflow, async (workflow) => {
       recorder = new RecordingNotifier(NO_CHANNELS, () => {});
       workflow.notifier = recorder;
       await workflow.post({ type: "info", text: "working" });
@@ -624,7 +636,7 @@ describe("the thread title between turns", () => {
       expect(recorder.options.map((option) => option.title)).toEqual(["Flaky checkout test"]);
     }));
 
-  describe("a workflow before the plan that starts it", () => {
+  describe("a conversation before the plan that creates its workflow", () => {
     const unplanned = scenario(freshWorkflow, async (workflow) => {
       recorder = new RecordingNotifier(NO_CHANNELS, () => {});
       workflow.notifier = recorder;
@@ -639,14 +651,21 @@ describe("the thread title between turns", () => {
 });
 
 describe("idle", () => {
-  it("arms the idle alarm on creation", () =>
+  it("does not arm the idle alarm before a plan creates the workflow", () =>
     freshWorkflow((workflow) => {
+      expect(workflow.getSchedules().some((schedule) => schedule.callback === "onIdle")).toBe(
+        false,
+      );
+    }));
+
+  it("arms the idle alarm when the plan creates the workflow", () =>
+    plannedWorkflow((workflow) => {
       expect(workflow.store.requireWorkflowRow().idle_schedule).toBeTruthy();
     }));
 
   describe("a message from a person", () => {
     let first: string | null;
-    const messaged = scenario(freshWorkflow, async (workflow) => {
+    const messaged = scenario(plannedWorkflow, async (workflow) => {
       first = workflow.store.requireWorkflowRow().idle_schedule;
       await workflow.handle({ ...start, id: "evt-idle-prompt", kind: "prompt", text: "hi" });
     });
@@ -661,25 +680,6 @@ describe("idle", () => {
       messaged((workflow) => {
         const armed = workflow.getSchedules().filter((schedule) => schedule.callback === "onIdle");
         expect(armed).toHaveLength(1);
-      }));
-  });
-
-  describe("the idle alarm firing before the plan that starts the workflow", () => {
-    let posted: Outbox;
-    const unplanned = scenario(freshWorkflow, async (workflow) => {
-      const before = (await outboxOf(workflow)).length;
-      await workflow.onIdle();
-      posted = (await outboxOf(workflow)).slice(before);
-    });
-
-    it("stays new", () =>
-      unplanned((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("new");
-      }));
-
-    it("posts nothing", () =>
-      unplanned(() => {
-        expect(posted).toEqual([]);
       }));
   });
 

@@ -153,7 +153,7 @@ function boardWrites(debug: WorkflowDebug): Array<{ jobId: string; text: string 
     if (message.channel !== "board" || !["create", "edit"].includes(message.kind)) continue;
     const text = outboxText(message);
     const sequence = JOB_STAMP.exec(text)?.[1];
-    if (sequence) writes.push({ jobId: `${debug.workflow.workflow_id}-${sequence}`, text });
+    if (sequence) writes.push({ jobId: `${debug.conversation.conversation_id}-${sequence}`, text });
   }
   return writes;
 }
