@@ -42,6 +42,11 @@ function asksTheAgent(event: InboundEvent): boolean {
   return isMessage(event) && parseVerbalCommand(event.text) === null;
 }
 
+/** True when the workflow's end started and the event gets the reply that it ended. */
+function answeredAsFinished(workflow: WorkflowRuntime, event: InboundEvent): boolean {
+  return workflow.store.workflowFinished() && !asksTheAgent(event);
+}
+
 /** An event the router routed to a conversation, with that conversation's id. */
 export type ConversationDelivery = { conversationId: string; event: InboundEvent };
 
@@ -97,8 +102,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   const task = job ? workflow.store.authorOrResearcherTaskOf(job.job_id) : null;
   workflow.log(task?.task_id ?? null, `event ${event.kind}${controlSuffix}`);
 
-  const settled = workflow.store.workflowFinished() && !asksTheAgent(event);
-  if (!settled) {
+  if (!answeredAsFinished(workflow, event)) {
     if (isMessage(event)) await wakeWorkflow(workflow);
     await acknowledge(workflow, event);
     const instructed = instructedSessionOf(workflow, event);
@@ -107,7 +111,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {
     return DUPLICATE;
   }
-  if (settled) {
+  if (answeredAsFinished(workflow, event)) {
     await replyFinished(workflow, event);
     return ACK;
   }

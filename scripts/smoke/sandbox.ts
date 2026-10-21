@@ -118,7 +118,7 @@ export async function assertStartSpec(options: {
 
   const env = start.env;
   assertEqual(env.ARTFCT_TASK_ID, taskId, "env ARTFCT_TASK_ID");
-  assertEqual(env.ARTFCT_WORKFLOW_ID, conversationId, "env ARTFCT_WORKFLOW_ID");
+  assertEqual(env.ARTFCT_WORKFLOW_ID, workflow.workflow_id, "env ARTFCT_WORKFLOW_ID");
   assertEqual(env.ARTFCT_STAGE, stage, "env ARTFCT_STAGE");
   assertEqual(env.ARTFCT_REPO, REPO_FULL_NAME, "env ARTFCT_REPO");
   assertEqual(
