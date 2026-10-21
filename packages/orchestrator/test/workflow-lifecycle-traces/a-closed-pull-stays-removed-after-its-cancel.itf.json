@@ -201,9 +201,9 @@
           }
         },
         "subject": {
-          "tag": "SubjectIssue",
+          "tag": "NoSubject",
           "value": {
-            "#bigint": "0"
+            "#tup": []
           }
         },
         "taskEndAlarms": {

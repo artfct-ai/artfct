@@ -550,11 +550,14 @@ module workflowLifecycle {
   /// The sandboxes a stale alarm can be about, counted round those with an earlier generation.
   pure val STALE_SANDBOXES: Set[int] = 0.to(2)
 
+  /// The subject a tracker origin gives the workflow that a plan creates.
+  pure val ORIGIN_SUBJECT: Subject = if (TRACKER_ORIGIN) SubjectIssue(SUBJECT_ISSUE) else NoSubject
+
   pure val INITIAL_WORKFLOW: Workflow = {
     status: NoWorkflow,
     definition: Unplanned,
     stagePlan: NoStages,
-    subject: if (TRACKER_ORIGIN) SubjectIssue(SUBJECT_ISSUE) else NoSubject,
+    subject: NoSubject,
     idleArmed: false,
     jobs: List(),
     calls: List(),
@@ -1803,8 +1806,8 @@ module workflowLifecycle {
   /// workflow does not have one. A plan is refused while the workflow ends, when it names a workflow
   /// definition the deployment does not hold or another one than the workflow started from, when
   /// it names another subject than the workflow has, and when it leaves out the stages on a
-  /// started workflow. The plan that creates the workflow starts its idle clock, and from a tracker
-  /// origin it moves the issue to started.
+  /// started workflow. The plan that creates the workflow starts its idle clock. From a tracker
+  /// origin it gives the workflow the origin's issue as its subject and moves that issue to started.
   action agentSetsPlan: bool = all {
     workflow.status != Ended,
     nondet definition = NAMED_DEFINITIONS.oneOf()
@@ -1831,6 +1834,7 @@ module workflowLifecycle {
   action agentSetsPlanWith(definition: int, withStages: bool, jobSlots: int, subjectLink: Subject): bool = {
     val refused = planRefused(workflow, definition, withStages, subjectLink)
     val creates = workflow.status == NoWorkflow
+    val kept = keptSubject(workflow)
     val movesTheIssue = creates and TRACKER_ORIGIN
     val planned = {
       ...workflow,
@@ -1838,11 +1842,15 @@ module workflowLifecycle {
       status: Running,
       idleArmed: creates or workflow.idleArmed,
       stagePlan: if (withStages) StagesPlanned(jobSlots) else workflow.stagePlan,
-      subject: if (workflow.subject == NoSubject) subjectLink else workflow.subject,
+      subject: if (kept == NoSubject) subjectLink else kept,
       issueMoves: if (movesTheIssue) workflow.issueMoves + 1 else workflow.issueMoves,
     }
     move(untold(if (refused) workflow else planned), PlanStep({ definition: definition, subject: subjectLink }))
   }
+
+  /// The subject a plan keeps: the workflow's, or before a plan creates the workflow, the one its
+  /// origin gives it.
+  pure def keptSubject(flow: Workflow): Subject = if (flow.status == NoWorkflow) ORIGIN_SUBJECT else flow.subject
 
   /// True when `set_plan` refuses a plan: the workflow ends, the plan names a definition the
   /// deployment does not hold or another one than the workflow started from, it names another
@@ -1853,8 +1861,8 @@ module workflowLifecycle {
     flow.definition != Unplanned and flow.definition != Planned(definition),
     and {
       subjectLink != NoSubject,
-      flow.subject != NoSubject,
-      subjectLink != flow.subject,
+      keptSubject(flow) != NoSubject,
+      subjectLink != keptSubject(flow),
     },
     not(withStages) and flow.definition != Unplanned,
   }

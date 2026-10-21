@@ -57,7 +57,7 @@ export class SecretWatch {
     const exposures: Exposure[] = [
       ...storeExposures(rows, credentials),
       ...outputExposures("debug_dump", [debugDump(workflow)]),
-      ...outputExposures("status", [summarize(workflow)]),
+      ...outputExposures("status", workflow.store.workflowRow() ? [summarize(workflow)] : []),
       ...outputs.flatMap(([output, items]) => outputExposures(output, this.newItems(items))),
       ...specs.flatMap(startSpecExposures),
       ...this.newItems(provider.calls).map((call) => ({
