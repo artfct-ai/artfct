@@ -9,6 +9,7 @@ import { SessionTracker } from "../../../test/session-tracker";
 import { FEED_POST_ATTEMPTS, type OutboxEntry } from "../../notify/notifier";
 import type { TodoSnapshot } from "../board/types";
 import type { TaskRow } from "../store/tasks";
+import { startModelTurn } from "../task/model-turn";
 import {
   DONE_TEXT,
   FEED_GIVES_UP_AFTER_MS,
@@ -364,6 +365,50 @@ describe("the session feed", () => {
           { type: "thought", body: "Second." },
           { type: "response", body: "Opened #12." },
         ]);
+      }));
+
+    it("folds into the narration of the author's next turn, so it lands before that turn's reply", () =>
+      linearOnly(async (fixture) => {
+        await stream(fixture, [say("Opened #12.")]);
+        fixture.tracker.health = "fails_before_storing";
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        fixture.tracker.health = "up";
+        await startSessionFeedTurn(fixture.workflow, fixture.author);
+        expect(fixture.workflow.alarmsFor("postClosingReply")).toEqual([]);
+        expect(fixture.workflow.store.sessionFeed(fixture.author.task_id)?.narration).toBe(
+          "Opened #12.",
+        );
+        await stream(fixture, [say("Merged #12.")]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([
+          { type: "thought", body: "Opened #12." },
+          { type: "response", body: "Merged #12." },
+        ]);
+      }));
+
+    it("folds into the narration when a stop closes the feed before it lands", () =>
+      linearOnly(async (fixture) => {
+        await stream(fixture, [say("Opened #12.")]);
+        fixture.tracker.health = "fails_before_storing";
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        fixture.tracker.health = "up";
+        await closeSessionFeed(fixture.workflow, fixture.author, STOPPED_CLOSING);
+        expect(fixture.workflow.alarmsFor("postClosingReply")).toEqual([]);
+        expect(stored(fixture)).toEqual([
+          { type: "thought", body: "Opened #12." },
+          { type: "response", body: STOPPED_TEXT },
+        ]);
+      }));
+
+    it("folds into the narration as a model turn starts", () =>
+      linearOnly(async (fixture) => {
+        fixture.tracker.health = "fails_before_storing";
+        await closeSessionFeed(fixture.workflow, fixture.author, STOPPED_CLOSING);
+        await startModelTurn(fixture.workflow, fixture.author.task_id);
+        expect(fixture.workflow.alarmsFor("postClosingReply")).toEqual([]);
+        expect(fixture.workflow.store.sessionFeed(fixture.author.task_id)?.narration).toBe(
+          STOPPED_TEXT,
+        );
       }));
 
     it("gives up an hour after its turn ended", () =>

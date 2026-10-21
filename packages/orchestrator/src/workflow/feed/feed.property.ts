@@ -20,6 +20,7 @@ import {
   theReplyNeverPostsAsNarration,
   type ClosingTurn,
   type FeedPost,
+  type FoldedReply,
   type FeedStepKind,
 } from "../../../test/session-feed-invariants";
 import { testNotifier } from "../../../test/notifier-fixture";
@@ -170,6 +171,16 @@ const A_CLOSING_REPLY_LANDS_ONCE_THE_TRACKER_RECOVERS: FeedAction[] = [
   { kind: "wait", minutes: 2 },
 ];
 
+const A_WAITING_REPLY_FOLDS_INTO_THE_NEXT_TURN: FeedAction[] = [
+  { kind: "health", health: "fails_before_storing" },
+  { kind: "say" },
+  { kind: "turn_end", reason: "end_turn" },
+  { kind: "health", health: "up" },
+  { kind: "turn_start" },
+  { kind: "narrate", steps: 1 },
+  { kind: "turn_end", reason: "end_turn" },
+];
+
 const A_REPLY_WAITS_FOR_THE_NARRATION_THE_TRACKER_REFUSED: FeedAction[] = [
   { kind: "narrate", steps: 2 },
   { kind: "narration_refused" },
@@ -203,6 +214,7 @@ type Witnesses = {
   closingRepliesGivenUp: number;
   narrationGivenUp: number;
   repliesThatWaitedForNarration: number;
+  closingRepliesFolded: number;
 };
 
 /** A session feed under test: the runtime, the tracker, and what the property expects of them. */
@@ -224,6 +236,7 @@ class FeedRun {
   readonly closings: ClosingTurn[] = [];
   readonly postableAt: number[] = [];
   readonly givenUp: string[] = [];
+  readonly folded: FoldedReply[] = [];
   private message = "";
   private inFlight = true;
   private authorFinished = false;
@@ -401,11 +414,30 @@ class FeedRun {
     return new Set([...stored, ...armed]);
   }
 
+  /** Run a step, and record each closing reply whose alarm it cancelled before the reply landed. */
+  private async recordFolds(step: FeedStepKind, run: () => Promise<unknown>): Promise<FeedPost[]> {
+    const armed = this.workflow
+      .alarmsFor("postClosingReply")
+      .map((alarm) => (alarm.payload as ClosingReplyAlarm).activity);
+    const posts = await this.record(step, run);
+    const stillArmed = new Set(
+      this.workflow
+        .alarmsFor("postClosingReply")
+        .map((alarm) => (alarm.payload as ClosingReplyAlarm).activity.id),
+    );
+    for (const activity of armed) {
+      if (stillArmed.has(activity.id)) continue;
+      this.folded.push({ id: activity.id, body: activity.content.body, at: this.now() });
+      this.witnesses.closingRepliesFolded += 1;
+    }
+    return posts;
+  }
+
   private async closeFeed(step: FeedStepKind, closing: FeedClosing | null): Promise<FeedPost[]> {
     const closingsBefore = this.closingIds();
     const endedAt = this.now();
     const linesBefore = this.written.length;
-    const posts = await this.record(step, () =>
+    const posts = await this.recordFolds(step, () =>
       closeSessionFeed(this.workflow, this.author(), closing),
     );
     for (const id of this.closingIds()) {
@@ -453,7 +485,7 @@ class FeedRun {
     this.touch();
     await this.closeFeed("turn_end", closing);
     this.quietSince = this.now();
-    await this.record("turn_start", () => startSessionFeedTurn(this.workflow, this.author()));
+    await this.recordFolds("turn_start", () => startSessionFeedTurn(this.workflow, this.author()));
   }
 
   /** The author finishes at a turn end the tracker takes, so no narration waits after it. */
@@ -483,7 +515,7 @@ class FeedRun {
     if (queued) this.workflow.store.dequeuePrompt(queued.id);
     this.quietSince = this.now();
     this.touch();
-    await this.record("turn_start", () => startSessionFeedTurn(this.workflow, this.author()));
+    await this.recordFolds("turn_start", () => startSessionFeedTurn(this.workflow, this.author()));
   }
 
   private async instruct(): Promise<void> {
@@ -708,6 +740,7 @@ describe("session feed invariants", () => {
         closingRepliesGivenUp: 0,
         narrationGivenUp: 0,
         repliesThatWaitedForNarration: 0,
+        closingRepliesFolded: 0,
       };
       await fc.assert(
         fc.asyncProperty(fc.array(feedAction, { minLength: 1, maxLength: 60 }), async (actions) => {
@@ -717,10 +750,13 @@ describe("session feed invariants", () => {
           await run.finish();
           aToolCallNeverPosts(run.posts, run.toolTitles);
           narrationPostsAtMostOncePerInterval(run.posts, NARRATION_INTERVAL_MS);
-          theReplyNeverPostsAsNarration(run.posts, run.replies);
-          everyNarrationLinePostsInOrder(run.posts, run.written, run.givenUp);
+          theReplyNeverPostsAsNarration(run.posts, run.replies, run.folded);
+          everyNarrationLinePostsInOrder(run.posts, run.written, run.givenUp, run.folded);
           heartbeatsAndNarrationWaitWhileTheQuotaIsLow(run.posts);
-          everyClosingReplyLands(run.posts, run.closings, run.postableAt, FEED_GIVES_UP_AFTER_MS);
+          everyClosingReplyLands(run.posts, run.closings, run.postableAt, FEED_GIVES_UP_AFTER_MS, {
+            folded: run.folded,
+            givenUp: run.givenUp,
+          });
           theReplyIsTheLastLineOfItsTurn(run.posts, run.closings, run.written);
         }),
         {
@@ -731,6 +767,7 @@ describe("session feed invariants", () => {
             [A_CLOSING_REPLY_LANDS_ONCE_THE_TRACKER_RECOVERS],
             [A_REPLY_WAITS_FOR_THE_NARRATION_THE_TRACKER_REFUSED],
             [THE_FEED_GIVES_UP_AFTER_AN_HOUR_OF_FAILURES],
+            [A_WAITING_REPLY_FOLDS_INTO_THE_NEXT_TURN],
           ],
         },
       );
@@ -749,6 +786,7 @@ describe("session feed invariants", () => {
       expect(witnesses.closingRepliesGivenUp).toBeGreaterThan(0);
       expect(witnesses.narrationGivenUp).toBeGreaterThan(0);
       expect(witnesses.repliesThatWaitedForNarration).toBeGreaterThan(0);
+      expect(witnesses.closingRepliesFolded).toBeGreaterThan(0);
     },
     propertyTimeoutMs(30_000, RUNS),
   );

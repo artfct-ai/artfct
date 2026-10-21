@@ -268,10 +268,10 @@ export class FakeRuntime implements WorkflowRuntime {
   async cancelAlarmsWhere(
     method: ScheduledMethod,
     matches: (payload: unknown) => boolean,
-  ): Promise<void> {
-    for (const alarm of this.alarmsFor(method)) {
-      if (matches(alarm.payload)) await this.cancelAlarm(alarm.id);
-    }
+  ): Promise<unknown[]> {
+    const cancelled = this.alarmsFor(method).filter((alarm) => matches(alarm.payload));
+    for (const alarm of cancelled) await this.cancelAlarm(alarm.id);
+    return cancelled.map((alarm) => alarm.payload);
   }
 
   async startRepeatingAlarm(

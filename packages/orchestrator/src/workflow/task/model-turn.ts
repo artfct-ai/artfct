@@ -1,3 +1,4 @@
+import { foldWaitingClosingReplies } from "../feed/feed";
 import { failTask, MAX_RESTARTS } from "../lifecycle";
 import { isTaskFinished } from "../store/state";
 import type { WorkflowRuntime } from "../types";
@@ -30,8 +31,9 @@ export type ModelTurn = {
 };
 
 /**
- * Start a model turn of a model-call task: the task is working and stores the id of the turn.
- * The deadline alarm wakes the workflow when the turn is lost.
+ * Start a model turn of a model-call task: the task is working and stores the id of the turn, and
+ * a closing reply that waits folds into its narration. The deadline alarm wakes the workflow when
+ * the turn is lost.
  */
 export async function startModelTurn(
   workflow: WorkflowRuntime,
@@ -39,6 +41,7 @@ export async function startModelTurn(
 ): Promise<ModelTurn> {
   const turnId = crypto.randomUUID();
   workflow.store.updateTask(taskId, { status: "working", model_turn_id: turnId });
+  await foldWaitingClosingReplies(workflow, workflow.store.requireTask(taskId));
   const alarm: ModelTurnAlarm = { task_id: taskId, turn_id: turnId };
   await workflow.scheduleAlarm(MODEL_TURN_DEADLINE_SECONDS, "onModelTurnDeadline", alarm);
   const current = () => workflow.store.task(taskId)?.model_turn_id === turnId;

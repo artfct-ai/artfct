@@ -2333,6 +2333,43 @@ export const MUTANTS: Mutant[] = [
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
+    id: "W330",
+    invariant: "sessionRouting::aClosingReplyWaitsOnlyBetweenTurns",
+    path: "src/workflow/feed/feed.ts",
+    find: "  await foldWaitingClosingReplies(workflow, task);\n  const alarm: TaskAlarm",
+    replace: "  const alarm: TaskAlarm",
+  },
+  {
+    id: "W331",
+    invariant: "sessionRouting::aClosingReplyNeverOvertakesAnEarlierOne",
+    path: "src/workflow/feed/feed.ts",
+    find: "  await foldWaitingClosingReplies(workflow, task);\n  const message =",
+    replace: "  const message =",
+  },
+  {
+    id: "W332",
+    invariant: "sessionRouting::aClosingReplyWaitsOnlyBetweenTurns (a model turn does not fold)",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  await foldWaitingClosingReplies(workflow, workflow.store.requireTask(taskId));\n",
+    replace: "",
+  },
+  {
+    id: "W333",
+    invariant: "sessionFeedInvariants::everyClosingReplyLands (a folded reply is dropped)",
+    path: "src/workflow/feed/feed.ts",
+    find: "    workflow.store.appendNarration(task.task_id, reply.activity.content.body, isoNow(workflow));\n",
+    replace: "",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W334",
+    invariant:
+      "sessionRouting::aStopAnswersOnlyInTheFeed (a stop's reply posts ahead of the narration that waits)",
+    path: "src/workflow/feed/feed.ts",
+    find: "  if (workflow.store.sessionFeed(reply.activity.task_id)?.narration) return false;\n",
+    replace: "",
+  },
+  {
     id: "W360",
     invariant: "cliSecretInvariants::cliNeverShowsASecret (parse error of the conversion body)",
     path: "../cli/src/connect/code/github/exchange.ts",

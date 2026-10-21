@@ -469,11 +469,14 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
   async cancelAlarmsWhere(
     method: ScheduledMethod,
     matches: (payload: unknown) => boolean,
-  ): Promise<void> {
+  ): Promise<unknown[]> {
+    const cancelled: unknown[] = [];
     for (const scheduled of this.getSchedules()) {
       if (scheduled.callback !== method || !matches(scheduled.payload)) continue;
       await this.cancelSchedule(scheduled.id);
+      cancelled.push(scheduled.payload);
     }
+    return cancelled;
   }
 
   async startRepeatingAlarm(
