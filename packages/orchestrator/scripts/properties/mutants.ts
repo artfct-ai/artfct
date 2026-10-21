@@ -2278,6 +2278,13 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W328",
+    invariant: "harnessSession::aPersonPromptIsNeverDropped (a paused first prompt takes the wake)",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  const takesAWake = resumes && task.paused_at === null;\n",
+    replace: "  const takesAWake = resumes;\n",
+  },
+  {
     id: "W405",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow (a message during an end)",
     path: "src/workflow/inbound/events.ts",

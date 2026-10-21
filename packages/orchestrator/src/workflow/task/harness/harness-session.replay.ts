@@ -157,6 +157,24 @@ describe("harness session spec", () => {
     await replayPinnedTrace("restart-held-for-a-resume");
   });
 
+  it("keeps the waiting prompts queued when a harness session opens while the author is paused", async () => {
+    await replayPinnedTrace("paused-resume-keeps-the-waiting-prompts");
+  });
+
+  it("keeps the waiting prompts queued when a session opens paused after a failed start", async () => {
+    await replayPinnedTrace(
+      "paused-resume-after-a-failed-start-keeps-the-waiting-prompts",
+      "agentPausesRunningTurns",
+    );
+  });
+
+  it("keeps the waiting prompts queued when a session opens paused after a turn stopped early", async () => {
+    await replayPinnedTrace(
+      "paused-resume-after-a-stopped-early-turn-keeps-the-waiting-prompts",
+      "interruptionsAfterTheFirstPrompt",
+    );
+  });
+
   it("starts a queued restart whose destroy a restart of the instance dropped", async () => {
     await replayPinnedTrace("restart-lost-with-the-instance");
   });

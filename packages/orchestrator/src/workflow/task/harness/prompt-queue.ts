@@ -180,13 +180,15 @@ export async function sendPrompt(
 /**
  * Send the first prompt of a harness session that finished its handshake. An author that resumes
  * wakes with the oldest waiting prompt. A task whose prompts wait holds the first prompt at the
- * head of its queue, so the next drain sends it before the prompts that waited.
+ * head of its queue, so the next drain sends it before the prompts that waited. A paused author
+ * does not take a wake, so its waiting prompts stay queued for the resume.
  */
 export async function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
   const sandbox = workflow.store.requireSandbox(task.task_id);
   const waits = promptsWait(workflow, task);
   const resumes = task.role === "author" && sandbox.first_prompt_at !== null;
-  const wake = resumes ? workflow.store.peekPrompt(task.task_id) : null;
+  const takesAWake = resumes && task.paused_at === null;
+  const wake = takesAWake ? workflow.store.peekPrompt(task.task_id) : null;
   const text = firstPromptText(workflow, task, wake?.text ?? null);
   if (sandbox.first_prompt_at === null) {
     workflow.store.updateSandbox(task.task_id, {
