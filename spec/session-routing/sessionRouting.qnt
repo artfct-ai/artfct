@@ -222,9 +222,9 @@ module sessionRoutingTypes {
 
   /// A closing reply whose post an instance restart or a tracker failure cut: its job, its kind,
   /// how many activities the tracker stored under its activity id, whether its alarm is still
-  /// armed, whether its alarm gave up an hour after its turn ended, and whether it folded into
-  /// the narration of its author.
-  type CutClosingReply = { job: int, kind: FeedKind, stored: int, armed: bool, gaveUp: bool, folded: bool }
+  /// armed, whether its alarm gave up before the tracker stored it, whether it folded into the
+  /// narration of its author, and whether an hour has passed since its turn ended.
+  type CutClosingReply = { job: int, kind: FeedKind, stored: int, armed: bool, gaveUp: bool, folded: bool, pastItsHour: bool }
 
   /// The narration of a job's author: whether lines wait to post, and whether the last post was
   /// within the narration interval, so a line after a tool call waits for a later post.
@@ -844,7 +844,7 @@ module sessionRouting {
   /// `feed` added. The alarm a closing reply armed before its post stays armed.
   pure def withCutClosingReplies(replies: int -> CutClosingReply, feed: List[FeedPost]): int -> CutClosingReply =
     feed.foldl(replies, (cut, posted) =>
-      cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true, gaveUp: false, folded: false }))
+      cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true, gaveUp: false, folded: false, pastItsHour: false }))
 
   /// A step whose feed activities are closing replies, posted last. On a restart mid post, the
   /// step's state is written and the Durable Object restarts. The notifier does not retry the
@@ -1486,13 +1486,16 @@ module sessionRouting {
   /// narration that waits, then the reply again under its activity id, so the tracker stores it
   /// once. The alarm is done once the reply lands. A restart while the post is out keeps the alarm
   /// armed, and a failed post arms it again, so it fires again. When the tracker fails the
-  /// narration, the alarm does not post the reply and arms again.
+  /// narration, the alarm does not post the reply and arms again. Once an hour has passed since the
+  /// reply's turn ended, a failed post or failed narration gives the alarm up instead.
   action closingReplyAlarmFires: bool = {
     nondet reply = cutClosingReplies.keys().oneOf()
     nondet health = Set(TrackerUp).union(RESTARTS_MID_POST).union(TRACKER_FAILURES).oneOf()
     val cut = cutClosingReplies.get(reply)
     val heldBehindNarration = narrationOf(feedNarration, cut.job).waits and TRACKER_FAILURES.contains(health)
     val posted = { ...cut, stored: if (cut.stored > 0) cut.stored else storedAcrossAttempts(health) }
+    val givesUp = TRACKER_FAILURES.contains(health) and cut.pastItsHour
+    val afterThePost = { ...posted, armed: TRACKER_FAILURES.contains(health) and not(givesUp), gaveUp: givesUp and posted.stored == 0 }
     val fired = { ...NO_FACTS, health: health, replyAlarmFired: Set(cut.job) }
     val facts = { ...fired, feed: List({ job: cut.job, kind: cut.kind, stored: posted.stored }) }
     all {
@@ -1504,7 +1507,8 @@ module sessionRouting {
           sessionMessages,
           messagesToLand,
           NO_DELIVERY_WITNESSES,
-          cutClosingReplies,
+          if (cut.pastItsHour) cutClosingReplies.set(reply, { ...cut, armed: false, gaveUp: cut.stored == 0 })
+          else cutClosingReplies,
         )
       else if (RESTARTS_MID_POST.contains(health)) restartAfter(routing, facts, cutClosingReplies.set(reply, posted))
       else
@@ -1514,7 +1518,7 @@ module sessionRouting {
           sessionMessages,
           messagesToLand,
           NO_DELIVERY_WITNESSES,
-          cutClosingReplies.set(reply, { ...posted, armed: TRACKER_FAILURES.contains(health) }),
+          cutClosingReplies.set(reply, afterThePost),
         ),
     }
   }
@@ -1522,10 +1526,11 @@ module sessionRouting {
   /// The alarm of a closing reply that the tracker has not stored fires an hour after the reply's
   /// turn ended, and the tracker fails its post again before storing it. The alarm gives up and is
   /// not armed again. When narration waits, the tracker fails it and the alarm does not post the
-  /// reply.
+  /// reply. The clock is shared, so the hour has passed for every closing reply cut so far.
   action closingReplyGivesUp: bool = {
     nondet reply = cutClosingReplies.keys().oneOf()
     val cut = cutClosingReplies.get(reply)
+    val anHourLater = cutClosingReplies.keys().mapBy(other => { ...cutClosingReplies.get(other), pastItsHour: true })
     val lastTry = { job: cut.job, kind: cut.kind, stored: 0 }
     val fired = { ...NO_FACTS, health: FailsBeforeStoring, replyAlarmFired: Set(cut.job), anHourPassed: true }
     all {
@@ -1537,7 +1542,7 @@ module sessionRouting {
         sessionMessages,
         messagesToLand,
         NO_DELIVERY_WITNESSES,
-        cutClosingReplies.set(reply, { ...cut, armed: false, gaveUp: true }),
+        anHourLater.set(reply, { ...cut, armed: false, gaveUp: true, pastItsHour: true }),
       ),
     }
   }

@@ -40,21 +40,21 @@
     "aDoneResearchersJobHasItsAuthor"
   ],
   "mainMinutes": {
-    "pagesWithAReviewer": 1.8,
-    "pagesWithAPolisher": 2.4,
-    "pagesWithoutRefiners": 1.9,
-    "pagesWithAChoice": 2.0,
-    "issuesForAChatRequest": 1.9,
-    "pagesAfterResearch": 2.6,
-    "pagesFromModelCalls": 2.0,
-    "modelCallPagesWithAReviewer": 1.9,
-    "modelCallPagesWithAJudge": 1.9,
-    "modelCallPagesAfterResearch": 2.7,
-    "modelCallPagesForAnIssue": 1.9,
-    "pullsTheHostMoves": 3.1,
-    "pullsForAnEndedSubject": 2.0,
-    "pullsForAnEndedSubIssue": 2.3,
-    "pullsForTwoIssues": 1.9
+    "pagesWithAReviewer": 2.5,
+    "pagesWithAPolisher": 2.9,
+    "pagesWithoutRefiners": 2.4,
+    "pagesWithAChoice": 2.5,
+    "issuesForAChatRequest": 2.5,
+    "pagesAfterResearch": 3.2,
+    "pagesFromModelCalls": 2.4,
+    "modelCallPagesWithAReviewer": 2.4,
+    "modelCallPagesWithAJudge": 2.6,
+    "modelCallPagesAfterResearch": 3.6,
+    "modelCallPagesForAnIssue": 2.5,
+    "pullsTheHostMoves": 3.8,
+    "pullsForAnEndedSubject": 2.6,
+    "pullsForAnEndedSubIssue": 2.9,
+    "pullsForTwoIssues": 2.7
   },
   "witnesses": {
     "pagesWithAReviewer": [
