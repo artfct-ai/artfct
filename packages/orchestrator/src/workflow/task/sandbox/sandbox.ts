@@ -77,7 +77,7 @@ async function bindBranchOfJob(
   task: TaskRow,
   job: JobRow,
 ): Promise<boolean> {
-  const repo = workflow.store.plan()?.repo;
+  const repo = workflow.store.workflowRow()?.repo;
   if (!job.branch || !repo) return true;
   try {
     await bindWorkflow(workflow, { source: "code_branch", repo, branch: job.branch });
@@ -167,7 +167,7 @@ async function startGeneration(
   });
   let commitAuthor: CommitAuthor | null;
   try {
-    commitAuthor = workflow.store.plan()?.repo
+    commitAuthor = workflow.store.workflowRow()?.repo
       ? ((await workflow.code()?.commitAuthor()) ?? null)
       : null;
   } catch (error) {
@@ -200,9 +200,9 @@ async function startGeneration(
     skills,
     harness: workflow.harness(sandbox.harness),
     adapters: config.adapters,
-    workflowId: workflow.store.requireWorkflowRow().workflow_id,
+    workflowId: workflow.store.requireConversation().conversation_id,
     publicUrl: workflow.env.PUBLIC_URL ?? "",
-    repo: workflow.store.plan()?.repo ?? null,
+    repo: workflow.store.workflowRow()?.repo ?? null,
     commitAuthor,
     workflowRepoToken: githubTokens?.workflowRepoToken ?? null,
     allReposReadToken: githubTokens?.allReposReadToken ?? null,
@@ -374,7 +374,7 @@ function gatewayRouting(
   const gateway = workflow.gateway(workflow.config().adapters.gateway.provider);
   if (!gateway) return null;
   const metadata = {
-    workflow_id: workflow.store.requireWorkflowRow().workflow_id,
+    workflow_id: workflow.store.requireConversation().conversation_id,
     task_id: task.task_id,
     stage: job.stage,
   };

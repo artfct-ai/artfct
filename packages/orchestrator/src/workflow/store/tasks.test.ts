@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Notifier } from "../../notify/notifier";
-import { freshStore } from "../../../test/fresh-store";
+import { plannedStore } from "../../../test/fresh-store";
 import { scenario } from "../../../test/scenario";
 import { DELIVERY_ERROR } from "./schema";
 import { TURN_TEXT_CHARS, type NewJob, type NewTask, type WorkflowStore } from "./tasks";
@@ -43,7 +43,7 @@ const artifact = {
 
 describe("WorkflowStore", () => {
   describe("a task written through the migrated schema", () => {
-    const written = scenario(freshStore, (store) => {
+    const written = scenario(plannedStore, (store) => {
       insertAuthor(store, "t1", "j1");
       store.updateTask("t1", { status: "working" });
       store.updateSandbox("t1", { nudged: 1 });
@@ -95,7 +95,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("a model-call task", () => {
-    const modelCall = scenario(freshStore, (store) => {
+    const modelCall = scenario(plannedStore, (store) => {
       store.insertJob(job);
       store.insertTask({ ...task, sandbox: null });
     });
@@ -112,7 +112,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("a turn longer than the text cap", () => {
-    const longTurn = scenario(freshStore, (store) => {
+    const longTurn = scenario(plannedStore, (store) => {
       insertAuthor(store, "t1", "j1");
       store.appendTurnText("t1", "x".repeat(TURN_TEXT_CHARS));
       store.appendTurnText("t1", "tail");
@@ -130,7 +130,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("previous artifacts", () => {
-    const twoDoneJobs = scenario(freshStore, (store) => {
+    const twoDoneJobs = scenario(plannedStore, (store) => {
       insertAuthor(store, "t1", "j1");
       insertAuthor(store, "t2", "j2", "design");
       store.upsertArtifact({ job_id: "j1", ...artifact });
@@ -152,7 +152,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("artifact lookup by ref", () => {
-    const finishedTask = scenario(freshStore, (store) => {
+    const finishedTask = scenario(plannedStore, (store) => {
       insertAuthor(store, "t1", "j1");
       store.updateTask("t1", { status: "failed", started_at: "2026-01-01T00:00:00.000Z" });
       store.upsertArtifact({ job_id: "j1", ...artifact });
@@ -226,13 +226,13 @@ describe("WorkflowStore", () => {
   });
 
   describe("rpc ids", () => {
-    const twoRpcs = scenario(freshStore, (store) => {
+    const twoRpcs = scenario(plannedStore, (store) => {
       store.insertRpc("t1", "initialize", "initialize");
       store.insertRpc("t1", "session/new", "session_new");
     });
 
     it("allocates ids in sequence", () =>
-      freshStore((store) => {
+      plannedStore((store) => {
         expect(store.insertRpc("t1", "initialize", "initialize")).toBe(1);
         expect(store.insertRpc("t1", "session/new", "session_new")).toBe(2);
       }));
@@ -258,12 +258,12 @@ describe("WorkflowStore", () => {
 
   describe("event dedupe", () => {
     it("admits an event the first time", () =>
-      freshStore((store) => {
+      plannedStore((store) => {
         expect(store.markEventSeen("e1")).toBe(true);
       }));
 
     it("rejects an event it has seen", () =>
-      freshStore((store) => {
+      plannedStore((store) => {
         store.markEventSeen("e1");
         expect(store.markEventSeen("e1")).toBe(false);
       }));
@@ -271,7 +271,7 @@ describe("WorkflowStore", () => {
 
   describe("outbox", () => {
     it("stores the target and payload as JSON", () =>
-      freshStore((store) => {
+      plannedStore((store) => {
         store.writeOutbox({ channel: "chat", kind: "post", target: { ch: "C1" }, payload: [1] });
         expect(store.outbox()[0]).toMatchObject({ target: { ch: "C1" }, payload: [1] });
       }));
@@ -282,12 +282,12 @@ describe("WorkflowStore", () => {
     const payload = {};
 
     it("counts nothing on an empty outbox", () =>
-      freshStore((store) => {
+      plannedStore((store) => {
         expect(store.postedCount()).toBe(0);
       }));
 
     describe("entries no person reads", () => {
-      const unread = scenario(freshStore, (store) => {
+      const unread = scenario(plannedStore, (store) => {
         store.writeOutbox({ channel: "board", kind: "create", target, payload });
         store.writeOutbox({ channel: "internal", kind: "progress", target, payload });
         store.writeOutbox({ channel: "tracker", kind: "issue_update", target, payload });
@@ -319,7 +319,7 @@ describe("WorkflowStore", () => {
     });
 
     describe("a failure the notifier told a person about", () => {
-      const toldFailure = scenario(freshStore, async (store) => {
+      const toldFailure = scenario(plannedStore, async (store) => {
         const notifier = new Notifier(
           { tracker: async () => null, chat: null, documents: async () => null },
           (entry) => store.writeOutbox(entry),
@@ -343,7 +343,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("prompt queue", () => {
-    const twoQueued = scenario(freshStore, (store) => {
+    const twoQueued = scenario(plannedStore, (store) => {
       store.enqueuePrompt("t1", "a", "workflow");
       store.enqueuePrompt("t2", "b", "workflow");
     });
@@ -363,7 +363,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("steered instructions", () => {
-    const steered = scenario(freshStore, (store) => {
+    const steered = scenario(plannedStore, (store) => {
       store.enqueuePrompt("t1", "out", "instruction");
       store.enqueuePrompt("t1", "taken", "instruction");
       store.enqueuePrompt("t1", "waiting", "instruction");
@@ -436,7 +436,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("a job that works from the artifact of an earlier job", () => {
-    const linked = scenario(freshStore, (store) => {
+    const linked = scenario(plannedStore, (store) => {
       store.insertJob(job);
       store.insertJob({ ...job, job_id: "j2", preceding_job_id: "j1" });
     });
@@ -453,7 +453,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("a job with only a researcher task", () => {
-    const researching = scenario(freshStore, (store) => {
+    const researching = scenario(plannedStore, (store) => {
       store.insertJob(job);
       store.insertTask({ ...task, task_id: "t1", role: "researcher" });
     });
@@ -514,7 +514,7 @@ describe("WorkflowStore", () => {
   });
 
   describe("a job with an author and a reviewer run", () => {
-    const reviewing = scenario(freshStore, (store) => {
+    const reviewing = scenario(plannedStore, (store) => {
       insertAuthor(store, "t1", "j1");
       store.insertTask({ ...task, task_id: "t2", role: "reviewer", refiner_index: 0 });
     });

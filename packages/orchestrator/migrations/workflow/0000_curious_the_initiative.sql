@@ -11,7 +11,7 @@ CREATE TABLE `agent_inbox` (
 );
 --> statement-breakpoint
 CREATE TABLE `agent_turn` (
-	`workflow_id` text PRIMARY KEY NOT NULL,
+	`conversation_id` text PRIMARY KEY NOT NULL,
 	`status` text NOT NULL,
 	`started_at` text NOT NULL,
 	`first_row` integer NOT NULL,
@@ -46,6 +46,15 @@ CREATE TABLE `boards` (
 	PRIMARY KEY(`job_id`, `channel_key`)
 );
 --> statement-breakpoint
+CREATE TABLE `conversation` (
+	`conversation_id` text PRIMARY KEY NOT NULL,
+	`origin` text,
+	`request_title` text NOT NULL,
+	`request_text` text NOT NULL,
+	`request_links` text NOT NULL,
+	`opened_at` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`at` text NOT NULL
@@ -53,6 +62,7 @@ CREATE TABLE `events` (
 --> statement-breakpoint
 CREATE TABLE `jobs` (
 	`job_id` text PRIMARY KEY NOT NULL,
+	`workflow_id` text NOT NULL,
 	`stage` text NOT NULL,
 	`issue_id` text,
 	`issue_key` text,
@@ -208,16 +218,6 @@ CREATE TABLE `transcript` (
 	`message` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `workflow` (
-	`workflow_id` text PRIMARY KEY NOT NULL,
-	`status` text NOT NULL,
-	`request_title` text NOT NULL,
-	`request_text` text NOT NULL,
-	`request_links` text NOT NULL,
-	`origin` text,
-	`idle_schedule` text
-);
---> statement-breakpoint
 CREATE TABLE `workflow_end` (
 	`workflow_id` text PRIMARY KEY NOT NULL,
 	`ends_as` text NOT NULL,
@@ -226,16 +226,19 @@ CREATE TABLE `workflow_end` (
 	`posted` integer DEFAULT false NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `workflow_plan` (
-	`workflow_id` text PRIMARY KEY NOT NULL,
-	`definition` text NOT NULL,
-	`name` text NOT NULL,
-	`reason` text NOT NULL,
-	`repo` text
-);
---> statement-breakpoint
 CREATE TABLE `workflow_subject` (
 	`workflow_id` text PRIMARY KEY NOT NULL,
 	`kind` text NOT NULL,
 	`tracker_id` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `workflows` (
+	`workflow_id` text PRIMARY KEY NOT NULL,
+	`status` text NOT NULL,
+	`definition` text NOT NULL,
+	`name` text NOT NULL,
+	`reason` text NOT NULL,
+	`repo` text,
+	`idle_schedule` text,
+	`created_at` text NOT NULL
 );

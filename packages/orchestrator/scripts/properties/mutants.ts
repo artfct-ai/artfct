@@ -50,9 +50,9 @@ export const MUTANTS: Mutant[] = [
     id: "W3",
     invariant: "workflowLifecycle::nothingReopensAFinishedWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (isWorkflowFinished(workflow.store.workflowStatus())) {\n    await replyFinished",
+    find: "  if (workflow.store.workflowFinished()) {\n    await replyFinished",
     replace:
-      '  if (isWorkflowFinished(workflow.store.workflowStatus()) && event.kind !== "prompt") {\n    await replyFinished',
+      '  if (workflow.store.workflowFinished() && event.kind !== "prompt") {\n    await replyFinished',
   },
   {
     id: "W4",
@@ -518,9 +518,8 @@ export const MUTANTS: Mutant[] = [
     id: "W184",
     invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (watchdog of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)\n    return workflow.release();\n",
-    replace:
-      "  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)\n    return;\n",
+    find: "  if (workflow.store.workflowFinished() && !answering.length) return workflow.release();\n",
+    replace: "  if (workflow.store.workflowFinished() && !answering.length) return;\n",
   },
   {
     id: "W185",
@@ -534,9 +533,8 @@ export const MUTANTS: Mutant[] = [
     id: "W186",
     invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (watchdog of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)\n    return workflow.release();\n",
-    replace:
-      "  if (isWorkflowFinished(workflow.store.workflowStatus())) return workflow.release();\n",
+    find: "  if (workflow.store.workflowFinished() && !answering.length) return workflow.release();\n",
+    replace: "  if (workflow.store.workflowFinished()) return workflow.release();\n",
   },
   {
     id: "W250",
@@ -587,8 +585,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "agentTurns::aPersonsMessageLeavesTheInboxOnlyWithItsTurn (restart of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (\n    isWorkflowFinished(workflow.store.workflowStatus()) &&\n    !workflow.transcript.takenMessages().length\n  ) {\n",
-    replace: "  if (isWorkflowFinished(workflow.store.workflowStatus())) {\n",
+    find: "  if (workflow.store.workflowFinished() && !workflow.transcript.takenMessages().length) {\n",
+    replace: "  if (workflow.store.workflowFinished()) {\n",
   },
   {
     id: "W257",
@@ -902,7 +900,7 @@ export const MUTANTS: Mutant[] = [
     id: "W191",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (workflow.store.requireWorkflowRow().status === "waiting_input")\n    await changeWorkflowStatus(workflow, "running");\n',
+    find: '  if (active.status === "waiting_input") await changeWorkflowStatus(workflow, "running");\n',
     replace: "",
   },
   {
@@ -968,16 +966,15 @@ export const MUTANTS: Mutant[] = [
     id: "W172",
     invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (!workflow.store.workflowRow()) return { refused: "not_created" };\n',
-    replace: "  if (!workflow.store.workflowRow()) return null;\n",
+    find: '  if (!workflow.store.conversation()) return { refused: "not_created" };\n',
+    replace: "  if (!workflow.store.conversation()) return null;\n",
   },
   {
     id: "W173",
     invariant: "routerBindings::aPersonsMessageNeverReachesAnEndedWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (isWorkflowFinished(status) && isMessage(event)) return { refused: "ended", status };',
-    replace:
-      '  if (isWorkflowFinished(status) && event.kind === "start") return { refused: "ended", status };',
+    find: "  if (!workflow.store.workflowFinished() || !isMessage(event)) return null;",
+    replace: '  if (!workflow.store.workflowFinished() || event.kind !== "start") return null;',
   },
   {
     id: "W174",
@@ -1231,7 +1228,7 @@ export const MUTANTS: Mutant[] = [
     id: "W127",
     invariant: "workflowLifecycle::workflowKeepsItsDefinition",
     path: "src/agent/tools/plan.ts",
-    find: "  if (stored === null || stored === named) return null;\n",
+    find: "  if (active === null || active.definition === named) return null;\n",
     replace: "  return null;\n",
   },
   {
@@ -1245,8 +1242,8 @@ export const MUTANTS: Mutant[] = [
     id: "W129",
     invariant: "workflowLifecycle::finishedWorkflowKeepsItsStatus",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (isWorkflowFinished(workflow.store.workflowStatus())) return false;\n",
-    replace: "  if (workflowEnding(workflow)) return false;\n",
+    find: "  if (!workflow.store.workflowRow() || workflow.store.workflowFinished()) return false;\n",
+    replace: "  if (!workflow.store.workflowRow() || workflowEnding(workflow)) return false;\n",
   },
   {
     id: "W130",
@@ -2288,9 +2285,9 @@ export const MUTANTS: Mutant[] = [
     id: "W405",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow (a message during an end)",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (!isWorkflowFinished(workflow.store.workflowStatus())) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n",
+    find: "  if (!workflow.store.workflowFinished()) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n",
     replace:
-      '  if (isMessage(event) && workflow.store.requireWorkflowRow().status === "ending")\n    await changeWorkflowStatus(workflow, "running");\n  if (!isWorkflowFinished(workflow.store.workflowStatus())) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n',
+      '  if (isMessage(event) && workflow.store.workflowRow()?.status === "ending")\n    await changeWorkflowStatus(workflow, "running");\n  if (!workflow.store.workflowFinished()) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n',
   },
   {
     id: "W395",

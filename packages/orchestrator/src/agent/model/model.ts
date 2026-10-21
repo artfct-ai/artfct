@@ -39,7 +39,7 @@ export function orchestratorModel(
     throw new Error(`model ${modelName} needs ${GATEWAY_SECRETS[provider]}.`);
   }
   const metadata = {
-    workflow_id: workflow.store.requireWorkflowRow().workflow_id,
+    workflow_id: workflow.store.requireConversation().conversation_id,
     stage: "orchestrator",
   };
   const route = gateway.compatRoute(modelName, metadata);

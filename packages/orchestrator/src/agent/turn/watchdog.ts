@@ -1,4 +1,3 @@
-import { isWorkflowFinished } from "../../workflow/store/state";
 import type { AgentTurnRow } from "../../workflow/store/workflow-row";
 import { noteMessage } from "../transcript/envelope";
 import type { WorkflowRuntime } from "../../workflow/types";
@@ -97,8 +96,7 @@ export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm)
   const answering = workflow.transcript.answering();
   workflow.transcript.deleteTaken();
   if (turn.heads_up_schedule) await workflow.cancelAlarm(turn.heads_up_schedule);
-  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)
-    return workflow.release();
+  if (workflow.store.workflowFinished() && !answering.length) return workflow.release();
   const minutes = workflow.config().orchestrator.turn_timeout_minutes;
   workflow.log(null, `agent turn timed out after ${minutes} minutes`);
   await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) }, { answering });
@@ -123,10 +121,7 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   }
   workflow.store.markTurnLost();
   await cancelTurnAlarms(workflow, turn);
-  if (
-    isWorkflowFinished(workflow.store.workflowStatus()) &&
-    !workflow.transcript.takenMessages().length
-  ) {
+  if (workflow.store.workflowFinished() && !workflow.transcript.takenMessages().length) {
     workflow.store.deleteAgentTurn();
     workflow.transcript.deleteTaken();
     await workflow.release();

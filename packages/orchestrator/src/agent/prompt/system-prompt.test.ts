@@ -315,8 +315,8 @@ describe("systemPrompt", () => {
 
     describe("a workflow before its first plan", () => {
       it("carries the request title", () =>
-        freshRuntime((workflow) => {
-          workflow.store.updateWorkflow({ request_title: "fix the flaky test" });
+        unstartedRuntime((workflow) => {
+          workflow.patchConversation({ request_title: "fix the flaky test" });
           expect(systemPrompt(workflow, NOBODY_WROTE)).toContain("\nName: fix the flaky test\n");
         }));
     });

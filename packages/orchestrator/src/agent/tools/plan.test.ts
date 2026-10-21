@@ -7,6 +7,7 @@ import {
   patchModelAuthors,
   fakeDocumentsOf,
   patchNestingHost,
+  patchPlan,
   seedEndedWorkflow,
   seedTask,
   type FakeRuntime,
@@ -111,8 +112,7 @@ describe("set_plan", () => {
 
     it("does not start the workflow", () =>
       named((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("new");
-        expect(workflow.store.plan()).toBeNull();
+        expect(workflow.store.workflowRow()).toBeNull();
       }));
   });
 
@@ -144,13 +144,14 @@ describe("set_plan", () => {
             call,
           ),
         ).toBe("Unknown stages: design. Use names from workflow definition incident.");
-        expect(workflow.store.plan()).toBeNull();
+        expect(workflow.store.workflowRow()).toBeNull();
       }));
   });
 
   describe("a later plan that names another workflow definition", () => {
     let result: string;
     const renamed = scenario(freshRuntime, async (workflow) => {
+      patchPlan(workflow, { name: "Flaky checkout test" });
       workflow.addWorkflowDefinition({ ...workflow.workflowDefinition(), name: "incident" });
       const { set_plan } = planTools(workflow);
       result = toolText(
@@ -168,16 +169,16 @@ describe("set_plan", () => {
       );
     });
 
-    it("names the workflow definition the workflow keeps", () =>
+    it("names the active workflow, its workflow definition, and where the other work can run", () =>
       renamed(() => {
         expect(result).toBe(
-          "The workflow runs workflow definition development, and a plan cannot change it. Call set_plan with definition development.",
+          'Workflow "Flaky checkout test" runs in this conversation from workflow definition development, and a conversation runs one workflow at a time. To change its plan, call set_plan with definition development. For other work, tell the person it can start once "Flaky checkout test" ends, or in a new thread now.',
         );
       }));
 
     it("keeps the workflow definition and does not plan the stages", () =>
       renamed((workflow) => {
-        expect(workflow.store.plan()?.definition).toBe("development");
+        expect(workflow.store.workflowRow()?.definition).toBe("development");
         expect(workflow.store.stagePlan()).toBeNull();
       }));
   });
@@ -283,7 +284,7 @@ describe("set_plan", () => {
       it("stores the plan without a repository", () =>
         documentsPlan((workflow) => {
           expect(workflow.store.requireWorkflowRow().status).toBe("running");
-          expect(workflow.store.plan()).toMatchObject({ reason: "docs", repo: null });
+          expect(workflow.store.workflowRow()).toMatchObject({ reason: "docs", repo: null });
           expect(workflow.store.stagePlan()?.stages).toEqual(["design"]);
         }));
     });
@@ -354,7 +355,7 @@ describe("set_plan", () => {
     let cap: number;
     const planned = scenario(freshRuntime, async (workflow) => {
       cap = workflow.config().orchestrator.sandbox.max_concurrency;
-      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
+      workflow.patchConversation({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
@@ -384,7 +385,7 @@ describe("set_plan", () => {
 
     it("stores the repository", () =>
       planned((workflow) => {
-        expect(workflow.store.plan()?.repo).toBe("acme/app");
+        expect(workflow.store.workflowRow()?.repo).toBe("acme/app");
       }));
 
     it("logs the plan it took", () =>
@@ -469,7 +470,7 @@ describe("set_plan", () => {
 
       it("stores the granted repository", () =>
         granted((workflow) => {
-          expect(workflow.store.plan()?.repo).toBe("acme/docs");
+          expect(workflow.store.workflowRow()?.repo).toBe("acme/docs");
         }));
     });
   });
@@ -512,7 +513,7 @@ describe("set_plan", () => {
     let result: string;
     const replanning = scenario(freshRuntime, async (workflow) => {
       workflow.codeHostInstance = new FakeCodeHost({ repositories: ["acme/app"] });
-      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
+      workflow.patchConversation({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       await set_plan.execute(
         {
@@ -572,7 +573,7 @@ describe("set_plan", () => {
       it("replaces the stages, the repository, and the reason", () =>
         replanned((workflow) => {
           expect(workflow.store.requireWorkflowRow().status).toBe("running");
-          expect(workflow.store.plan()).toMatchObject({ reason: "code", repo: "acme/app" });
+          expect(workflow.store.workflowRow()).toMatchObject({ reason: "code", repo: "acme/app" });
           expect(workflow.store.stagePlan()?.stages).toEqual(["implement"]);
         }));
 
@@ -604,7 +605,7 @@ describe("the name a plan gives the workflow", () => {
 
     it("stores the name on the workflow", () =>
       named((workflow) => {
-        expect(workflow.store.plan()?.name).toBe("Flaky checkout test");
+        expect(workflow.store.workflowRow()?.name).toBe("Flaky checkout test");
       }));
 
     it("logs the name it took", () =>
@@ -637,7 +638,7 @@ describe("the name a plan gives the workflow", () => {
 
       it("replaces the name", () =>
         renamed((workflow) => {
-          expect(workflow.store.plan()?.name).toBe("Rewrite the checkout flow");
+          expect(workflow.store.workflowRow()?.name).toBe("Rewrite the checkout flow");
         }));
     });
   });
@@ -934,7 +935,7 @@ async function planWithSubject(workflow: FakeRuntime, subject: string): Promise<
 describe("set_plan with a subject", () => {
   describe("an issue link, in a workflow from a chat thread", () => {
     const planned = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ origin: THREAD });
+      workflow.patchConversation({ origin: THREAD });
       workflow.store.addReplyTarget(THREAD);
       await planWithSubject(workflow, SUBJECT_ISSUE.url);
     });

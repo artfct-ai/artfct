@@ -20,7 +20,6 @@ import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
 import {
   isTaskFinished,
-  isWorkflowFinished,
   jobSlotsOf,
   type WorkflowEnd,
   type WorkflowLifecycle,
@@ -75,7 +74,8 @@ export async function startJob(
   options: StartJobOptions,
 ): Promise<JobRow | null> {
   const { store } = workflow;
-  const created = store.requireWorkflowRow();
+  const opened = store.requireConversation();
+  const { repo } = store.requireWorkflowRow();
   const stageDefinition = workflow
     .workflowDefinition()
     .stages.find((stage) => stage.name === options.stage);
@@ -87,11 +87,11 @@ export async function startJob(
     return null;
   }
   const stage = resolveStage(workflow.config(), stageDefinition);
-  const jobId = makeJobId(created.workflow_id, store.jobCount() + 1);
+  const jobId = makeJobId(opened.conversation_id, store.jobCount() + 1);
   const { input } = options;
   const issue = input.kind === "issue" ? input.issue : null;
   const target = input.kind === "target" ? input.target : null;
-  const title = issue?.title ?? options.title ?? created.request_title;
+  const title = issue?.title ?? options.title ?? opened.request_title;
   const branch = stage.branch ? (options.continued_branch ?? branchName(jobId, title)) : null;
   const issueLinked = issue !== null && workflow.store.jobByIssue(issue.id) !== null;
   workflow.store.insertJob({
@@ -126,14 +126,13 @@ export async function startJob(
   if (issue) {
     const ref = { issue_id: issue.id, team_id: issue.team_id };
     await workflow.notifier.claimIssue(ref, { started: issue.started });
-    const { origin } = created;
+    const { origin } = opened;
     const subject = store.subject();
     const syncedAsSubject = subject?.kind === "issue" && subject.issue_id === issue.id;
     if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {
       await workflow.notifier.linkChatThread(ref, origin);
     }
   }
-  const repo = store.plan()?.repo;
   if (branch && repo) {
     await bindWorkflow(workflow, { source: "code_branch", repo, branch });
   }
@@ -161,8 +160,8 @@ type JobTask = Pick<NewTask, "job_id" | "model"> & {
 
 /** Insert the next task of a job under a fresh task id, and return that id. */
 function insertJobTask(workflow: WorkflowRuntime, task: JobTask): string {
-  const { workflow_id: workflowId } = workflow.store.requireWorkflowRow();
-  const taskId = makeTaskId(workflowId, workflow.store.taskCount() + 1);
+  const { conversation_id: conversationId } = workflow.store.requireConversation();
+  const taskId = makeTaskId(conversationId, workflow.store.taskCount() + 1);
   const { harness, ...fields } = task;
   const sandbox = harness === null ? null : { harness, bridge_token: newToken() };
   workflow.store.insertTask({ ...fields, task_id: taskId, sandbox });
@@ -584,15 +583,15 @@ export async function failWorkflow(workflow: WorkflowRuntime, reason: string): P
 
 /** True from the start of a workflow end until its last step. */
 export function workflowEnding(workflow: WorkflowRuntime): boolean {
-  return workflow.store.requireWorkflowRow().status === "ending";
+  return workflow.store.workflowRow()?.status === "ending";
 }
 
 /**
  * Start the workflow end in the store before its first cancel, then go on with it. False when the
- * workflow already ended or another end runs, so the caller says nothing.
+ * conversation has no workflow, or it already ended or another end runs, so the caller says nothing.
  */
 export async function endWorkflow(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<boolean> {
-  if (isWorkflowFinished(workflow.store.workflowStatus())) return false;
+  if (!workflow.store.workflowRow() || workflow.store.workflowFinished()) return false;
   workflow.store.startWorkflowEnd(end);
   await goOnWithWorkflowEnd(workflow, end);
   return true;
@@ -665,7 +664,7 @@ async function completeTrackerIssues(workflow: WorkflowRuntime): Promise<void> {
 /** Point an external object (pull, branch, page) at this workflow so ingress can route to it. */
 export async function bindWorkflow(workflow: WorkflowRuntime, binding: Binding): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await bindInDb(db, binding, workflow.store.requireWorkflowRow().workflow_id);
+  await bindInDb(db, binding, workflow.store.requireConversation().conversation_id);
 }
 
 /** Move a workflow whose end has not started between running and waiting for input. */
@@ -679,14 +678,14 @@ export async function changeWorkflowStatus(
 }
 
 /**
- * Copy the status every reader sees to D1, which the router reads to drop machine events on a
- * finished workflow without waking it. A resumed workflow end writes it again, since an instance
- * restart may have cut off the write.
+ * Copy the status of the conversation's workflow to the router's row of the Durable Object, which
+ * the router reads to drop machine events on a finished workflow without waking it. A resumed
+ * workflow end writes it again, since an instance restart may have cut off the write.
  */
-async function writeRouterWorkflowStatus(workflow: WorkflowRuntime): Promise<void> {
+export async function writeRouterWorkflowStatus(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
-  const { workflow_id } = workflow.store.requireWorkflowRow();
-  await setWorkflowStatus(db, workflow_id, workflow.store.workflowStatus());
+  const { conversation_id } = workflow.store.requireConversation();
+  await setWorkflowStatus(db, conversation_id, workflow.store.workflowStatus());
 }
 
 /** The bindings a workflow takes on the code host: its branches and its pull requests. */
@@ -698,7 +697,7 @@ const CODE_SOURCES: BindingSource[] = ["code_branch", "code_pull"];
  */
 async function unbindCodeHost(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await deleteBindings(db, workflow.store.requireWorkflowRow().workflow_id, CODE_SOURCES);
+  await deleteBindings(db, workflow.store.requireConversation().conversation_id, CODE_SOURCES);
 }
 
 /** What the agent says when the humans have been silent for `orchestrator.idle_hours`. */

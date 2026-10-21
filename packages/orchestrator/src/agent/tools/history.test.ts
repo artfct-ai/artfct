@@ -39,9 +39,7 @@ const THREAD = page([
 ]);
 
 function slackChat(workflow: FakeRuntime, answers: ChatAnswers): FakeChat {
-  workflow.store.updateWorkflow({
-    origin: { source: "chat", channel: "C1", thread: REQUEST_THREAD },
-  });
+  workflow.patchConversation({ origin: { source: "chat", channel: "C1", thread: REQUEST_THREAD } });
   workflow.store.addReplyTarget({ source: "chat", channel: "C1", thread: REQUEST_THREAD });
   const chat = new FakeChat(answers);
   workflow.chatInstance = chat;
@@ -368,7 +366,7 @@ describe("read_channel", () => {
     it("reads the channel of the reply target", () =>
       freshRuntime(async (workflow) => {
         const chat = slackChat(workflow, { history: CHANNEL });
-        workflow.store.updateWorkflow({
+        workflow.patchConversation({
           origin: { source: "tracker", session_id: "s1", issue_id: "i1" },
         });
         const { read_channel } = historyTools(workflow);

@@ -246,7 +246,7 @@ export async function startRefiner(
     return;
   }
   const settings = resolveRefinerSettings(workflow.config(), refiner.entry);
-  const { workflow_id: workflowId } = workflow.store.requireWorkflowRow();
+  const { conversation_id: workflowId } = workflow.store.requireConversation();
   const refinerRunId = makeTaskId(workflowId, workflow.store.taskCount() + 1);
   workflow.store.insertTask({
     task_id: refinerRunId,

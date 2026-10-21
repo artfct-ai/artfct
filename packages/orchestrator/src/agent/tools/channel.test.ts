@@ -4,7 +4,7 @@ import type { z } from "zod";
 import type { ChatMessageRef } from "../../workflow/store/state";
 import { acceptingD1 } from "../../../test/accepting-d1";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import { createFakeWorkflow, FakeRuntime, seedTask } from "../../../test/fake-runtime";
+import { openFakeConversation, FakeRuntime, seedTask } from "../../../test/fake-runtime";
 import { openMemoryDb } from "../../../test/memory-db";
 import { scenario, type Scenario } from "../../../test/scenario";
 import { testEnv } from "../../../test/test-env";
@@ -41,7 +41,7 @@ const routedRuntime: Scenario<FakeRuntime> = async (run) => {
 const unstartedRoutedRuntime: Scenario<FakeRuntime> = async (run) => {
   const env = { ...testEnv(), DB: acceptingD1() };
   const workflow = new FakeRuntime(openMemoryDb(), env, "uncreated");
-  createFakeWorkflow(workflow);
+  openFakeConversation(workflow);
   await run(workflow);
 };
 
@@ -299,9 +299,9 @@ describe("channel tools", () => {
         );
       });
 
-      it("keeps the workflow new", () =>
+      it("does not create a workflow", () =>
         asked((workflow) => {
-          expect(workflow.store.requireWorkflowRow().status).toBe("new");
+          expect(workflow.store.workflowRow()).toBeNull();
         }));
     });
 

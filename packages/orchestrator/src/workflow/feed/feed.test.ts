@@ -89,7 +89,7 @@ const linearOnly = (
   origin: ReplyTarget = STARTING,
 ) =>
   freshRuntime(async (workflow) => {
-    workflow.store.updateWorkflow({ origin });
+    workflow.patchConversation({ origin });
     workflow.store.addReplyTarget(origin);
     const outbox: OutboxEntry[] = [];
     workflow.notifier = testNotifier(outbox, { tracker });

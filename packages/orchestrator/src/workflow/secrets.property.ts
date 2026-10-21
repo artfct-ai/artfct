@@ -177,7 +177,7 @@ async function startDeployment(
   const env = { ...testEnv(), ...secrets, CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", DB: d1 };
   const db = openMemoryDb();
   const workflow = new DeploymentRuntime(db, env);
-  await createWorkflow(createDb(d1), workflow.store.requireWorkflowRow().workflow_id);
+  await createWorkflow(createDb(d1), workflow.store.requireConversation().conversation_id);
   if (setup.linearInstalled) {
     await saveLinearInstall(createDb(d1), {
       access_token: LINEAR_ACCESS_TOKEN,

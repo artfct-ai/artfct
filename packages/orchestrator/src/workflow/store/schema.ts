@@ -27,19 +27,38 @@ export type SteerStatus = "out" | "taken";
 /** Who a queued prompt is from: a person's instruction, or a workflow prompt the workflow writes. */
 export type PromptKind = "instruction" | "workflow";
 
-/** The workflow, from the event that created it. One row. Its existence means it was created. */
-export const workflow = sqliteTable("workflow", {
+/** The conversation this Durable Object holds, from the event that opened it. One row. */
+export const conversation = sqliteTable("conversation", {
   /** The router's name for the Durable Object. */
-  workflow_id: text().primaryKey(),
-  status: text().$type<WorkflowLifecycle>().notNull(),
-  /** The title of the starting event, or the first line of its text. */
+  conversation_id: text().primaryKey(),
+  /** Where the conversation started. Null when the opening event did not name a place. */
+  origin: text({ mode: "json" }).$type<ReplyTarget>(),
+  /** The title of the opening event, or the first line of its text. Names the conversation before a plan names a workflow. */
   request_title: text().notNull(),
+  /** The text and the links of the opening event. Every workflow of the conversation works from them. */
   request_text: text().notNull(),
   request_links: text({ mode: "json" }).$type<string[]>().notNull(),
-  /** Where the workflow started. Null when the starting event did not name a place. */
-  origin: text({ mode: "json" }).$type<ReplyTarget>(),
+  opened_at: text().notNull(),
+});
+
+/**
+ * The workflows of the conversation, each from the plan that created it. At most one has not
+ * ended. Its existence means a plan named its workflow definition.
+ */
+export const workflows = sqliteTable("workflows", {
+  workflow_id: text().primaryKey(),
+  status: text().$type<WorkflowLifecycle>().notNull(),
+  /** The workflow definition the workflow runs. A later plan cannot change it. */
+  definition: text().notNull(),
+  /** The display name of the workflow. A later plan may change it. */
+  name: text().notNull(),
+  /** Why the last plan was set. */
+  reason: text().notNull(),
+  /** The full name of the repository. Null when the last plan did not name one. */
+  repo: text(),
   /** The schedule id of the idle alarm that posts the sleep note. Null while it is not armed. */
   idle_schedule: text(),
+  created_at: text().notNull(),
 });
 
 /** Where the agent turn record stands: its turn runs, or a restart lost it. */
@@ -50,7 +69,7 @@ export type AgentTurnStatus = "running" | "lost";
  * its watchdog deletes it. A restart marks it lost, and the next turn start resumes that turn.
  */
 export const agentTurn = sqliteTable("agent_turn", {
-  workflow_id: text().primaryKey(),
+  conversation_id: text().primaryKey(),
   status: text().$type<AgentTurnStatus>().notNull(),
   /** When the turn began. A turn alarm armed for another start is stale. */
   started_at: text().notNull(),
@@ -71,9 +90,9 @@ export const agentTurn = sqliteTable("agent_turn", {
 });
 
 /**
- * The workflow end, from its start on. It stays after the end's last step. At most one row.
- * `answering` is where the people who asked for the end wait. `posted` is true once the channels
- * heard it.
+ * A workflow end, from its start on. It stays after the end's last step. At most one row per
+ * workflow. `answering` is where the people who asked for the end wait. `posted` is true once the
+ * channels heard it.
  */
 export const workflowEnd = sqliteTable("workflow_end", {
   workflow_id: text().primaryKey(),
@@ -84,20 +103,7 @@ export const workflowEnd = sqliteTable("workflow_end", {
   posted: integer({ mode: "boolean" }).notNull().default(false),
 });
 
-/** The plan that started the workflow. At most one row, written by the first plan. */
-export const workflowPlan = sqliteTable("workflow_plan", {
-  workflow_id: text().primaryKey(),
-  /** The workflow definition the workflow runs. A later plan cannot change it. */
-  definition: text().notNull(),
-  /** The display name of the workflow. A later plan may change it. */
-  name: text().notNull(),
-  /** Why the last plan was set. */
-  reason: text().notNull(),
-  /** The full name of the repository. Null when the last plan did not name one. */
-  repo: text(),
-});
-
-/** The stage plan: what a plan with stages set. At most one row, replaced by each such plan. */
+/** The stage plan: what a plan with stages set. At most one row per workflow, replaced by each such plan. */
 export const stagePlan = sqliteTable("stage_plan", {
   workflow_id: text().primaryKey(),
   /** The planned stages in order. A guide for the agent, which may run any configured stage. */
@@ -110,7 +116,7 @@ export const stagePlan = sqliteTable("stage_plan", {
   root_page: text({ mode: "json" }).$type<RootPage>(),
 });
 
-/** The one issue or tracker project the workflow works on. At most one row, written once. */
+/** The one issue or tracker project a workflow works on. At most one row per workflow, written once. */
 export const workflowSubject = sqliteTable("workflow_subject", {
   workflow_id: text().primaryKey(),
   kind: text().$type<"issue" | "project">().notNull(),
@@ -118,7 +124,7 @@ export const workflowSubject = sqliteTable("workflow_subject", {
   tracker_id: text().notNull(),
 });
 
-/** The places the workflow replies to, in the order they joined. The first is where it started. */
+/** The places the conversation replies to, in the order they joined. The first is where it started. */
 export const replyTargets = sqliteTable("reply_targets", {
   id: integer().primaryKey({ autoIncrement: true }),
   /** `replyTargetKey` writes it, so one place joins once. */
@@ -129,6 +135,8 @@ export const replyTargets = sqliteTable("reply_targets", {
 /** The execution of one stage. Its tasks belong to it, and it holds what they produce. */
 export const jobs = sqliteTable("jobs", {
   job_id: text().primaryKey(),
+  /** The workflow the job belongs to. */
+  workflow_id: text().notNull(),
   stage: text().notNull(),
   /** The tracker issue the job works from: its id (for event routing) and identifier (for humans). */
   issue_id: text(),

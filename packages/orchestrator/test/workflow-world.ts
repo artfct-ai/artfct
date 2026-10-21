@@ -35,7 +35,7 @@ import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
-import { createWorkflow, handleEvent } from "../src/workflow/inbound/events";
+import { handleEvent, openConversation } from "../src/workflow/inbound/events";
 import { plainText } from "../src/notify/messages";
 import { outbox } from "../src/workflow/store/schema";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
@@ -131,7 +131,8 @@ export type Observation = {
   /** True when a planned stage produces issues. */
   plansIssues: boolean;
   jobs: ObservedJob[];
-  workflowStatus: WorkflowStatus;
+  /** Null before a plan creates the workflow. */
+  workflowStatus: WorkflowStatus | null;
   /** The workflow definition the workflow runs, or null before the plan that starts it. */
   definition: string | null;
   /** The job session of each job, by job id. Null for a job without one. */
@@ -560,8 +561,8 @@ export class WorkflowWorld {
       (entry) => workflow.store.writeOutbox(entry),
     );
     if (setup.opening === "request") {
-      await createWorkflow(workflow, {
-        workflowId: FAKE_WORKFLOW_ID,
+      await openConversation(workflow, {
+        conversationId: FAKE_WORKFLOW_ID,
         event: requestEvent(ORIGINS[setup.origin]),
         endedWorkflowId: null,
       });
@@ -575,7 +576,7 @@ export class WorkflowWorld {
       });
     }
     const stage = STAGE_OF[setup.artifact];
-    workflow.store.updateWorkflow({
+    workflow.patchConversation({
       request_title: "Fix login",
       request_text: "Fix the login redirect.",
       origin: ORIGINS[setup.origin],
@@ -1397,7 +1398,7 @@ export class WorkflowWorld {
       .replyTargets()
       .filter((target): target is TrackerSession => target.source === "tracker");
     const stages = this.workflow.store.stagePlan()?.stages ?? [];
-    const definition = this.workflow.store.plan()?.definition ?? null;
+    const definition = this.workflow.store.workflowRow()?.definition ?? null;
     const declared = definition ? this.workflow.workflowDefinition().stages : [];
     const issueStages = declared
       .filter((stage) => stage.artifact === "issues")
@@ -1412,7 +1413,7 @@ export class WorkflowWorld {
         issue_id: job.issue_id,
         stage: job.stage,
       })),
-      workflowStatus: this.workflow.store.workflowStatus(),
+      workflowStatus: store.workflowRow() ? store.workflowStatus() : null,
       definition,
       jobSessions: Object.fromEntries(
         jobs.map((job) => {

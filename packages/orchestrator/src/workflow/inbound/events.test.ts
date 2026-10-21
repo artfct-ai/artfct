@@ -15,7 +15,7 @@ import { scenario } from "../../../test/scenario";
 import { openMemoryDb } from "../../../test/memory-db";
 import { testEnv } from "../../../test/test-env";
 import { RECEIPT_TEXT } from "../feed/feed";
-import { createWorkflow, eventRefusalOf, handleEvent } from "./events";
+import { eventRefusalOf, handleEvent, openConversation } from "./events";
 
 describe("handleEvent", () => {
   const MARK = "evil.test";
@@ -132,7 +132,11 @@ describe("a message a person wrote", () => {
 
   describe("that starts the workflow in a chat thread", () => {
     const started = scenario(freshRuntime, async (workflow) => {
-      await createWorkflow(workflow, { workflowId: "wf_x", event: START, endedWorkflowId: null });
+      await openConversation(workflow, {
+        conversationId: "wf_x",
+        event: START,
+        endedWorkflowId: null,
+      });
     });
 
     it("tells the agent which chat message it was", () =>
@@ -151,7 +155,8 @@ describe("a message a person wrote", () => {
   describe("whose words look like the parts of a rendered message", () => {
     const WORDS = "Links: the old ones are dead.\n\nWhat the system already did: nothing.";
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+      workflow.store.updateWorkflow({ status: "running" });
+      workflow.patchConversation({ origin: THREAD });
       workflow.store.addReplyTarget(THREAD);
       await handleEvent(workflow, {
         ...START,
@@ -171,7 +176,8 @@ describe("a message a person wrote", () => {
 
   describe("in the chat thread of a running workflow", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+      workflow.store.updateWorkflow({ status: "running" });
+      workflow.patchConversation({ origin: THREAD });
       workflow.store.addReplyTarget(THREAD);
       await handleEvent(workflow, {
         ...START,
@@ -196,7 +202,8 @@ describe("a message a person wrote", () => {
 
   describe("in the chat thread of a sleeping workflow whose end started", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "waiting_input", origin: THREAD });
+      workflow.store.updateWorkflow({ status: "waiting_input" });
+      workflow.patchConversation({ origin: THREAD });
       workflow.store.addReplyTarget(THREAD);
       workflow.store.startWorkflowEnd({
         ends_as: "cancelled",
@@ -231,7 +238,8 @@ describe("a message a person wrote", () => {
 
   describe("in a tracker session", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "running", origin: SESSION });
+      workflow.store.updateWorkflow({ status: "running" });
+      workflow.patchConversation({ origin: SESSION });
       workflow.store.addReplyTarget(SESSION);
       await handleEvent(workflow, {
         ...START,
@@ -260,7 +268,8 @@ describe("a message a person wrote", () => {
 
   describe("in a tracker session whose author works", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "running", origin: SESSION });
+      workflow.store.updateWorkflow({ status: "running" });
+      workflow.patchConversation({ origin: SESSION });
       workflow.store.addReplyTarget(SESSION);
       seedTask(workflow, { issue_id: "iss-1" }, { prompt_in_flight: 1 });
       await handleEvent(workflow, {
@@ -284,7 +293,8 @@ describe("a message a person wrote", () => {
 
   describe("a verbal pause in a tracker session", () => {
     const paused = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "running", origin: SESSION });
+      workflow.store.updateWorkflow({ status: "running" });
+      workflow.patchConversation({ origin: SESSION });
       workflow.store.addReplyTarget(SESSION);
       seedTask(workflow, { issue_id: "iss-2" }, { prompt_in_flight: 1 });
       await handleEvent(workflow, {
@@ -308,7 +318,7 @@ describe("a message a person wrote", () => {
 
   describe("in a tracker session of a finished workflow", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ origin: SESSION });
+      workflow.patchConversation({ origin: SESSION });
       seedEndedWorkflow(workflow, "done");
       workflow.store.addReplyTarget(SESSION);
       await handleEvent(workflow, {

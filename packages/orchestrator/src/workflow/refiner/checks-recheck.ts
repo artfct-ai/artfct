@@ -1,5 +1,5 @@
 import { noteMessage } from "../../agent/transcript/envelope";
-import { isTaskFinished, isWorkflowFinished } from "../store/state";
+import { isTaskFinished } from "../store/state";
 import { runningPolisherOf } from "./stage-refiner";
 import type { ArtifactRow, TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
@@ -20,7 +20,7 @@ import { settlePolisherTurn } from "./polish";
 export async function recheckChecks(workflow: WorkflowRuntime, alarm: ChecksAlarm): Promise<void> {
   const status = workflow.store.artifact(alarm.job_id)?.status;
   const open = status === "drafted" || status === "ready";
-  if (!open || isWorkflowFinished(workflow.store.workflowStatus())) {
+  if (!open || workflow.store.workflowFinished()) {
     return workflow.stopRepeatingAlarm("recheckChecks", alarm);
   }
   await settleChecks(workflow, alarm.job_id);

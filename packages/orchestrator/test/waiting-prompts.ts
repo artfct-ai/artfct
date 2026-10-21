@@ -20,6 +20,10 @@ export function specQueuedPromptOf(row: { kind: PromptKind }): SpecQueuedPrompt 
       return "Instruction";
     case "workflow":
       return "OtherPrompt";
+    default: {
+      const unhandled: never = row.kind;
+      throw new Error(`unknown prompt kind ${String(unhandled)}`);
+    }
   }
 }
 

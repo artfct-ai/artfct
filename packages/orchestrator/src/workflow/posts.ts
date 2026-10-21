@@ -2,7 +2,6 @@ import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { destinationFor } from "../notify/destination";
 import type { PostOptions } from "../notify/notifier";
 import { recipientsOf, type Recipients } from "../notify/recipients";
-import { isWorkflowFinished } from "./store/state";
 import type { TaskEvent } from "./task/events";
 import type { WorkflowRuntime } from "./types";
 
@@ -17,11 +16,11 @@ export async function postToRecipients(
   options: PostOptions = {},
 ): Promise<void> {
   const audience = {
-    origin: workflow.store.requireWorkflowRow().origin,
+    origin: workflow.store.requireConversation().origin,
     replyTargets: workflow.store.replyTargets(),
   };
   const targets = recipientsOf(audience, event, to);
-  const finished = isWorkflowFinished(workflow.store.workflowStatus());
+  const finished = workflow.store.workflowFinished();
   const title = workflow.store.workflowName();
   const destination = destinationFor(event);
   for (const target of targets) {
@@ -39,7 +38,7 @@ export async function releaseChatThreads(
   only?: ReplyTarget,
 ): Promise<void> {
   const targets = only ? [only] : workflow.store.replyTargets();
-  const finished = isWorkflowFinished(workflow.store.workflowStatus());
+  const finished = workflow.store.workflowFinished();
   const title = workflow.store.workflowName();
   for (const target of targets) {
     if (target.source === "chat") await workflow.notifier.release(target, finished, title);

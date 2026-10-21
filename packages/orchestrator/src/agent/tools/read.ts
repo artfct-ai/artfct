@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { taskCostText } from "../../workflow/cost";
-import { statusText, summarize } from "../../workflow/status";
+import { conversationStatusText } from "../../workflow/status";
 import type { PromptCounts } from "../../workflow/store/tasks";
 import type { WorkflowRuntime } from "../../workflow/types";
 
@@ -49,7 +49,7 @@ export function readTools(workflow: WorkflowRuntime) {
     status: tool({
       description: "The workflow status summary: stage, active tasks and artifacts, cost.",
       inputSchema: z.object({}),
-      execute: async () => statusText(summarize(workflow)),
+      execute: async () => conversationStatusText(workflow),
     }),
     read_task: tool({
       description:

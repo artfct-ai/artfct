@@ -255,7 +255,7 @@ class FeedRun {
 
   constructor(private readonly witnesses: Witnesses) {
     this.workflow = new FakeRuntime(openMemoryDb(), testEnv());
-    this.workflow.store.updateWorkflow({ origin: SESSION });
+    this.workflow.patchConversation({ origin: SESSION });
     this.workflow.store.addReplyTarget(SESSION);
     this.workflow.notifier = testNotifier([], { tracker: this.tracker });
     this.workflow.trackerInstance = this.tracker;

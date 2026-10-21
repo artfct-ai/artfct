@@ -950,8 +950,7 @@ export class WorkflowLifecycleReplay {
   project(): SpecWorkflow {
     const { workflow } = this.world;
     const { store } = workflow;
-    const created = store.requireWorkflowRow();
-    const plan = store.plan();
+    const created = store.workflowRow();
     const stagePlan = store.stagePlan();
     const jobs = store.jobs();
     const end = store.workflowEnd();
@@ -961,8 +960,8 @@ export class WorkflowLifecycleReplay {
       .filter((task) => JOB_ROLES.includes(task.role))
       .map((task) => task.task_id);
     return {
-      status: WORKFLOW_STATUS_OF[created.status],
-      definition: plan === null ? null : plan.definition === SECOND_DEFINITION ? 1 : 0,
+      status: created === null ? "New" : WORKFLOW_STATUS_OF[created.status],
+      definition: created === null ? null : created.definition === SECOND_DEFINITION ? 1 : 0,
       jobSlots: stagePlan?.job_slots ?? null,
       subject: specSubjectOf(store.subject()),
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
@@ -1318,7 +1317,7 @@ export class WorkflowLifecycleReplay {
             world.deliver({
               kind: "prompt",
               text: VERBAL_COMMAND_TEXT[command],
-              reply_to: world.workflow.store.requireWorkflowRow().origin ?? undefined,
+              reply_to: world.workflow.store.requireConversation().origin ?? undefined,
             }),
           ),
         );
@@ -1504,7 +1503,7 @@ export class WorkflowLifecycleReplay {
     switch (ending) {
       case "PersonCancels":
         await personCancels(
-          world.workflow.store.requireWorkflowRow().origin?.source === "tracker"
+          world.workflow.store.requireConversation().origin?.source === "tracker"
             ? "word"
             : "control",
         ).run(world);
@@ -2094,7 +2093,6 @@ const ARTIFACT_STATUS_OF: Record<ArtifactRow["status"], SpecJob["artifact"]> = {
 };
 
 const WORKFLOW_STATUS_OF: Record<WorkflowLifecycle, SpecWorkflow["status"]> = {
-  new: "New",
   running: "Running",
   waiting_input: "WaitingInput",
   ending: "Ending",

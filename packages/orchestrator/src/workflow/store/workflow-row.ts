@@ -1,41 +1,49 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { WorkflowStatus } from "@artfct-ai/contracts/types";
+import { desc, eq, ne } from "drizzle-orm";
 import { BoardStore } from "../board/board-store";
 import { replyTargetKey } from "./reply-target-key";
 import {
   agentTurn,
+  conversation,
   replyTargets,
   stagePlan,
-  workflow,
   workflowEnd,
-  workflowPlan,
+  workflows,
   workflowSubject,
 } from "./schema";
 import {
+  isWorkflowFinished,
+  now,
   workflowStatusOf,
   type StagePlan,
   type Subject,
   type WorkflowEnd,
-  type WorkflowPlan,
 } from "./state";
 
-/** The one row of the workflow: its status, request, origin, and idle alarm. */
-export type WorkflowRow = typeof workflow.$inferSelect;
+/** The one row of the conversation: its id, its origin, and its opening request. */
+export type ConversationRow = typeof conversation.$inferSelect;
+
+/** One workflow of the conversation: its status, its plan, and its idle alarm. */
+export type WorkflowRow = typeof workflows.$inferSelect;
 
 /** The agent turn record: the turn that runs, or the turn a restart lost. */
 export type AgentTurnRow = typeof agentTurn.$inferSelect;
 
 /** What a turn start records about the turn that runs. */
-export type RunningTurn = Omit<AgentTurnRow, "workflow_id" | "status">;
+export type RunningTurn = Omit<AgentTurnRow, "conversation_id" | "status">;
 
-/** What the event that creates a workflow sets. */
+/** What the event that opens a conversation sets. */
+export type NewConversation = Omit<ConversationRow, "opened_at">;
+
+/** What the plan that creates a workflow sets. */
 export type NewWorkflow = Pick<
   WorkflowRow,
-  "workflow_id" | "request_title" | "request_text" | "request_links" | "origin"
+  "workflow_id" | "definition" | "name" | "reason" | "repo"
 > & { subject: Subject | null };
 
 /** The workflow row columns code changes after the create. */
-export type WorkflowPatch = Partial<Omit<WorkflowRow, "workflow_id">>;
+export type WorkflowPatch = Partial<Omit<WorkflowRow, "workflow_id" | "created_at">>;
 
 function subjectOf(row: typeof workflowSubject.$inferSelect): Subject {
   switch (row.kind) {
@@ -55,41 +63,72 @@ function subjectTrackerId(subject: Subject): string {
 }
 
 /**
- * Typed access to the workflow row and the tables that hold one fact about the whole workflow:
- * its end, its plan, its stage plan, its subject, its reply targets, and its agent turn record.
+ * Typed access to the conversation row, its workflow rows, and the tables that hold one fact about
+ * one workflow: its end, its stage plan, and its subject. Also the reply targets and the agent
+ * turn record of the conversation.
  */
 export class WorkflowRowStore extends BoardStore {
-  /** The workflow. Null before the event that creates it. */
-  workflowRow(): WorkflowRow | null {
-    return this.db.select().from(workflow).get() ?? null;
+  /** The conversation. Null before the event that opens it. */
+  conversation(): ConversationRow | null {
+    return this.db.select().from(conversation).get() ?? null;
   }
 
-  /** The workflow, or throw. For code paths that run only once it was created. */
-  requireWorkflowRow(): WorkflowRow {
-    const row = this.workflowRow();
-    if (!row) throw new Error("the workflow is not created");
+  /** The conversation, or throw. For code paths that run only once it was opened. */
+  requireConversation(): ConversationRow {
+    const row = this.conversation();
+    if (!row) throw new Error("the conversation is not opened");
     return row;
   }
 
-  /** Create the workflow as `new`, with its subject and its origin as the first reply target. */
+  /** Open the conversation, with its origin as the first reply target. */
+  openConversation(opened: NewConversation): void {
+    this.db
+      .insert(conversation)
+      .values({ ...opened, opened_at: now() })
+      .run();
+    if (opened.origin) this.addReplyTarget(opened.origin);
+  }
+
+  /** The one workflow of the conversation that has not ended. Null before the first and after the end. */
+  activeWorkflow(): WorkflowRow | null {
+    return this.db.select().from(workflows).where(ne(workflows.status, "ended")).get() ?? null;
+  }
+
+  /** The active workflow, else the last one that ended. Null before the first workflow. */
+  workflowRow(): WorkflowRow | null {
+    return (
+      this.activeWorkflow() ??
+      this.db.select().from(workflows).orderBy(desc(workflows.created_at)).get() ??
+      null
+    );
+  }
+
+  /** The workflow, or throw. For code paths that run only once a plan created it. */
+  requireWorkflowRow(): WorkflowRow {
+    const row = this.workflowRow();
+    if (!row) throw new Error("the conversation has no workflow");
+    return row;
+  }
+
+  /** Create a running workflow from the plan that names its definition, with its subject. */
   createWorkflow({ subject, ...created }: NewWorkflow): void {
     this.db
-      .insert(workflow)
-      .values({ ...created, status: "new" })
+      .insert(workflows)
+      .values({ ...created, status: "running", created_at: now() })
       .run();
     if (subject) this.writeSubject(subject);
-    if (created.origin) this.addReplyTarget(created.origin);
   }
 
   /** Change columns of the workflow row. */
   updateWorkflow(patch: WorkflowPatch): void {
     if (Object.keys(patch).length === 0) return;
-    this.db.update(workflow).set(patch).run();
+    const { workflow_id } = this.requireWorkflowRow();
+    this.db.update(workflows).set(patch).where(eq(workflows.workflow_id, workflow_id)).run();
   }
 
-  /** What every reader calls the workflow: the name its plan gave it, else the request title. */
+  /** What every reader calls the work: the workflow's name, else the opening request's title. */
   workflowName(): string {
-    return this.plan()?.name || this.requireWorkflowRow().request_title;
+    return this.workflowRow()?.name ?? this.requireConversation().request_title;
   }
 
   /** The status every reader outside the store sees: the end's status from the start of the end. */
@@ -97,10 +136,23 @@ export class WorkflowRowStore extends BoardStore {
     return workflowStatusOf(this.requireWorkflowRow().status, this.workflowEnd());
   }
 
-  /** The workflow end. Null before an end starts. */
+  /** True once the workflow shows a finished status. False before the first workflow. */
+  workflowFinished(): boolean {
+    return this.workflowRow() !== null && isWorkflowFinished(this.workflowStatus());
+  }
+
+  /** The end of the workflow. Null before a workflow, and before its end starts. */
   workflowEnd(): WorkflowEnd | null {
+    const workflow = this.workflowRow();
+    if (!workflow) return null;
     const { ends_as, reason, answering, posted } = workflowEnd;
-    return this.db.select({ ends_as, reason, answering, posted }).from(workflowEnd).get() ?? null;
+    return (
+      this.db
+        .select({ ends_as, reason, answering, posted })
+        .from(workflowEnd)
+        .where(eq(workflowEnd.workflow_id, workflow.workflow_id))
+        .get() ?? null
+    );
   }
 
   /** Start the end: record it and move the workflow to `ending`, so a restart goes on with it. */
@@ -114,29 +166,25 @@ export class WorkflowRowStore extends BoardStore {
 
   /** The channels heard the end, so a resumed end does not post again. */
   markWorkflowEndPosted(): void {
-    this.db.update(workflowEnd).set({ posted: true }).run();
-  }
-
-  /** The plan that started the workflow. Null before it. */
-  plan(): WorkflowPlan | null {
-    const { definition, name, reason, repo } = workflowPlan;
-    return this.db.select({ definition, name, reason, repo }).from(workflowPlan).get() ?? null;
-  }
-
-  /** Write the plan, or replace the one a former plan wrote. */
-  writePlan(plan: WorkflowPlan): void {
+    const { workflow_id } = this.requireWorkflowRow();
     this.db
-      .insert(workflowPlan)
-      .values({ ...plan, workflow_id: this.requireWorkflowRow().workflow_id })
-      .onConflictDoUpdate({ target: workflowPlan.workflow_id, set: plan })
+      .update(workflowEnd)
+      .set({ posted: true })
+      .where(eq(workflowEnd.workflow_id, workflow_id))
       .run();
   }
 
-  /** What the last plan with stages set. Null before such a plan. */
+  /** What the last plan with stages set. Null before a workflow, and before such a plan. */
   stagePlan(): StagePlan | null {
+    const workflow = this.workflowRow();
+    if (!workflow) return null;
     const { stages, job_slots, page_parent, root_page } = stagePlan;
     return (
-      this.db.select({ stages, job_slots, page_parent, root_page }).from(stagePlan).get() ?? null
+      this.db
+        .select({ stages, job_slots, page_parent, root_page })
+        .from(stagePlan)
+        .where(eq(stagePlan.workflow_id, workflow.workflow_id))
+        .get() ?? null
     );
   }
 
@@ -149,9 +197,15 @@ export class WorkflowRowStore extends BoardStore {
       .run();
   }
 
-  /** What the workflow works on. Null until a tracker origin, the plan or an output sets it. */
+  /** What the workflow works on. Null before a workflow, and until its origin, plan or an output sets it. */
   subject(): Subject | null {
-    const row = this.db.select().from(workflowSubject).get();
+    const workflow = this.workflowRow();
+    if (!workflow) return null;
+    const row = this.db
+      .select()
+      .from(workflowSubject)
+      .where(eq(workflowSubject.workflow_id, workflow.workflow_id))
+      .get();
     return row ? subjectOf(row) : null;
   }
 
@@ -177,8 +231,8 @@ export class WorkflowRowStore extends BoardStore {
     const running = { ...turn, status: "running" as const };
     this.db
       .insert(agentTurn)
-      .values({ ...running, workflow_id: this.requireWorkflowRow().workflow_id })
-      .onConflictDoUpdate({ target: agentTurn.workflow_id, set: running })
+      .values({ ...running, conversation_id: this.requireConversation().conversation_id })
+      .onConflictDoUpdate({ target: agentTurn.conversation_id, set: running })
       .run();
   }
 
@@ -205,7 +259,7 @@ export class WorkflowRowStore extends BoardStore {
     this.db.delete(agentTurn).run();
   }
 
-  /** The places the workflow replies to, in the order they joined. */
+  /** The places the conversation replies to, in the order they joined. */
   replyTargets(): ReplyTarget[] {
     return this.db
       .select({ target: replyTargets.target })
@@ -215,7 +269,7 @@ export class WorkflowRowStore extends BoardStore {
       .map((row) => row.target);
   }
 
-  /** Add a place the workflow replies to. False when the place joined before. */
+  /** Add a place the conversation replies to. False when the place joined before. */
   addReplyTarget(target: ReplyTarget): boolean {
     const added = this.db
       .insert(replyTargets)

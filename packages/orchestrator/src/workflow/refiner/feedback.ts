@@ -7,7 +7,7 @@ import { feedbackText } from "../../prompts/review-prompt";
 import { recordArtifact } from "../artifact";
 import { cancelRefinerRunOf, cancelTask } from "../lifecycle";
 import { promptTask } from "../task/harness/prompt-queue";
-import { isTaskFinished, isWorkflowFinished } from "../store/state";
+import { isTaskFinished } from "../store/state";
 import type { ArtifactRow, TaskRow } from "../store/tasks";
 import { jobsForEvent, noMatchingJobNote } from "../inbound/lookup";
 import type { Applied, Wake, WorkflowRuntime } from "../types";
@@ -41,7 +41,7 @@ export async function applyArtifactEvent(
     if (!author) continue;
     const change = await changeFor(workflow, author, workflow.store.artifact(job.job_id), event);
     if (!change) continue;
-    if (isWorkflowFinished(workflow.store.workflowStatus())) return "handled";
+    if (workflow.store.workflowFinished()) return "handled";
     const task = workflow.store.requireTask(author.task_id);
     const result = await applyChange(workflow, task, workflow.store.artifact(job.job_id), change);
     if (result === "handled") handled = true;

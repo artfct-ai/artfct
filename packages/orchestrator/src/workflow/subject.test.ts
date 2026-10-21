@@ -69,7 +69,7 @@ describe("issueInSubject", () => {
 describe("setWorkflowSubject", () => {
   it("links the chat thread of a chat workflow to an issue subject", () =>
     freshRuntime(async (workflow) => {
-      workflow.store.updateWorkflow({ origin: THREAD });
+      workflow.patchConversation({ origin: THREAD });
       await setWorkflowSubject(workflow, ISSUE_SUBJECT);
       expect([workflow.store.subject(), chatThreadLinks(workflow)]).toEqual([
         ISSUE_SUBJECT,
@@ -79,14 +79,14 @@ describe("setWorkflowSubject", () => {
 
   it("links nothing for a project subject", () =>
     freshRuntime(async (workflow) => {
-      workflow.store.updateWorkflow({ origin: THREAD });
+      workflow.patchConversation({ origin: THREAD });
       await setWorkflowSubject(workflow, PROJECT_SUBJECT);
       expect(chatThreadLinks(workflow)).toEqual([]);
     }));
 
   it("links nothing in a workflow from a tracker session", () =>
     freshRuntime(async (workflow) => {
-      workflow.store.updateWorkflow({ origin: SESSION });
+      workflow.patchConversation({ origin: SESSION });
       await setWorkflowSubject(workflow, ISSUE_SUBJECT);
       expect(chatThreadLinks(workflow)).toEqual([]);
     }));

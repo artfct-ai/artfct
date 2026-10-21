@@ -1,13 +1,22 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { newWorkflowId } from "../../ids";
 import {
+  armIdle,
   changeWorkflowStatus,
   completeWorkflow,
   failWorkflow,
   workflowEnding,
+  writeRouterWorkflowStatus,
 } from "../../workflow/lifecycle";
-import { isWorkflowFinished, type Subject } from "../../workflow/store/state";
-import { setWorkflowSubject, subjectOfRef, validatePlanKeepsSubject } from "../../workflow/subject";
+import type { Subject } from "../../workflow/store/state";
+import type { WorkflowRow } from "../../workflow/store/workflow-row";
+import {
+  originSubject,
+  setWorkflowSubject,
+  subjectOfRef,
+  validatePlanKeepsSubject,
+} from "../../workflow/subject";
 import type { WorkflowRuntime } from "../../workflow/types";
 import type { WorkflowDefinition } from "../../config/workflow-definition";
 import { stageLines } from "../prompt/stage-lines";
@@ -25,6 +34,7 @@ export const PLAN_RULES = `## Workflow Planning Protocol
 * **Pick** the one workflow definition from the Workflow definitions list whose description fits the request.
 * **Call** \`set_plan(name, definition)\` without stages to start the workflow. Its answer lists the stages of that workflow definition.
 * **Keep** the workflow definition the workflow started with. A later \`set_plan\` call names the same one.
+* **Answer** a request for different work while a workflow runs: the work can start once the current workflow ends, or in a new thread now. A conversation runs one workflow at a time, so \`set_plan\` refuses another workflow definition.
 
 ### Stage Formulation & Planning
 * **Map** the fewest stages from the Stages list, in its order, that take the request from its input artifacts to the deliverable it asks for.
@@ -134,7 +144,10 @@ export function planTools(workflow: WorkflowRuntime) {
         "End the workflow as done, once the humans have what they asked for and no job is running. The result goes to every channel as the last message of the turn. Refused while a job runs.",
       inputSchema: z.object({ result: z.string() }),
       execute: async ({ result }) => {
-        const error = validateWorkflowRunning(workflow) ?? validateJobsFinished(workflow);
+        const error =
+          validateWorkflowCreated(workflow) ??
+          validateWorkflowRunning(workflow) ??
+          validateJobsFinished(workflow);
         if (error) return error;
         await completeWorkflow(workflow, result);
         return "Workflow finished.";
@@ -145,7 +158,7 @@ export function planTools(workflow: WorkflowRuntime) {
         "Stop the workflow as failed. Cancels every task, tears down the sandboxes, and tells every channel the reason as the last message of the turn.",
       inputSchema: z.object({ reason: z.string() }),
       execute: async ({ reason }) => {
-        const ended = validateWorkflowRunning(workflow);
+        const ended = validateWorkflowCreated(workflow) ?? validateWorkflowRunning(workflow);
         if (ended) return ended;
         await failWorkflow(workflow, reason);
         return "Workflow failed.";
@@ -156,13 +169,18 @@ export function planTools(workflow: WorkflowRuntime) {
 
 /**
  * Validate that the workflow still runs and is not ending, for every tool that would change it.
- * Null while it runs.
+ * Null while it runs, and before a plan creates it.
  */
 export function validateWorkflowRunning(workflow: WorkflowRuntime): string | null {
   if (workflowEnding(workflow)) return "The workflow is ending. A workflow that ends stays ended.";
-  const status = workflow.store.workflowStatus();
-  if (!isWorkflowFinished(status)) return null;
-  return `The workflow is ${status}. A finished workflow stays finished.`;
+  if (!workflow.store.workflowFinished()) return null;
+  return `The workflow is ${workflow.store.workflowStatus()}. A finished workflow stays finished.`;
+}
+
+/** Validate that a plan created the workflow, before a tool that ends it. */
+function validateWorkflowCreated(workflow: WorkflowRuntime): string | null {
+  if (workflow.store.workflowRow()) return null;
+  return "This conversation has no workflow. A set_plan call that names a workflow definition creates one.";
 }
 
 /** Validate that every author and researcher task is finished, before the workflow finishes. */
@@ -186,12 +204,13 @@ type PlanInput = {
 };
 
 /**
- * Validate that a plan names the workflow definition the workflow started with. Null before the
- * start and when the names match.
+ * Validate that a plan names the workflow definition of the active workflow. Null when the
+ * conversation has no active workflow and when the names match. A conversation runs one workflow
+ * at a time, so a plan for other work waits for the end of the active one.
  */
-function validateDefinitionKept(stored: string | null, named: string): string | null {
-  if (stored === null || stored === named) return null;
-  return `The workflow runs workflow definition ${stored}, and a plan cannot change it. Call set_plan with definition ${stored}.`;
+function validateOneActiveWorkflow(active: WorkflowRow | null, named: string): string | null {
+  if (active === null || active.definition === named) return null;
+  return `Workflow "${active.name}" runs in this conversation from workflow definition ${active.definition}, and a conversation runs one workflow at a time. To change its plan, call set_plan with definition ${active.definition}. For other work, tell the person it can start once "${active.name}" ends, or in a new thread now.`;
 }
 
 /** Validate that every planned stage is a stage of the workflow definition. */
@@ -211,13 +230,13 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
     const names = definitions.map((declared) => declared.name).join(", ");
     return `Unknown workflow definition ${input.definition}. The deployment holds: ${names}.`;
   }
-  const plan = workflow.store.plan();
-  const kept = validateDefinitionKept(plan?.definition ?? null, definition.name);
-  if (kept) return kept;
+  const active = workflow.store.activeWorkflow();
+  const oneActive = validateOneActiveWorkflow(active, definition.name);
+  if (oneActive) return oneActive;
   const subject = input.subject ? await resolvePlanSubject(workflow, input.subject) : null;
   if (typeof subject === "string") return subject;
   if (!input.stages) {
-    if (plan) {
+    if (active) {
       return `The workflow already started from workflow definition ${definition.name}. Call set_plan again with the stages.`;
     }
     const repoError = input.repo ? await validateRepoReachable(workflow, input.repo) : null;
@@ -230,8 +249,8 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
 }
 
 /**
- * The subject a plan link names, for a workflow that has none yet. Null when the workflow already
- * has it. A string says why the link cannot be the subject.
+ * The subject a plan link names, for a workflow that has none yet. Null when the workflow has it
+ * or will have it from its origin. A string says why the link cannot be the subject.
  */
 async function resolvePlanSubject(
   workflow: WorkflowRuntime,
@@ -242,26 +261,39 @@ async function resolvePlanSubject(
   if (ref?.kind !== "issue" && ref?.kind !== "project") {
     return `The subject ${link} is not an issue or a project on the tracker. Pass the link of one, or leave subject out.`;
   }
-  const changed = await validatePlanKeepsSubject(workflow, ref);
+  const kept = planSubject(workflow);
+  const changed = kept ? await validatePlanKeepsSubject(workflow, kept, ref) : null;
   if (changed) return changed;
-  return workflow.store.subject() ? null : subjectOfRef(ref);
+  return kept ? null : subjectOfRef(ref);
 }
 
-/** Store the workflow definition, the name and the repository, and start the workflow. The tracker issue moves to started. */
+/** The subject of the active workflow, or the one its origin gives the workflow the plan creates. */
+function planSubject(workflow: WorkflowRuntime): Subject | null {
+  if (workflow.store.activeWorkflow()) return workflow.store.subject();
+  return originSubject(workflow.store.requireConversation().origin);
+}
+
+/**
+ * Create the running workflow from the plan that names its definition, with the subject its origin
+ * gives it, and start its idle clock. The tracker issue moves to started.
+ */
 async function startWorkflow(
   workflow: WorkflowRuntime,
   definition: WorkflowDefinition,
   input: PlanInput,
 ): Promise<void> {
-  workflow.store.writePlan({
+  const { origin } = workflow.store.requireConversation();
+  workflow.store.createWorkflow({
+    workflow_id: newWorkflowId(),
     definition: definition.name,
     name: input.name,
     reason: input.reason,
     repo: input.repo ?? null,
+    subject: originSubject(origin),
   });
-  await changeWorkflowStatus(workflow, "running");
+  await writeRouterWorkflowStatus(workflow);
+  await armIdle(workflow);
   workflow.log(null, `workflow started: definition=${definition.name} (${input.reason})`);
-  const { origin } = workflow.store.requireWorkflowRow();
   if (origin?.source === "tracker") await workflow.notifier.moveIssue(origin, "started");
 }
 
@@ -299,16 +331,11 @@ async function planStages(
     root_page: input.root_page ?? null,
   });
   if ("error" in pages) return pages.error;
-  if (!workflow.store.plan()) await startWorkflow(workflow, definition, input);
+  if (!workflow.store.activeWorkflow()) await startWorkflow(workflow, definition, input);
   if (subject) await setWorkflowSubject(workflow, subject);
   const cap = workflow.config().orchestrator.sandbox.max_concurrency;
   const concurrency = Math.min(input.concurrency ?? cap, cap);
-  workflow.store.writePlan({
-    definition: definition.name,
-    name: input.name,
-    reason: input.reason,
-    repo,
-  });
+  workflow.store.updateWorkflow({ name: input.name, reason: input.reason, repo });
   workflow.store.writeStagePlan({
     stages: input.stages,
     job_slots: concurrency,

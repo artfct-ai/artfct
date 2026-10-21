@@ -46,8 +46,9 @@ import {
   UNPLANNED_JOB_SLOTS,
   type StagePlan,
   type WorkflowEndStatus,
-  type WorkflowPlan,
 } from "../src/workflow/store/state";
+import { conversation } from "../src/workflow/store/schema";
+import type { ConversationRow, WorkflowRow } from "../src/workflow/store/workflow-row";
 import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
 import {
   WorkflowStore,
@@ -112,12 +113,13 @@ export function sentMethods(socket: FakeSocket): (string | undefined)[] {
   return socket.sent.map((frame) => (JSON.parse(frame) as { method?: string }).method);
 }
 
-/** The id of the workflow a fake runtime creates. */
+/** The id of the conversation a fake runtime opens. */
 export const FAKE_WORKFLOW_ID = "wf_x";
 
 /**
- * What a fake runtime's store holds when it opens. `running` is the workflow `wf_x`, started on
- * the test workflow definition, unless the store already holds a workflow.
+ * What a fake runtime's store holds when it opens. `running` is the conversation `wf_x` with a
+ * running workflow of the test workflow definition, unless the store already holds a conversation.
+ * `uncreated` holds neither.
  */
 export type FakeOpening = "running" | "uncreated";
 
@@ -173,11 +175,15 @@ export class FakeRuntime implements WorkflowRuntime {
       { tracker: async () => null, chat: null, documents: async () => null },
       (entry) => this.store.writeOutbox(entry),
     );
-    if (opening === "running" && !this.store.workflowRow()) {
-      createFakeWorkflow(this);
-      this.store.updateWorkflow({ status: "running" });
-      this.store.writePlan({ definition: TEST_DEFINITION_NAME, name: "", reason: "", repo: null });
+    if (opening === "running" && !this.store.conversation()) {
+      openFakeConversation(this);
+      patchPlan(this, {});
     }
+  }
+
+  /** Change columns of the conversation row, such as the origin a test gives it. */
+  patchConversation(patch: Partial<Omit<ConversationRow, "conversation_id" | "opened_at">>): void {
+    this.db.update(conversation).set(patch).run();
   }
 
   /**
@@ -208,13 +214,13 @@ export class FakeRuntime implements WorkflowRuntime {
   workflowDefinition(): WorkflowDefinition {
     return storedWorkflowDefinition(
       this.workflowDefinitions(),
-      this.store.plan()?.definition ?? null,
+      this.store.workflowRow()?.definition ?? null,
     );
   }
 
   /** The workflow definition a test patches: the one the plan named, else the test workflow definition. */
   patchableWorkflowDefinition(): WorkflowDefinition {
-    const name = this.store.plan()?.definition ?? TEST_DEFINITION_NAME;
+    const name = this.store.workflowRow()?.definition ?? TEST_DEFINITION_NAME;
     return storedWorkflowDefinition(this.workflowDefinitions(), name);
   }
 
@@ -329,7 +335,7 @@ export class FakeRuntime implements WorkflowRuntime {
     this.posted.push(event);
     if (destinationFor(event) === "channel") {
       const audience = {
-        origin: this.store.requireWorkflowRow().origin,
+        origin: this.store.requireConversation().origin,
         replyTargets: this.store.replyTargets(),
       };
       this.deliveries.push({ event, targets: recipientsOf(audience, event, to) });
@@ -407,7 +413,7 @@ export class FakeRuntime implements WorkflowRuntime {
       code: () => this.code(),
       documents: () => this.documents(),
       tracker: () => this.tracker(),
-      repo: () => this.store.plan()?.repo ?? null,
+      repo: () => this.store.workflowRow()?.repo ?? null,
       log: (line) => this.log(null, line),
     });
   }
@@ -460,15 +466,14 @@ export class FakeRuntime implements WorkflowRuntime {
   }
 }
 
-/** Create the workflow `wf_x` as `new`: before its plan, without an origin or a subject. */
-export function createFakeWorkflow(workflow: FakeRuntime): void {
-  workflow.store.createWorkflow({
-    workflow_id: FAKE_WORKFLOW_ID,
+/** Open the conversation `wf_x` without an origin, before a plan creates its workflow. */
+export function openFakeConversation(workflow: WorkflowRuntime): void {
+  workflow.store.openConversation({
+    conversation_id: FAKE_WORKFLOW_ID,
     request_title: "",
     request_text: "",
     request_links: [],
     origin: null,
-    subject: null,
   });
 }
 
@@ -483,15 +488,30 @@ export function seedEndedWorkflow(workflow: WorkflowRuntime, endsAs: WorkflowEnd
   workflow.store.updateWorkflow({ status: "ended" });
 }
 
-/** Merge a patch into the plan. A workflow without one gets the test workflow definition. */
-export function patchPlan(workflow: WorkflowRuntime, patch: Partial<WorkflowPlan>): void {
-  const current = workflow.store.plan() ?? {
+/** The id of the workflow that `patchPlan` creates. */
+export const FAKE_PLANNED_WORKFLOW_ID = "wf_planned";
+
+/**
+ * Merge a patch into the plan of the active workflow. A conversation without one gets a running
+ * workflow of the test workflow definition, without a subject.
+ */
+export function patchPlan(
+  workflow: WorkflowRuntime,
+  patch: Partial<Pick<WorkflowRow, "definition" | "name" | "reason" | "repo">>,
+): void {
+  if (workflow.store.activeWorkflow()) {
+    workflow.store.updateWorkflow(patch);
+    return;
+  }
+  workflow.store.createWorkflow({
+    workflow_id: FAKE_PLANNED_WORKFLOW_ID,
     definition: TEST_DEFINITION_NAME,
     name: "",
     reason: "",
     repo: null,
-  };
-  workflow.store.writePlan({ ...current, ...patch });
+    subject: null,
+    ...patch,
+  });
 }
 
 /**

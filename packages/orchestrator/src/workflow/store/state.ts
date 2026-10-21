@@ -17,10 +17,10 @@ export type RootPage = { page_id: string; url: string; source: "container" | "na
 export type Subject = { kind: "issue"; issue_id: string } | { kind: "project"; project_id: string };
 
 /**
- * Where the workflow stands in the store. It is `ending` from the start of its end until the end's
- * last step, and `ended` after it. Both hold a workflow end.
+ * Where a workflow stands in the store. It runs from the plan that created it. It is `ending` from
+ * the start of its end until the end's last step, and `ended` after it. Both hold a workflow end.
  */
-export type WorkflowLifecycle = "new" | "running" | "waiting_input" | "ending" | "ended";
+export type WorkflowLifecycle = "running" | "waiting_input" | "ending" | "ended";
 
 /** The statuses a workflow end ends as. */
 export type WorkflowEndStatus = Extract<WorkflowStatus, "done" | "failed" | "cancelled">;
@@ -49,14 +49,6 @@ export function workflowStatusOf(
   if (!end) throw new Error(`the workflow is ${lifecycle} without its end`);
   return end.ends_as;
 }
-
-/** The plan that started the workflow: its workflow definition, its name, and why. */
-export type WorkflowPlan = {
-  definition: string;
-  name: string;
-  reason: string;
-  repo: string | null;
-};
 
 /** What a plan with stages set: the stages, the job slots, the page parent, and the root page. */
 export type StagePlan = {

@@ -2,6 +2,7 @@ import type { WorkflowSummary } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../test/fresh-runtime";
 import {
+  FAKE_PLANNED_WORKFLOW_ID,
   patchModelExecution,
   seedModelAuthor,
   seedTask,
@@ -217,12 +218,12 @@ describe("debugDump", () => {
           "artifacts",
           "boards",
           "connections",
+          "conversation",
           "inbox",
           "jobs",
           "log",
           "model_usage",
           "outbox",
-          "plan",
           "queue",
           "reply_targets",
           "stage_plan",
@@ -236,9 +237,13 @@ describe("debugDump", () => {
         ]);
       }));
 
-    it("dumps the workflow row", () =>
+    it("dumps the conversation row and the workflow row", () =>
       dumped((workflow) => {
-        expect(debugDump(workflow).workflow?.workflow_id).toBe("wf_x");
+        const dump = debugDump(workflow);
+        expect([dump.conversation?.conversation_id, dump.workflow?.workflow_id]).toEqual([
+          "wf_x",
+          FAKE_PLANNED_WORKFLOW_ID,
+        ]);
       }));
 
     it("masks the bridge token", () =>

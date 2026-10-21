@@ -33,7 +33,8 @@ const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 let opened = 0;
 
 /**
- * A real Workflow DO started from a Slack request, with no plan and no alarms pending.
+ * A real Workflow DO whose conversation a Slack request opened, before a plan creates its
+ * workflow, with no alarms pending.
  * `clients` runs before the DO starts. Every call opens a new DO.
  */
 export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scenario<Workflow> {
@@ -60,7 +61,7 @@ export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scen
   };
 }
 
-/** Start the workflow from the test workflow definition, without stages, as the agent's first set_plan call does. */
+/** Create the workflow from the test workflow definition, without stages, as the agent's first set_plan call does. */
 export async function startWorkflow(workflow: WorkflowRuntime): Promise<void> {
   const { set_plan } = planTools(workflow);
   await set_plan.execute(

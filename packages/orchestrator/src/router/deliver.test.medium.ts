@@ -49,14 +49,14 @@ async function seedBinding(binding: Binding, workflowId: string): Promise<void> 
 async function startDurableObject(workflowId: string): Promise<void> {
   const stub = env.Workflow.getByName(workflowId);
   await runInDurableObject(stub, async (workflow) => {
-    if (await workflow.status()) return;
-    workflow.store.createWorkflow({
-      workflow_id: workflowId,
+    await workflow.status();
+    if (workflow.store.conversation()) return;
+    workflow.store.openConversation({
+      conversation_id: workflowId,
       request_title: "",
       request_text: "",
       request_links: [],
       origin: null,
-      subject: null,
     });
   });
 }
@@ -320,13 +320,12 @@ describe("deliver a start event", () => {
       );
     });
 
-    it("logs what created it", () => {
-      expect(lines[0]).toBe("created from start");
+    it("logs what opened it", () => {
+      expect(lines[0]).toBe("opened from start");
     });
 
-    it("answers a status summary for the workflow, new until a plan starts it", async () => {
-      const summary = await env.Workflow.getByName(workflowId).status();
-      expect(summary).toMatchObject({ workflow_id: workflowId, status: "new" });
+    it("answers no status summary until a plan creates the workflow", async () => {
+      expect(await env.Workflow.getByName(workflowId).status()).toBeNull();
     });
   });
 

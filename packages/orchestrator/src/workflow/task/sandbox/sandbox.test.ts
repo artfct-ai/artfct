@@ -11,6 +11,7 @@ import { jobInputKey } from "../../store/input-key";
 
 const job: JobRow = {
   job_id: "wf_x-1",
+  workflow_id: "wf_planned",
   stage: "design",
   issue_id: null,
   issue_key: null,

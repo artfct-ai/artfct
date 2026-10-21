@@ -1,7 +1,7 @@
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { openWorkflowDb } from "../src/workflow/store/db";
-import { createFakeWorkflow, FakeRuntime, type FakeOpening } from "./fake-runtime";
+import { openFakeConversation, FakeRuntime, type FakeOpening } from "./fake-runtime";
 import type { Scenario } from "./scenario";
 
 let opened = 0;
@@ -23,9 +23,9 @@ async function durableRuntime(
   });
 }
 
-/** `freshDurableRuntime` before the plan that starts its workflow: status `new`, without a workflow definition. */
+/** `freshDurableRuntime` with an open conversation, before the plan that creates its workflow. */
 export const unstartedDurableRuntime: Scenario<FakeRuntime> = (run) =>
   durableRuntime("uncreated", async (workflow) => {
-    createFakeWorkflow(workflow);
+    openFakeConversation(workflow);
     await run(workflow);
   });

@@ -305,7 +305,7 @@ async function validateInputNotHeld(
 async function bindIssueForJob(workflow: WorkflowRuntime, issue: JobIssue): Promise<string | null> {
   const db = createDb(workflow.env.DB);
   const binding = { source: "tracker_issue" as const, external_id: issue.id };
-  const { workflow_id: workflowId } = workflow.store.requireWorkflowRow();
+  const { conversation_id: workflowId } = workflow.store.requireConversation();
   const boundTo = await findBinding(db, binding);
   if (boundTo === workflowId) return null;
   if (boundTo) {
@@ -394,7 +394,7 @@ function validateStart(workflow: WorkflowRuntime, input: StartInput): string | n
 
 /** Validate that a plan started the workflow from a workflow definition, before any job starts. */
 function validateWorkflowStarted(workflow: WorkflowRuntime): string | null {
-  if (workflow.store.plan() !== null) return null;
+  if (workflow.store.workflowRow() !== null) return null;
   return "The workflow has not started. Call set_plan with a workflow definition first.";
 }
 

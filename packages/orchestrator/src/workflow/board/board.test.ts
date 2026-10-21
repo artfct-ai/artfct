@@ -1054,9 +1054,7 @@ describe("the board header", () => {
   describe("a workflow name that holds a link", () => {
     const named = scenario(freshRuntime, async (workflow) => {
       chat = useChat(workflow);
-      workflow.store.updateWorkflow({
-        request_title: "fix https://github.com/acme/app/pull/7 today",
-      });
+      patchPlan(workflow, { name: "fix https://github.com/acme/app/pull/7 today" });
       seedBoardTask(workflow, { issue_key: null });
       await flushBoards(workflow, JOB);
     });
@@ -1128,15 +1126,6 @@ describe("the workflow name on a board task", () => {
         patchPlan(workflow, { name: "Flaky checkout test" });
         const task = seedTask(workflow);
         expect(boardTask(workflow, task).workflow_name).toBe("Flaky checkout test");
-      }));
-  });
-
-  describe("a workflow before its first plan", () => {
-    it("carries the request title", () =>
-      freshRuntime((workflow) => {
-        workflow.store.updateWorkflow({ request_title: "fix the flaky test" });
-        const task = seedTask(workflow);
-        expect(boardTask(workflow, task).workflow_name).toBe("fix the flaky test");
       }));
   });
 

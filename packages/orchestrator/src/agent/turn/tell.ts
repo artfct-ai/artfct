@@ -20,7 +20,7 @@ export async function tellAgent(
     .then(() => workflow.cancelAlarm(backup))
     .catch((error: unknown) => {
       console.warn(
-        `[${workflow.store.requireWorkflowRow().workflow_id}] agent turn failed: ${String(error).slice(0, 300)}`,
+        `[${workflow.store.requireConversation().conversation_id}] agent turn failed: ${String(error).slice(0, 300)}`,
       );
     });
 }

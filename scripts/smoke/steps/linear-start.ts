@@ -90,9 +90,9 @@ export async function runLinearStart(): Promise<LinearStartResult> {
     async () => {
       const debug = await fetchWorkflowDebug(workflowId);
       const isPlanned =
-        debug.workflow.status === "running" &&
+        debug.workflow?.status === "running" &&
         debug.stage_plan?.stages.join(",") === STAGE_NAMES.join(",") &&
-        debug.plan?.repo === REPO_FULL_NAME &&
+        debug.workflow.repo === REPO_FULL_NAME &&
         hasOutboxMessage(
           debug,
           (message) => message.kind === "issue_update" && message.payload.to === "started",
