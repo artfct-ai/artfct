@@ -31,7 +31,10 @@ export type FakeOrchestrator = OrchestratorRpc & {
 export type FakeOrchestratorOptions = {
   /** Every identity query resolves to a member unless false. */
   authorized?: boolean;
-  /** The tracker user that resolves to nobody, as the orchestrator answers for its own app user. */
+  /**
+   * The install's app user. It resolves to nobody, as the orchestrator answers for its own app
+   * user.
+   */
   appUserId?: string;
   /** What `deliver` answers. */
   delivery?: Delivery;
@@ -41,7 +44,7 @@ export type FakeOrchestratorOptions = {
   deliverError?: Error;
   /** The microtask ticks `deliver` waits before it answers. */
   deliverTicks?: number;
-  /** The workspace `trackerWorkspace` answers. Null stands for a deployment without an install. */
+  /** The workspace of the install `trackerInstall` answers. Null stands for a deployment without an install. */
   workspace?: string | null;
   /** What `linearInstall` answers. */
   install?: LinearInstallResult;
@@ -71,6 +74,9 @@ export const FAKE_BINDINGS: BindingRecord[] = [
 /** The workspace the fake is installed in when a test does not choose one. */
 export const DEFAULT_WORKSPACE = "org_acme";
 
+/** The install's app user when a test does not choose one. */
+const DEFAULT_APP_USER_ID = "app1";
+
 /** A workflow id the fake orchestrator never created, so its status is null. */
 export const UNCREATED_WORKFLOW_ID = "wf_uncreated";
 
@@ -78,7 +84,7 @@ export const UNCREATED_WORKFLOW_ID = "wf_uncreated";
 const DEFAULT_INSTALL: LinearInstallResult = {
   installed: true,
   organization: "Acme",
-  app_user_id: "app1",
+  app_user_id: DEFAULT_APP_USER_ID,
 };
 
 /** The install link the fake hands out when a test does not choose one. */
@@ -117,8 +123,10 @@ export function fakeOrchestrator(options: FakeOrchestratorOptions = {}): FakeOrc
       if (query.source === "tracker" && query.user.id === options.appUserId) return null;
       return actorFor(query);
     },
-    async trackerWorkspace() {
-      return options.workspace === undefined ? DEFAULT_WORKSPACE : options.workspace;
+    async trackerInstall() {
+      const workspace = options.workspace === undefined ? DEFAULT_WORKSPACE : options.workspace;
+      if (workspace === null) return null;
+      return { workspace_id: workspace, app_user_id: options.appUserId ?? DEFAULT_APP_USER_ID };
     },
     async status(workflowId) {
       fake.statusIds.push(workflowId);

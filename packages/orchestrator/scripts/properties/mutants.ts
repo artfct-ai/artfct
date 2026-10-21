@@ -2873,6 +2873,64 @@ export const MUTANTS: Mutant[] = [
       '  const passed = githubVendorEvent(eventName, payload, { deliveryId, ownLogins });\n  const [conversational, vendorEvent] = await Promise.all([\n    "ignore" in normalized ? { ignored: normalized.ignore } : rpc.deliver(normalized.event),\n    "drop" in passed ? { dropped: passed.drop } : rpc.deliverVendorEvent(passed.event),\n  ]);\n',
     propertyFile: "../ingress/src/routes/github.property.ts",
   },
+  {
+    id: "W510",
+    invariant: "inboundInvariants::aConversationalEventNeverFires (Linear pass-through)",
+    path: "../adapters/src/tracker/linear/vendor-event.ts",
+    find: '  if (isLinearConversationalEvent(name)) return { drop: "conversational" };\n',
+    replace:
+      '  if (isLinearConversationalEvent(name) && name !== "linear.AgentSessionEvent.created") {\n    return { drop: "conversational" };\n  }\n',
+    propertyFile: "../adapters/src/tracker/linear/inbound.property.ts",
+  },
+  {
+    id: "W511",
+    invariant: "inboundInvariants::aConversationalEventNeverFires (Notion pass-through)",
+    path: "../adapters/src/documents/notion/vendor-event.ts",
+    find: '  if (isNotionConversationalEvent(name)) return { drop: "conversational" };\n',
+    replace: "",
+    propertyFile: "../adapters/src/documents/notion/inbound.property.ts",
+  },
+  {
+    id: "W512",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (the app's own Linear event)",
+    path: "../adapters/src/tracker/linear/vendor-event.ts",
+    find: '  if (actor.id === install.app_user_id) return { drop: "caused by the app" };\n',
+    replace: "",
+    propertyFile: "../adapters/src/tracker/linear/inbound.property.ts",
+  },
+  {
+    id: "W513",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (another Linear workspace)",
+    path: "../adapters/src/tracker/linear/vendor-event.ts",
+    find: "  if (!install || webhook.data.organizationId !== install.workspace_id) {\n",
+    replace: "  if (!install) {\n",
+    propertyFile: "../adapters/src/tracker/linear/inbound.property.ts",
+  },
+  {
+    id: "W514",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (the Notion bot's own event)",
+    path: "../adapters/src/documents/notion/vendor-event.ts",
+    find: '  if (authors.some((author) => author.type !== PERSON_AUTHOR_TYPE)) {\n    return { drop: "caused by a bot" };\n  }\n',
+    replace: "",
+    propertyFile: "../adapters/src/documents/notion/inbound.property.ts",
+  },
+  {
+    id: "W515",
+    invariant:
+      "inboundInvariants::anIgnoredVendorEventNeverFires (a Linear event no person caused)",
+    path: "../adapters/src/tracker/linear/vendor-event.ts",
+    find: '  if (!actor || actor.type !== PERSON_ACTOR_TYPE) return { drop: "no causer" };\n',
+    replace: '  if (!actor) return { drop: "no causer" };\n',
+    propertyFile: "../adapters/src/tracker/linear/inbound.property.ts",
+  },
+  {
+    id: "W516",
+    invariant: "inboundInvariants::aConversationalEventNeverFires (Notion mapper)",
+    path: "../adapters/src/documents/notion/inbound.ts",
+    find: "  if (!isNotionConversationalEvent(notionVendorEventName(payload.type))) {\n",
+    replace: '  if (!notionVendorEventName(payload.type).startsWith("notion.comment.")) {\n',
+    propertyFile: "../adapters/src/documents/notion/inbound.property.ts",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

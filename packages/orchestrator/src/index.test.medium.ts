@@ -12,15 +12,15 @@ function bridgeUpgrade(workflowId: string): Request {
   });
 }
 
-describe("the tracker workspace", () => {
+describe("the tracker install", () => {
   describe("before the install", () => {
     it("is null", async () => {
-      expect(await exports.default.trackerWorkspace()).toBeNull();
+      expect(await exports.default.trackerInstall()).toBeNull();
     });
   });
 
   describe("after the install", () => {
-    it("is the workspace that installed the app", async () => {
+    it("is the workspace that installed the app and the app user it acts as", async () => {
       await saveLinearInstall(createDb(env.DB), {
         organization_id: "org_acme",
         organization_name: "Acme",
@@ -29,7 +29,10 @@ describe("the tracker workspace", () => {
         refresh_token: null,
         expires_at: "2026-10-02T00:00:00.000Z",
       });
-      expect(await exports.default.trackerWorkspace()).toBe("org_acme");
+      expect(await exports.default.trackerInstall()).toEqual({
+        workspace_id: "org_acme",
+        app_user_id: "app1",
+      });
     });
   });
 });

@@ -1,5 +1,9 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import type { JsonValue } from "@artfct-ai/contracts/types";
+import { isNotionConversationalEvent } from "@artfct-ai/adapters/documents/notion/conversational-events";
 import { notionInbound } from "@artfct-ai/adapters/documents/notion/inbound";
+import { notionVendorEvent } from "@artfct-ai/adapters/documents/notion/vendor-event";
+import { notionVendorEventName } from "@artfct-ai/adapters/documents/notion/vendor-event-name";
 import {
   notionVerificationToken,
   verifyNotionWebhook,
@@ -9,12 +13,10 @@ import type { HonoEnv } from "../env";
 import { parseJsonBody, secretNotConfigured } from "./guards";
 import { tagSpan } from "./span";
 
-type NotionEnvelope = { type?: string };
-
 /**
  * Notion webhooks. The subscription handshake is the one unsigned request, accepted only while
  * the verification token is unset. A comment arrives as an id, so its body is fetched with
- * `NOTION_TOKEN`.
+ * `NOTION_TOKEN`. Every verified delivery also goes to the Notion pass-through.
  */
 export const notionRoutes = new Hono<HonoEnv>();
 
@@ -36,9 +38,26 @@ notionRoutes.post("/webhooks/notion", async (ctx) => {
   if (!(await verifyNotionWebhook(secret, body, ctx.req.raw.headers)))
     return ctx.text("bad signature", 401);
 
-  const payload = parseJsonBody(body) as NotionEnvelope | null;
+  const payload = parseJsonBody(body);
   if (!payload) return ctx.text("malformed body", 400);
-  if (payload.type !== "comment.created") return ctx.json({ ignored: payload.type });
+  const conversational = await deliverNotionComment(ctx, payload);
+  if (conversational instanceof Response) return conversational;
+  const passed = notionVendorEvent(payload);
+  const vendorEvent =
+    "drop" in passed
+      ? { dropped: passed.drop }
+      : await ctx.env.ORCHESTRATOR.deliverVendorEvent(passed.event);
+  return ctx.json({ conversational, vendor_event: vendorEvent });
+});
+
+/**
+ * Deliver a comment, the one conversational event, or say why the delivery was ignored. A
+ * comment without `NOTION_TOKEN` answers 503, so Notion delivers it again.
+ */
+async function deliverNotionComment(ctx: Context<HonoEnv>, payload: JsonValue) {
+  const type = typeof payload === "object" && !Array.isArray(payload) ? payload?.type : null;
+  if (typeof type !== "string") return { ignored: "malformed notion webhook" };
+  if (!isNotionConversationalEvent(notionVendorEventName(type))) return { ignored: type };
   const { documents } = ctx.get("clients") ?? clientsFromEnv(ctx.env);
   if (!documents) {
     console.error("NOTION_TOKEN is not set. Comment bodies cannot be fetched.");
@@ -48,12 +67,12 @@ notionRoutes.post("/webhooks/notion", async (ctx) => {
   const rpc = ctx.env.ORCHESTRATOR;
   const normalized = await notionInbound(payload, {
     resolveActor: (user) => rpc.resolveActor({ source: "documents", user }),
-    documents: documents,
+    documents,
   });
   tagSpan(ctx, {
     "artfct.vendor": "notion",
     "artfct.event.kind": "ignore" in normalized ? undefined : normalized.event.kind,
   });
-  if ("ignore" in normalized) return ctx.json({ ignored: normalized.ignore });
-  return ctx.json(await rpc.deliver(normalized.event));
-});
+  if ("ignore" in normalized) return { ignored: normalized.ignore };
+  return rpc.deliver(normalized.event);
+}

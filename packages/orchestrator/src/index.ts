@@ -7,6 +7,7 @@ import type {
   LinearInstallLink,
   LinearInstallResult,
   OrchestratorRpc,
+  TrackerInstall,
   VendorEvent,
   VendorEventDelivery,
   WorkflowSummary,
@@ -51,9 +52,10 @@ export default class Orchestrator extends WorkerEntrypoint<Env> implements Orche
     return resolveActor(this.env, query);
   }
 
-  async trackerWorkspace(): Promise<string | null> {
+  async trackerInstall(): Promise<TrackerInstall | null> {
     const install = await readLinearInstall(createDb(this.env.DB));
-    return install?.organization_id ?? null;
+    if (!install) return null;
+    return { workspace_id: install.organization_id, app_user_id: install.app_user_id };
   }
 
   async status(workflowId: string): Promise<WorkflowSummary | null> {

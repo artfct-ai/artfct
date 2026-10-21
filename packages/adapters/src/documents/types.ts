@@ -3,13 +3,16 @@
  * program against `Documents`. Notion and Linear both implement it.
  */
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { ExternalUser } from "@artfct-ai/contracts/types";
+import type { ExternalUser, VendorEvent } from "@artfct-ai/contracts/types";
 
 /** Resolves a document host user to a person the orchestrator trusts, or to null. */
 type DocumentsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the webhook is ignored. */
 export type DocumentsInbound = { event: InboundEvent } | { ignore: string };
+
+/** What the document host's vendor pass-through makes of a verified delivery: a vendor event, or a drop with its reason. */
+export type DocumentsVendorEvent = { event: VendorEvent } | { drop: string };
 
 /** What a document host webhook mapper needs besides the payload. */
 export type DocumentsInboundContext = {
