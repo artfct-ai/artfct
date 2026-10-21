@@ -115,8 +115,17 @@ describe("github webhook", () => {
       );
     });
 
-    it("reports what the orchestrator answered", async () => {
-      expect(await response.json<unknown>()).toEqual(DEFAULT_DELIVERY);
+    it("reports what the orchestrator answered to the event and to the vendor event", async () => {
+      expect(await response.json<unknown>()).toEqual({
+        conversational: DEFAULT_DELIVERY,
+        vendor_event: { firings: 0 },
+      });
+    });
+
+    it("hands the delivery over as a vendor event too", () => {
+      expect(app.rpc.vendorEvents.map(({ delivery_id, name }) => ({ delivery_id, name }))).toEqual([
+        { delivery_id: "d-1", name: "github.pull_request.opened" },
+      ]);
     });
 
     it("delivers one event", () => {
@@ -140,23 +149,85 @@ describe("github webhook", () => {
   });
 
   describe("a pull request on a branch no task owns", () => {
-    let response: Response;
-
     beforeEach(async () => {
       const feature = githubPullRequest("opened", {
         head: { ref: "feature/x", sha: "abc", repo: { full_name: "acme/app" } },
       });
-      response = await app.request(
+      await app.request(
         await githubPost(JSON.stringify(feature), { "x-github-event": "pull_request" }),
       );
     });
 
-    it("reports the reason it was ignored", async () => {
-      expect(await response.json<unknown>()).toEqual({ ignored: "not an orchestrator branch" });
+    it("delivers it as a pr_event, so a workflow that watches it hears it", () => {
+      expect(app.rpc.deliveries.map(({ kind }) => kind)).toEqual(["pr_event"]);
     });
 
-    it("delivers nothing", () => {
+    it("hands it over as a vendor event", () => {
+      expect(app.rpc.vendorEvents.map(({ name }) => name)).toEqual(["github.pull_request.opened"]);
+    });
+  });
+
+  describe("an event the conversational mapper does not handle", () => {
+    let response: Response;
+
+    beforeEach(async () => {
+      const release = {
+        action: "published",
+        release: { tag_name: "v1.2.0" },
+        repository: { full_name: "acme/app" },
+        sender: { login: "sam", type: "User" },
+      };
+      response = await app.request(
+        await githubPost(JSON.stringify(release), { "x-github-event": "release" }),
+      );
+    });
+
+    it("hands it over as a vendor event alone", async () => {
+      expect(await response.json<unknown>()).toEqual({
+        conversational: { ignored: 'unhandled github event "github.release.published"' },
+        vendor_event: { firings: 0 },
+      });
       expect(app.rpc.deliveries).toEqual([]);
+    });
+  });
+
+  describe("a conversational event", () => {
+    it("never reaches the orchestrator as a vendor event", async () => {
+      const comment = {
+        action: "created",
+        issue: {
+          number: 7,
+          pull_request: { url: "https://api.github.com/repos/acme/app/pulls/7" },
+        },
+        comment: { id: 5, body: "Looks good.", user: { login: "sam", type: "User" } },
+        repository: { full_name: "acme/app" },
+        sender: { login: "sam", type: "User" },
+      };
+      const response = await app.request(
+        await githubPost(JSON.stringify(comment), { "x-github-event": "issue_comment" }),
+      );
+      expect(await response.json<unknown>()).toMatchObject({
+        vendor_event: { dropped: "conversational" },
+      });
+      expect(app.rpc.vendorEvents).toEqual([]);
+    });
+  });
+
+  describe("an event the deployment's own App caused", () => {
+    it("never reaches the orchestrator as a vendor event", async () => {
+      const release = {
+        action: "published",
+        release: { tag_name: "v1.2.0" },
+        repository: { full_name: "acme/app" },
+        sender: { login: "artfct[bot]", type: "Bot" },
+      };
+      const response = await app.request(
+        await githubPost(JSON.stringify(release), { "x-github-event": "release" }),
+      );
+      expect(await response.json<unknown>()).toMatchObject({
+        vendor_event: { dropped: "caused by the app" },
+      });
+      expect(app.rpc.vendorEvents).toEqual([]);
     });
   });
 });

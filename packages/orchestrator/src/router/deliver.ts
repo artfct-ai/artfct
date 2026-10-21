@@ -6,6 +6,7 @@ import { registeredConfig } from "../config/register-config";
 import { conversationsWithPullsInRepo, findBoundConversation } from "../db/bindings";
 import { createDb, type Database } from "../db/client";
 import { conversationIdOf, conversationRecorded, recordConversation } from "../db/conversations";
+import { watcherConversations } from "../db/watches";
 import type { Env } from "../env";
 import { NOTHING_TO_JOIN, postStartingThought, postTrackerAck } from "./tracker-ack";
 import { deliverWithChatAck } from "./chat-ack";
@@ -37,8 +38,43 @@ export async function deliver(
     await postTrackerAck(acking, messageSessionId, { type: "error", body: NOTHING_TO_JOIN });
     return { dropped: route.reason };
   }
+  const watchers = await watchersOf(db, event);
+  if (watchers.length) return fanOutToWatchers(env, event, route, watchers);
   const chatClient = chat(env, registeredConfig().config.adapters.chat.provider);
   return deliverWithChatAck(chatClient, event, () => follow(env, event, route));
+}
+
+/** The conversations that watch the pull request the event is about. None for any other event. */
+async function watchersOf(db: Database, event: InboundEvent): Promise<string[]> {
+  if (event.kind === "start") return [];
+  const pull = event.bindings.find((binding) => binding.source === "code_pull");
+  return pull ? watcherConversations(db, pull) : [];
+}
+
+/**
+ * An event on a watched pull request goes to its routed conversation, then to every watcher's
+ * conversation, each once. A failed delivery to one conversation is logged, and the rest still get
+ * it. It returns only after every delivery returned, so the event's firings queue after the
+ * watchers heard it.
+ */
+async function fanOutToWatchers(
+  env: Env,
+  event: InboundEvent,
+  route: Route,
+  watchers: string[],
+): Promise<Delivery> {
+  const routed = route.kind === "deliver" ? [route.conversationId] : [];
+  const conversationIds = [...new Set([...routed, ...watchers])];
+  const results: RpcAck[] = [];
+  for (const conversationId of conversationIds) {
+    try {
+      const stub = env.Conversation.getByName(conversationId);
+      results.push(await stub.handle(conversationId, event));
+    } catch (error) {
+      console.warn(`watched pull request delivery to ${conversationId} failed: ${String(error)}`);
+    }
+  }
+  return { fanned_out: conversationIds.length, results };
 }
 
 /** The tracker session a start was said in, or null. */

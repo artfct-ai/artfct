@@ -557,7 +557,7 @@ export class WorkflowWorld {
     const tracker = new SessionTracker({ issues: WORLD_ISSUES, projects: WORLD_PROJECTS });
     workflow.trackerInstance = tracker;
     workflow.notifier = new Notifier(
-      { tracker: async () => tracker, chat: null, documents: async () => null },
+      { tracker: async () => tracker, chat: null, documents: async () => null, code: () => null },
       (entry) => workflow.store.writeOutbox(entry),
     );
     if (setup.opening === "request") {

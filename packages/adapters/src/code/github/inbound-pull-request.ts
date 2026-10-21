@@ -20,7 +20,7 @@ const pullRequestWebhookSchema = z.object({
   sender: githubUserSchema.nullish(),
 });
 
-/** `pull_request` events on orchestrator branches of this repository become `pr_event`. */
+/** `pull_request` events on pull requests of this repository become `pr_event`. */
 export async function githubPullRequestEvent(context: GithubContext): Promise<CodeInbound> {
   const parsed = pullRequestWebhookSchema.safeParse(context.payload);
   if (!parsed.success) return malformedWebhook("pull_request");

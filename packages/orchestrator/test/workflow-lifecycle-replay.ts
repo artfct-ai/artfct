@@ -1489,6 +1489,7 @@ export class WorkflowLifecycleReplay {
       firing: {
         firing: {
           cause: { kind: "schedule", minute },
+          reports: { kind: "channel", channel: FIRING_CHANNEL },
           definition: definitionName(world, definition),
           position: 0,
           attempt: 1,
@@ -1498,7 +1499,7 @@ export class WorkflowLifecycleReplay {
           channel: FIRING_CHANNEL,
           prompt: "Upgrade the dependencies.",
         },
-        thread: "1800000000.000100",
+        origin: { source: "chat", channel: FIRING_CHANNEL, thread: "1800000000.000100" },
       },
     });
   }

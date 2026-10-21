@@ -1,15 +1,12 @@
 import { z } from "zod";
-import {
-  branchBindings,
-  isOrchestratorBranch,
-  malformedWebhook,
-  NOT_ORCHESTRATOR_BRANCH,
-  type GithubContext,
-} from "./inbound-shared";
+import { branchBindings, malformedWebhook, type GithubContext } from "./inbound-shared";
 import type { CodeInbound } from "../types";
 
 /** Checks GitHub ran on a commit no pull request of this repository holds. */
 const NO_PULL_REQUEST: CodeInbound = { ignore: "check without a pull request" };
+
+/** Checks GitHub ran on a commit no branch holds. */
+const NO_BRANCH: CodeInbound = { ignore: "check without a branch" };
 
 const checkPullRequestsSchema = z.array(z.object({ number: z.number() }));
 
@@ -35,10 +32,7 @@ const checkRunWebhookSchema = z.object({
   }),
 });
 
-/**
- * A completed check suite on a pull request of an orchestrator branch becomes `ci_event` with its
- * conclusion.
- */
+/** A completed check suite on a pull request becomes `ci_event` with its conclusion. */
 export async function githubCheckSuiteEvent(context: GithubContext): Promise<CodeInbound> {
   const parsed = checkSuiteWebhookSchema.safeParse(context.payload);
   if (!parsed.success) return malformedWebhook("check_suite");
@@ -47,7 +41,7 @@ export async function githubCheckSuiteEvent(context: GithubContext): Promise<Cod
     return { ignore: `check_suite ${action}` };
   }
   const branch = suite.head_branch;
-  if (!branch || !isOrchestratorBranch(branch)) return NOT_ORCHESTRATOR_BRANCH;
+  if (!branch) return NO_BRANCH;
   const prNumber = suite.pull_requests[0]?.number;
   if (!prNumber) return NO_PULL_REQUEST;
   return {
@@ -82,7 +76,7 @@ export async function githubCheckRunEvent(context: GithubContext): Promise<CodeI
     return { ignore: `check_run ${action}` };
   }
   const branch = run.check_suite?.head_branch;
-  if (!branch || !isOrchestratorBranch(branch)) return NOT_ORCHESTRATOR_BRANCH;
+  if (!branch) return NO_BRANCH;
   if (run.conclusion !== "failure" && run.conclusion !== "timed_out") {
     return { ignore: `check_run ${run.conclusion}` };
   }

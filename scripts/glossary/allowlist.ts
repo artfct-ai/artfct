@@ -274,4 +274,27 @@ export const ALLOWED_WORDS: AllowedWord[] = [
     paths: ["template/orchestrator/skills/plan-review/SKILL.md"],
     reason: NOT_RULED_ON,
   },
+  {
+    word: "webhook",
+    paths: "everywhere",
+    reason:
+      "The HTTP request a vendor sends and the ingress route that verifies it. A vendor event is what the pass-through makes of one.",
+  },
+  { word: "actor", paths: "everywhere", reason: "The person who acted, the glossary's `Actor`." },
+  { word: "sender", paths: "everywhere", reason: "The `sender` field of vendor payloads." },
+  {
+    word: "follow",
+    paths: "everywhere",
+    reason: "The plain verb, as in 'the following', following a link, or following a route.",
+  },
+  {
+    word: "subscription",
+    paths: "everywhere",
+    reason: "A vendor's webhook subscription and a model plan subscription.",
+  },
+  {
+    word: "condition",
+    paths: "everywhere",
+    reason: "The plain word, as in the condition of a check or a query.",
+  },
 ];

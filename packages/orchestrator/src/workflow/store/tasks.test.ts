@@ -321,7 +321,7 @@ describe("WorkflowStore", () => {
     describe("a failure the notifier told a person about", () => {
       const toldFailure = scenario(plannedStore, async (store) => {
         const notifier = new Notifier(
-          { tracker: async () => null, chat: null, documents: async () => null },
+          { tracker: async () => null, chat: null, documents: async () => null, code: () => null },
           (entry) => store.writeOutbox(entry),
         );
         await notifier.post(

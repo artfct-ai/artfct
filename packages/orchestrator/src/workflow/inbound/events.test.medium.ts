@@ -22,6 +22,7 @@ const NO_CHANNELS: ChannelClients = {
   tracker: async () => null,
   chat: null,
   documents: async () => null,
+  code: () => null,
 };
 
 class RecordingNotifier extends Notifier {

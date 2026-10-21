@@ -47,7 +47,7 @@ export function scheduleFiresOnItsMinutes(
 ): void {
   const minute = new Date(Math.floor(scheduledTime / MINUTE_MS) * MINUTE_MS);
   const expected = matchesInUtc(fields, minute) ? [minute.toISOString()] : [];
-  const fired = firings.map((firing) => firing.cause.minute);
+  const fired = firings.map(({ cause }) => (cause.kind === "schedule" ? cause.minute : cause.kind));
   if (JSON.stringify(fired) !== JSON.stringify(expected)) {
     violated(
       "scheduleFiresOnItsMinutes",

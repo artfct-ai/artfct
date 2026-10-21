@@ -39,6 +39,13 @@ CREATE TABLE `linear_oauth_states` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `watches` (
+	`source` text NOT NULL,
+	`external_id` text NOT NULL,
+	`definition` text NOT NULL,
+	PRIMARY KEY(`source`, `external_id`, `definition`)
+);
+--> statement-breakpoint
 CREATE TABLE `workflows` (
 	`workflow_id` text PRIMARY KEY NOT NULL,
 	`conversation_id` text NOT NULL,

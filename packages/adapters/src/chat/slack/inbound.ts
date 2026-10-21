@@ -1,3 +1,5 @@
+import { isSlackConversationalEvent } from "./conversational-events";
+import { slackVendorEventName } from "./vendor-event-name";
 import { z } from "zod";
 import { classifyPrompt, isStatus } from "../../classify";
 import { extractLinks } from "../../links";
@@ -86,6 +88,8 @@ export async function slackInbound(
   if (callback.is_ext_shared_channel) return { ignore: "Slack Connect channel" };
   const eventContext: SlackContext = { ...context, callback };
   const event = callback.event;
+  const name = slackVendorEventName(event.type);
+  if (!isSlackConversationalEvent(name)) return { ignore: `${name} is not conversational` };
   switch (event.type) {
     case "app_mention":
       return mentionEvent(event, eventContext);
@@ -93,10 +97,8 @@ export async function slackInbound(
       return threadReplyEvent(event, eventContext);
     case "reaction_added":
       return reactionEvent(event, eventContext);
-    case "member_joined_channel":
-      return { ignore: "channel join" };
     default:
-      return unhandled(event);
+      return UNHANDLED_EVENT;
   }
 }
 
@@ -185,10 +187,6 @@ async function reactionEvent(event: ReactionEvent, context: SlackContext): Promi
       reply_to: { source: "chat", channel, thread: threadTs },
     },
   };
-}
-
-function unhandled(_event: never): ChatInbound {
-  return UNHANDLED_EVENT;
 }
 
 /** The thread root of a message, which is what a binding is keyed on. */

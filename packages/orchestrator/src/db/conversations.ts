@@ -1,7 +1,29 @@
 import type { ConversationPlace } from "@artfct-ai/contracts/sources";
 import { and, eq } from "drizzle-orm";
+import { bindingExternalId } from "./bindings";
 import { nowIso, type Database } from "./client";
 import { conversations } from "./schema";
+
+/**
+ * The place of a firing that reports on a pull request: the pull request with the trigger's
+ * definition. Its conversation does not get a row, since the watch leads to it.
+ */
+export type PullRequestPlace = {
+  source: "pull_request";
+  repo: string;
+  number: number;
+  definition: string;
+};
+
+/** The text a place's conversation id is derived from. */
+function placeText(place: ConversationPlace | PullRequestPlace): string {
+  if (place.source !== "pull_request") {
+    const { source, external_id } = conversationPlaceKey(place);
+    return `${source}:${external_id}`;
+  }
+  const pull = bindingExternalId({ source: "code_pull", repo: place.repo, number: place.number });
+  return `${place.source}:${pull}:${place.definition}`;
+}
 
 /** The key a place's conversation row is stored under. */
 function conversationPlaceKey(place: ConversationPlace): {
@@ -31,9 +53,10 @@ const CONVERSATION_DIGEST_LENGTH = 16;
  * The id of a place's conversation, which names its Durable Object. Format `cv_<base32>`. Two
  * deliveries to one place derive the same id.
  */
-export async function conversationIdOf(place: ConversationPlace): Promise<string> {
-  const { source, external_id } = conversationPlaceKey(place);
-  const text = new TextEncoder().encode(`${source}:${external_id}`);
+export async function conversationIdOf(
+  place: ConversationPlace | PullRequestPlace,
+): Promise<string> {
+  const text = new TextEncoder().encode(placeText(place));
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", text));
   const characters = Array.from(digest.subarray(0, CONVERSATION_DIGEST_LENGTH), (byte) => {
     return BASE32_ALPHABET[byte % 32];

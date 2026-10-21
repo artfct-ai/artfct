@@ -1,3 +1,5 @@
+import { isNotionConversationalEvent } from "./conversational-events";
+import { notionVendorEventName } from "./vendor-event-name";
 import { z } from "zod";
 import type { Actor } from "@artfct-ai/contracts/inbound";
 import { extractLinks } from "../../links";
@@ -31,7 +33,9 @@ export async function notionInbound(
   const parsed = notionWebhookSchema.safeParse(body);
   if (!parsed.success) return { ignore: "malformed notion webhook" };
   const payload = parsed.data;
-  if (payload.type !== "comment.created") return { ignore: payload.type };
+  if (!isNotionConversationalEvent(notionVendorEventName(payload.type))) {
+    return { ignore: payload.type };
+  }
   const pageUrlId = pageIdOf(payload);
   const pageId = pageUrlId ? notionPageId(pageUrlId) : null;
   if (!pageUrlId || !pageId) return { ignore: "comment without page" };

@@ -1,4 +1,5 @@
 import { loadConfig } from "./config";
+import { eventTriggersProblem } from "./event-triggers";
 import type { ConfigFiles, LoadedDeploymentConfig, RegisteredConfig } from "./types";
 import { loadWorkflowDefinition } from "./workflow-definition";
 
@@ -32,6 +33,8 @@ export function loadDeploymentConfig(
         `workflows/${definition.name}.yaml sets documents.page_parent, which is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks`,
       );
     }
+    const problem = eventTriggersProblem(definition, config.adapters);
+    if (problem) throw new Error(problem);
   }
   return { config, workflowDefinitions };
 }

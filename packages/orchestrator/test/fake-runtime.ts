@@ -172,7 +172,7 @@ export class FakeRuntime implements WorkflowRuntime {
     this.store = new WorkflowStore(db);
     this.transcript = new TranscriptStore(db);
     this.notifier = new Notifier(
-      { tracker: async () => null, chat: null, documents: async () => null },
+      { tracker: async () => null, chat: null, documents: async () => null, code: () => null },
       (entry) => this.store.writeOutbox(entry),
     );
     if (opening === "running" && !this.store.conversation()) {
@@ -356,7 +356,7 @@ export class FakeRuntime implements WorkflowRuntime {
   postThroughChat(chat: FakeChat = new FakeChat()): FakeChat {
     this.notifiedChat = chat;
     this.notifier = new Notifier(
-      { tracker: async () => null, chat, documents: async () => null },
+      { tracker: async () => null, chat, documents: async () => null, code: () => null },
       (entry) => this.store.writeOutbox(entry),
     );
     return chat;

@@ -1,4 +1,5 @@
 import type { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
+import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { beforeEach, describe, expect, it } from "bun:test";
@@ -277,6 +278,40 @@ describe("Notifier.post to Notion", () => {
         ]);
       });
     });
+  });
+});
+
+describe("Notifier.post to a pull request", () => {
+  const pullTarget = { source: "code", repo: "acme/app", pull: 12 } as const;
+  let code: FakeCodeHost;
+  let outbox: OutboxEntry[];
+  let subject: Notifier;
+
+  beforeEach(() => {
+    code = new FakeCodeHost();
+    outbox = [];
+    subject = testNotifier(outbox, { code });
+  });
+
+  it("comments nothing for a progress event", async () => {
+    await subject.post(pullTarget, { type: "progress", task_id: "t1", text: "compiling" });
+    expect(code.calls).toEqual([]);
+    expect(outbox).toEqual([]);
+  });
+
+  it("comments a done event's plain text on the pull request", async () => {
+    await subject.post(pullTarget, { type: "done", result: "reviewed" });
+    const text = `Done. reviewed\n\n${TAG_TO_START_AGAIN}`;
+    expect(code.argsOf("commentOnPull")).toEqual([["acme/app", 12, text]]);
+    expect(outbox).toEqual([
+      { channel: "code", kind: "done", target: pullTarget, payload: { text } },
+    ]);
+  });
+
+  it("records a failed comment and never throws", async () => {
+    const failing = new FakeCodeHost({ failing: true });
+    await testNotifier(outbox, { code: failing }).post(pullTarget, { type: "done", result: "x" });
+    expect(outbox.map((entry) => entry.kind)).toEqual(["done", "delivery_error"]);
   });
 });
 

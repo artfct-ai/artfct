@@ -183,18 +183,18 @@ describe("github reviews on pull requests the orchestrator does not own", () => 
   const feature = { ...pr, head: { ...pr.head, ref: "feature/x" } };
 
   describe("a pull request on a branch no task owns", () => {
-    it("drops the review with the branch reason", async () => {
-      expect(
+    it("maps the review, so a workflow that watches the pull request hears it", async () => {
+      expectEvent(
         await normalizeGithubWebhook("pull_request_review", {
           action: "submitted",
           review: reviewPayload("commented", "Nice."),
           pull_request: feature,
         }),
-      ).toEqual({ ignore: "not an orchestrator branch" });
+      );
     });
 
-    it("drops the inline comment too", async () => {
-      expectIgnored(
+    it("maps the inline comment too", async () => {
+      expectEvent(
         await normalizeGithubWebhook("pull_request_review_comment", {
           action: "created",
           comment: { id: 77, body: "nit", user: sam },

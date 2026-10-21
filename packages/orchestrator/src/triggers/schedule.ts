@@ -40,11 +40,12 @@ export function scheduledFirings(
 ): TriggerFiring[] {
   const minute = scheduledMinute(scheduledTime);
   return definitions.flatMap((definition) =>
-    definition.triggers.flatMap((trigger, position) => {
-      if (!scheduleMatches(trigger.schedule, minute)) return [];
+    definition.triggers.flatMap((trigger, position): TriggerFiring[] => {
+      if (!("schedule" in trigger) || !scheduleMatches(trigger.schedule, minute)) return [];
       return [
         {
-          cause: { kind: "schedule" as const, minute: minute.toISOString() },
+          cause: { kind: "schedule", minute: minute.toISOString() },
+          reports: { kind: "channel", channel: trigger.channel },
           definition: definition.name,
           position,
           attempt: 1,

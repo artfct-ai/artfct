@@ -40,15 +40,23 @@ async function openPrAndReportChecks(conversationId: string, pullRequest: PullRe
     "pull_request",
     pullRequestEvent("opened", pullRequest, agentBotFixture),
   );
-  assertEqual(opened.conversation_id, conversationId, "PR opened event routed by branch");
+  assertEqual(
+    opened.conversational.conversation_id,
+    conversationId,
+    "PR opened event routed by branch",
+  );
   const reported = await postGithubWebhook("check_suite", checkSuiteEvent(pullRequest, "failure"));
-  assertEqual(reported.conversation_id, conversationId, "check suite event routed by branch");
+  assertEqual(
+    reported.conversational.conversation_id,
+    conversationId,
+    "check suite event routed by branch",
+  );
 }
 
 /** A push to `main`. Ingress fans it out to the workflow with an open PR in the repo. */
 async function pushBaseBranch(conversationId: string) {
   const reply = await postGithubWebhook("push", pushToMainEvent());
-  assertEqual(reply.fanned_out, 1, "base push fanned out to the one open PR");
+  assertEqual(reply.conversational.fanned_out, 1, "base push fanned out to the one open PR");
 
   const debug = await fetchConversationDebug(conversationId);
   const note = debug.inbox.find((row) => row.text.includes("pull_action=base_moved"));
@@ -92,7 +100,7 @@ async function approvePrTwice(
 
   const again = await postGithubWebhook("pull_request_review", approval, delivery);
   assertEqual(
-    (again.result as { duplicate?: boolean } | undefined)?.duplicate,
+    (again.conversational.result as { duplicate?: boolean } | undefined)?.duplicate,
     true,
     "a redelivered review is a duplicate",
   );

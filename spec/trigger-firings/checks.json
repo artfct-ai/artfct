@@ -2,10 +2,14 @@
   "invariants": [
     "aFiringStartsAtMostOneWorkflow",
     "aRetriedFiringKeepsItsThread",
-    "aFailedFiringIsTriedUntilItsAttemptsRunOut"
+    "aFailedFiringIsTriedUntilItsAttemptsRunOut",
+    "aFiringOnAnActiveDefinitionReachesItsWorkflowOnce",
+    "aFiringNeverLandsOnAnEndingWorkflow"
   ],
   "mainMinutes": {
-    "twoMinutes": 0.5
+    "twoMinutes": 0.5,
+    "pullRequestEvents": 0.5,
+    "aMinuteAndAChannelEvent": 0.5
   },
   "witnesses": {
     "twoMinutes": [
@@ -15,17 +19,65 @@
       "aFiringRunsOutOfAttempts",
       "aRetryReusesItsThread",
       "twoConsumersRaceOneStartLine"
+    ],
+    "pullRequestEvents": [
+      "aReadyForReviewInstructsTheRunningReview",
+      "aClosedTriggerWaitsForTheEnd",
+      "aCloseThenReopenStartsANewReview",
+      "aPullRequestFiringRunsOutOfAttempts"
+    ],
+    "aMinuteAndAChannelEvent": [
+      "aChannelEventStartsInItsThread",
+      "aFiringDeliveredTwiceStartsOnce",
+      "aFiringStartsOnItsSecondAttempt",
+      "aFiringRunsOutOfAttempts",
+      "aRetryReusesItsThread",
+      "twoConsumersRaceOneStartLine"
     ]
   },
   "maxSteps": {
-    "twoMinutes": 40
+    "twoMinutes": 40,
+    "pullRequestEvents": 40,
+    "aMinuteAndAChannelEvent": 40
   },
   "tlc": {
     "ignoredVariables": ["lateRuns", "stepWitnesses"],
     "bounds": {
       "twoMinutes": {
-        "pr": { "cronRuns": 2, "deliveriesMade": 3, "conversationRestarts": 1 },
-        "nightly": { "cronRuns": 2, "deliveriesMade": 4, "conversationRestarts": 2 }
+        "pr": {
+          "cronRuns": 2,
+          "deliveriesMade": 3,
+          "conversationRestarts": 1
+        },
+        "nightly": {
+          "cronRuns": 2,
+          "deliveriesMade": 4,
+          "conversationRestarts": 2
+        }
+      },
+      "pullRequestEvents": {
+        "pr": {
+          "cronRuns": 2,
+          "deliveriesMade": 3,
+          "conversationRestarts": 1
+        },
+        "nightly": {
+          "cronRuns": 3,
+          "deliveriesMade": 4,
+          "conversationRestarts": 2
+        }
+      },
+      "aMinuteAndAChannelEvent": {
+        "pr": {
+          "cronRuns": 2,
+          "deliveriesMade": 3,
+          "conversationRestarts": 1
+        },
+        "nightly": {
+          "cronRuns": 2,
+          "deliveriesMade": 4,
+          "conversationRestarts": 2
+        }
       }
     }
   }

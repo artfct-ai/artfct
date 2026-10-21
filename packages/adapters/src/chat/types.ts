@@ -15,7 +15,7 @@ export type ChatInbound = { event: InboundEvent } | { ignore: string };
 /** The chat lookups a webhook mapper needs. Null when no bot token is configured. */
 export type ChatLookup = Pick<Chat, "user" | "threadRootTs"> | null;
 
-/** What a chat event mapper needs besides the callback. */
+/** What the chat mapper needs besides the callback. */
 export type ChatInboundContext = {
   resolveActor: ChatActorResolver;
   chat: ChatLookup;

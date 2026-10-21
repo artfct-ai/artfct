@@ -2,11 +2,15 @@ import { Hono } from "hono";
 import { githubInbound } from "@artfct-ai/adapters/code/github/inbound";
 import { verifyGithubWebhook } from "@artfct-ai/adapters/code/github/webhook";
 import { ownGithubLogins } from "@artfct-ai/adapters/code/github/inbound-shared";
+import { githubVendorEvent } from "@artfct-ai/adapters/code/github/vendor-event";
 import type { HonoEnv } from "../env";
 import { parseJsonBody, secretNotConfigured } from "./guards";
 import { tagSpan } from "./span";
 
-/** GitHub App webhooks. */
+/**
+ * GitHub App webhooks. The conversational mapper's event is delivered first, so a watcher's end
+ * on a closed pull request starts before the pass-through's vendor event queues its firings.
+ */
 export const githubRoutes = new Hono<HonoEnv>();
 
 githubRoutes.post("/webhooks/github", async (ctx) => {
@@ -22,16 +26,21 @@ githubRoutes.post("/webhooks/github", async (ctx) => {
   if (!payload) return ctx.text("malformed body", 400);
 
   const rpc = ctx.env.ORCHESTRATOR;
+  const deliveryId = ctx.req.header("x-github-delivery") ?? crypto.randomUUID();
+  const ownLogins = ownGithubLogins(ctx.env.GITHUB_APP_LOGIN);
   const normalized = await githubInbound(eventName, payload, {
     resolveActor: (user) => rpc.resolveActor({ source: "code", user }),
-    deliveryId: ctx.req.header("x-github-delivery") ?? crypto.randomUUID(),
-    ownLogins: ownGithubLogins(ctx.env.GITHUB_APP_LOGIN),
+    deliveryId,
+    ownLogins,
   });
   tagSpan(ctx, {
     "artfct.vendor": "github",
     "artfct.event.kind": "ignore" in normalized ? undefined : normalized.event.kind,
   });
-  if ("ignore" in normalized) return ctx.json({ ignored: normalized.ignore });
-
-  return ctx.json(await rpc.deliver(normalized.event));
+  const conversational =
+    "ignore" in normalized ? { ignored: normalized.ignore } : await rpc.deliver(normalized.event);
+  const passed = githubVendorEvent(eventName, payload, { deliveryId, ownLogins });
+  const vendorEvent =
+    "drop" in passed ? { dropped: passed.drop } : await rpc.deliverVendorEvent(passed.event);
+  return ctx.json({ conversational, vendor_event: vendorEvent });
 });

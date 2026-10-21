@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "49cff1d4-a30b-4def-8f27-01001236d65a",
+  "id": "b2643972-381e-4f9e-ac30-4f7bbe6e0036",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "bindings": {
@@ -236,6 +236,46 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "watches": {
+      "name": "watches",
+      "columns": {
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "definition": {
+          "name": "definition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "watches_source_external_id_definition_pk": {
+          "columns": [
+            "source",
+            "external_id",
+            "definition"
+          ],
+          "name": "watches_source_external_id_definition_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

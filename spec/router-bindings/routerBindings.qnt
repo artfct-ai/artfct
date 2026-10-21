@@ -6,11 +6,14 @@
 /// An event goes to the conversation a binding of it leads to, through a workflow whose row has not
 /// ended. Else it goes to its place's conversation, which a start records and any other event
 /// needs recorded. Else the router drops it. A push to the repository's base branch fans out to
-/// every conversation with a pull request bound in the repository, one call at a time.
+/// every conversation with a pull request bound in the repository, one call at a time. An event on
+/// a watched pull request goes to its routed conversation and to every watcher's conversation, one
+/// call at a time. A firing on the pull request opens the conversation of the pull request and its
+/// definition, and its workflow keeps the watch while it is active.
 module routerBindingsTypes {
-  /// What a conversation belongs to: a chat thread, a tracker issue with every session on it, or a
-  /// tracker session without an issue.
-  type Place = Thread | IssuePlace | LooseSession
+  /// What a conversation belongs to: a chat thread, a tracker issue with every session on it, a
+  /// tracker session without an issue, or the watched pull request with one workflow definition.
+  type Place = Thread | IssuePlace | LooseSession | PullRequestPlace(int)
 
   /// An external object a workflow binds: the issue its job claims, and two pull requests in one
   /// repository.
@@ -25,8 +28,9 @@ module routerBindingsTypes {
   type PlaceOf = NoPlace | AtPlace(Place)
 
   /// A start opens its place's conversation. A reply is any other event: a person's message, a
-  /// status question, or a code host event. A base move is a push to the base branch.
-  type EventKind = Start | Reply | BaseMoved
+  /// status question, or a code host event. A base move is a push to the base branch. A close is a
+  /// merge or a close of the pull request.
+  type EventKind = Start | Reply | BaseMoved | Closed
 
   /// What one binding pointed at when a job start read it: no workflow, or one workflow.
   type Bound = Unbound | BoundTo(int)
@@ -40,25 +44,40 @@ module routerBindingsTypes {
 
   /// Where a delivery stands. It reads the binding at an index of its surface's bindings, records
   /// or checks its place, or hands the event to a conversation. A base move reads the
-  /// conversations with a pull request bound, then hands the event to each one left in turn.
+  /// conversations with a pull request bound, then hands the event to each one left in turn. An
+  /// event on the pull request reads its watchers once its route is found, with the conversation
+  /// the route leads to or none, then hands the event to that conversation and each watcher in turn.
   type DeliveryPhase =
     | ReadingBinding(int)
     | RecordingConversation
     | CheckingConversation
     | Handling(Place)
     | ReadingPulls
+    | ReadingWatchers(PlaceOf)
     | FanningOut({ conversation: Place, left: Set[Place] })
 
-  /// One event in the router.
-  type Delivery = { surface: Surface, kind: EventKind, phase: DeliveryPhase }
+  /// One event in the router. `handed` lists each conversation it called, in order, and `returned`
+  /// holds those whose call returned. `watchersRunning` holds the running workflows of the watchers
+  /// it read.
+  type Delivery = {
+    surface: Surface,
+    kind: EventKind,
+    phase: DeliveryPhase,
+    handed: List[Place],
+    returned: Set[Place],
+    watchersRunning: Set[int],
+  }
 
-  /// Where a workflow's own D1 work stands. The plan writes the row of the workflow it creates. A
-  /// restarted instance writes the row of its active workflow with the status it read, then goes
-  /// on with an end it stored. The end writes the row, then deletes every binding of the workflow.
+  /// Where a workflow's own D1 work stands. The plan writes the row of the workflow it creates, and
+  /// a firing on the pull request writes the row of the workflow it creates. A row write with a live
+  /// status in a pull request's conversation keeps its watch in the same batch. A restarted
+  /// instance writes the row of its active workflow with the status it read, then goes on with an
+  /// end it stored. The end writes the row, then deletes every binding and the watch of the workflow.
   /// A job start on the issue reads the issue's binding, may read the row of the workflow it points
   /// at, then claims it. A pull request is bound before it is recorded.
   type OperationPhase =
     | PlanWritesRow
+    | FireWritesRow
     | RestartWritesRow(RowStatus)
     | EndWritesStatus
     | EndUnbinds
@@ -81,9 +100,11 @@ module routerBindingsTypes {
 
   /// The router's tables, the conversations, and every delivery and workflow operation in flight.
   /// `recorded` holds the places the router recorded a conversation for. `opened` holds the places
-  /// whose conversation took its first event.
+  /// whose conversation took its first event or firing. `watches` holds the definitions that watch
+  /// the pull request.
   type World = {
     bindings: Key -> int,
+    watches: Set[int],
     rows: int -> RowStatus,
     recorded: Set[Place],
     opened: Set[Place],
@@ -99,9 +120,9 @@ module routerBindingsTypes {
   /// whose row has not ended.
   type Led = NotLed | LedTo(Place)
 
-  /// What a delivery saw over its life: where each binding of its surface led, and whether its
-  /// place was recorded, in every state from its arrival.
-  type Observation = { led: List[Set[Led]], recorded: Set[bool] }
+  /// What a delivery saw over its life: where each binding of its surface led, whether its place
+  /// was recorded, and which definitions watched the pull request, in every state from its arrival.
+  type Observation = { led: List[Set[Led]], recorded: Set[bool], watching: Set[Set[int]] }
 
   /// How a delivery ended: handed to a conversation, or dropped.
   type Outcome = Delivered(Place) | Dropped
@@ -110,6 +131,8 @@ module routerBindingsTypes {
   type StepKept = {
     aDeliveryNeverCreatesAWorkflow: bool,
     anEventReachesItsBoundOrPlaceConversation: bool,
+    aWatchedObjectsEventReachesEveryWatcher: bool,
+    aClosedPullRequestEndsItsWatchers: bool,
   }
 
   /// What the last step showed that its end state does not.
@@ -125,6 +148,9 @@ module routerBindingsTypes {
     restartCutTheEndStatusWrite: bool,
     restartCutTheDeletes: bool,
     restartCutThePullRequestBind: bool,
+    mergeEndedTwoWatchers: bool,
+    commentReachedTheOwnerAndTheWatcher: bool,
+    lateWatchWriteFoundTheEnd: bool,
   }
 }
 
@@ -141,10 +167,17 @@ module routerBindings {
   /// The pull requests the workflows may open.
   const PULLS: Set[Key]
 
+  /// The workflow definitions whose triggers fire on the pull request's events.
+  const DEFINITIONS: Set[int]
+
+  /// The kinds the pull request's events take.
+  const PULL_EVENT_KINDS: Set[EventKind]
+
   /// How many workflow operations run at once.
   pure val MAX_OPERATIONS: int = 2
 
-  pure val ALL_PLACES: Set[Place] = Set(Thread, IssuePlace, LooseSession)
+  pure val ALL_PLACES: Set[Place] =
+    Set(Thread, IssuePlace, LooseSession).union(DEFINITIONS.map(definition => PullRequestPlace(definition)))
 
   pure val NO_STEP_WITNESSES: StepWitnesses = {
     bindingLedAway: false,
@@ -158,15 +191,21 @@ module routerBindings {
     restartCutTheEndStatusWrite: false,
     restartCutTheDeletes: false,
     restartCutThePullRequestBind: false,
+    mergeEndedTwoWatchers: false,
+    commentReachedTheOwnerAndTheWatcher: false,
+    lateWatchWriteFoundTheEnd: false,
   }
 
   pure val ALL_KEPT: StepKept = {
     aDeliveryNeverCreatesAWorkflow: true,
     anEventReachesItsBoundOrPlaceConversation: true,
+    aWatchedObjectsEventReachesEveryWatcher: true,
+    aClosedPullRequestEndsItsWatchers: true,
   }
 
   pure val INITIAL_WORLD: World = {
     bindings: Map(),
+    watches: Set(),
     rows: Map(),
     recorded: Set(),
     opened: Set(),
@@ -197,22 +236,35 @@ module routerBindings {
   }
 
   pure def kindsOf(surface: Surface): Set[EventKind] = match surface {
-    | PullSurface => Set(Reply)
+    | PullSurface => PULL_EVENT_KINDS
     | BaseSurface => Set(BaseMoved)
     | _ => Set(Start, Reply)
   }
 
   pure def isPull(key: Key): bool = key == Pull or key == SecondPull
 
-  /// The order a base move hands the event to conversations in.
+  /// The order a fan-out hands the event to conversations in. A routed conversation comes before
+  /// the watchers.
   pure def placeRank(place: Place): int = match place {
     | Thread => 0
     | IssuePlace => 1
     | LooseSession => 2
+    | PullRequestPlace(definition) => 3 + definition
   }
 
   pure def firstPlace(places: Set[Place]): Place =
-    places.fold(LooseSession, (first, place) => if (placeRank(place) < placeRank(first)) place else first)
+    places
+      .filter(place => places.forall(other => placeRank(place) <= placeRank(other)))
+      .fold(Thread, (found, place) => place)
+
+  pure def isWatcherPlace(place: Place): bool = match place {
+    | PullRequestPlace(_) => true
+    | _ => false
+  }
+
+  /// The conversations of the definitions that watch the pull request.
+  pure def watcherPlaces(state: World): Set[Place] =
+    state.watches.map(definition => PullRequestPlace(definition))
 
   pure def keySet(list: List[Key]): Set[Key] = list.foldl(Set(), (found, key) => found.union(Set(key)))
 
@@ -243,6 +295,11 @@ module routerBindings {
       statusOf(state, workflow) != Done,
     })
 
+  /// The running workflows of the conversations that watch the pull request.
+  pure def runningWatchers(state: World): Set[int] =
+    state.workflows.keys().filter(workflow =>
+      isRunning(state, workflow) and state.watches.exists(definition => conversationOf(state, workflow) == PullRequestPlace(definition)))
+
   pure def withWorkflow(state: World, workflow: int, change: Workflow => Workflow): World =
     { ...state, workflows: state.workflows.put(workflow, change(state.workflows.get(workflow))) }
 
@@ -269,12 +326,31 @@ module routerBindings {
   pure def bindWhileLive(state: World, key: Key, workflow: int): World =
     if (rowLive(state, workflow)) { ...state, bindings: state.bindings.put(key, workflow) } else state
 
-  /// The end deletes every binding of the workflow.
+  /// The end deletes every binding of the workflow, and the watch of its pull request's
+  /// conversation.
   pure def unbindAll(state: World, workflow: int): World = {
-    ...state,
-    bindings: state.bindings.keys()
-      .filter(key => state.bindings.get(key) != workflow)
-      .mapBy(key => state.bindings.get(key)),
+    val unbound = {
+      ...state,
+      bindings: state.bindings.keys()
+        .filter(key => state.bindings.get(key) != workflow)
+        .mapBy(key => state.bindings.get(key)),
+    }
+    match conversationOf(state, workflow) {
+      | PullRequestPlace(definition) => { ...unbound, watches: unbound.watches.exclude(Set(definition)) }
+      | _ => unbound
+    }
+  }
+
+  /// A row write sets the row's status. A live status in a pull request's conversation keeps the
+  /// watch in the same batch, which inserts it only while the workflow's row is live.
+  pure def writeRowAndWatch(state: World, workflow: int, status: RowStatus): World = {
+    val written = writeRow(state, workflow, status)
+    match conversationOf(state, workflow) {
+      | PullRequestPlace(definition) =>
+          if (status == Live and rowLive(written, workflow)) { ...written, watches: written.watches.union(Set(definition)) }
+          else written
+      | _ => written
+    }
   }
 
   pure def withDelivery(state: World, id: int, delivery: Delivery): World =
@@ -296,12 +372,24 @@ module routerBindings {
     nextOperation: state.nextOperation + 1,
   }
 
+  /// A route found: to a conversation, or none. The event follows it.
+  pure def follow(state: World, id: int, route: PlaceOf): World = match route {
+    | AtPlace(place) => withPhase(state, id, Handling(place))
+    | NoPlace => finishDelivery(state, id)
+  }
+
+  /// An event on the pull request reads its watchers once its route is found. Any other event
+  /// follows its route.
+  pure def routeTo(state: World, id: int, route: PlaceOf): World =
+    if (state.deliveries.get(id).surface == PullSurface) withPhase(state, id, ReadingWatchers(route))
+    else follow(state, id, route)
+
   /// No binding of the surface led anywhere. The event goes to its place: a start records it, any
-  /// other event checks it. An event without a place is dropped.
+  /// other event checks it. An event without a place has no route.
   pure def afterBindings(state: World, id: int): World = {
     val delivery = state.deliveries.get(id)
     match placeOf(delivery.surface) {
-      | NoPlace => finishDelivery(state, id)
+      | NoPlace => routeTo(state, id, NoPlace)
       | AtPlace(_) => withPhase(state, id, if (delivery.kind == Start) RecordingConversation else CheckingConversation)
     }
   }
@@ -317,7 +405,7 @@ module routerBindings {
       .filter(key => isPull(key) and rowLive(state, state.bindings.get(key)))
       .map(key => conversationOf(state, state.bindings.get(key)))
 
-  /// Hand the base move to the first conversation in `left`, or end the fan-out once none is left.
+  /// Hand the event to the first conversation in `left`, or end the fan-out once none is left.
   pure def fanOutTo(state: World, id: int, left: Set[Place]): World =
     if (left.size() == 0) finishDelivery(state, id)
     else withPhase(state, id, FanningOut({ conversation: firstPlace(left), left: left }))
@@ -328,8 +416,55 @@ module routerBindings {
     | _ => state
   }
 
-  /// The conversation takes the event. Its first event opens it. It does not refuse any.
-  pure def handOver(state: World, place: Place): World = { ...state, opened: state.opened.union(Set(place)) }
+  pure def routedPlaces(route: PlaceOf): Set[Place] = match route {
+    | AtPlace(place) => Set(place)
+    | NoPlace => Set()
+  }
+
+  /// The watchers read returns. Without a watcher the event follows its route. Else it fans out to
+  /// its routed conversation and every watcher's, and keeps the watchers' running workflows.
+  pure def afterWatchers(state: World, id: int, route: PlaceOf): World = {
+    val watchers = watcherPlaces(state)
+    if (watchers.size() == 0) follow(state, id, route)
+    else fanOutTo(
+      withDelivery(state, id, { ...state.deliveries.get(id), watchersRunning: runningWatchers(state) }),
+      id,
+      routedPlaces(route).union(watchers),
+    )
+  }
+
+  /// Start the end of a running workflow: its store moves it to ending, then it writes its row.
+  pure def startEnd(state: World, workflow: int): World =
+    startOperation(withWorkflow(state, workflow, flow => { ...flow, status: Ending, hasIssueJob: false }), workflow, EndWritesStatus)
+
+  /// The conversation takes the event. Its first event opens it. It does not refuse any. A close
+  /// starts the end of a watcher's running workflow and arms the alarm that goes on with it, so the
+  /// call returns once the end started and the end's calls go out from the workflow.
+  pure def handOver(state: World, place: Place, kind: EventKind): World = {
+    val opened = { ...state, opened: state.opened.union(Set(place)) }
+    if (kind == Closed and isWatcherPlace(place))
+      activeWorkflowsOf(opened, place)
+        .filter(workflow => isRunning(opened, workflow))
+        .fold(opened, (ending, workflow) => startEnd(ending, workflow))
+    else opened
+  }
+
+  /// The conversation a delivery's call goes to, if it waits on one.
+  pure def calledPlace(phase: DeliveryPhase): PlaceOf = match phase {
+    | Handling(place) => AtPlace(place)
+    | FanningOut(fanOut) => AtPlace(fanOut.conversation)
+    | _ => NoPlace
+  }
+
+  /// The delivery once the call it waits on returned or threw. A D1 call leaves it as it is.
+  pure def afterCall(delivery: Delivery, returned: bool): Delivery = match calledPlace(delivery.phase) {
+    | AtPlace(place) => {
+        ...delivery,
+        handed: delivery.handed.append(place),
+        returned: if (returned) delivery.returned.union(Set(place)) else delivery.returned,
+      }
+    | NoPlace => delivery
+  }
 
   /// The call a delivery waits on returns, and the delivery runs to its next call or its end.
   pure def resumeDelivery(state: World, id: int): World = {
@@ -337,7 +472,7 @@ module routerBindings {
     val surfaceKeys = keysOf(delivery.surface)
     match delivery.phase {
       | ReadingBinding(index) => match ledBy(state, surfaceKeys[index]) {
-          | LedTo(place) => withPhase(state, id, Handling(place))
+          | LedTo(place) => routeTo(state, id, AtPlace(place))
           | NotLed => if (index + 1 < surfaceKeys.length()) withPhase(state, id, ReadingBinding(index + 1)) else afterBindings(state, id)
         }
       | RecordingConversation => {
@@ -348,9 +483,11 @@ module routerBindings {
           val place = placeOfDelivery(delivery)
           if (state.recorded.contains(place)) withPhase(state, id, Handling(place)) else finishDelivery(state, id)
         }
-      | Handling(place) => finishDelivery(handOver(state, place), id)
+      | Handling(place) => finishDelivery(handOver(state, place, delivery.kind), id)
       | ReadingPulls => fanOutTo(state, id, pullConversations(state))
-      | FanningOut(fanOut) => fanOutNext(handOver(state, fanOut.conversation), id)
+      | ReadingWatchers(route) => afterWatchers(state, id, route)
+      | FanningOut(fanOut) =>
+          fanOutNext(handOver(withDelivery(state, id, afterCall(delivery, true)), fanOut.conversation, delivery.kind), id)
     }
   }
 
@@ -365,11 +502,11 @@ module routerBindings {
 
   pure def isHandling(phase: DeliveryPhase): bool = match phase { | Handling(_) => true | _ => false }
 
-  /// How a routed delivery ended in a step that removed it, or none for a base move.
-  pure def outcomeOf(delivery: Delivery): Outcome = match delivery.phase {
-    | Handling(place) => Delivered(place)
-    | _ => Dropped
-  }
+  /// How a routed delivery ended: handed to the first conversation it called that is not a
+  /// watcher, or dropped.
+  pure def outcomeOf(delivery: Delivery): Outcome =
+    delivery.handed.foldl(Dropped, (found, place) =>
+      if (found == Dropped and not(isWatcherPlace(place))) Delivered(place) else found)
 
   /// What a delivery saw in one state.
   pure def observe(state: World, delivery: Delivery): Observation = {
@@ -378,11 +515,13 @@ module routerBindings {
       | AtPlace(place) => Set(state.recorded.contains(place))
       | NoPlace => Set(false)
     },
+    watching: Set(state.watches),
   }
 
   pure def widen(past: Observation, now: Observation): Observation = {
     led: past.led.indices().fold(past.led, (seen, index) => seen.replaceAt(index, past.led[index].union(now.led[index]))),
     recorded: past.recorded.union(now.recorded),
+    watching: past.watching.union(now.watching),
   }
 
   /// The observations of the deliveries in `after`, widened by what each sees in it.
@@ -394,54 +533,100 @@ module routerBindings {
 
   pure def onlyLed(seen: Set[Led]): Led = seen.fold(NotLed, (found, led) => led)
 
+  /// Whether the bindings and the place a delivery saw held still over its life.
+  pure def routeSteady(observation: Observation, delivery: Delivery): bool = and {
+    observation.led.indices().forall(index => observation.led[index].size() == 1),
+    delivery.kind == Start or observation.recorded.size() == 1,
+  }
+
   /// Where an event must go when what it saw held still over its life. A binding that led to a
   /// conversation wins, the first in order. Else its place, when the event is a start or the place
   /// was recorded. Else it is dropped.
-  pure def routedAsBoundOrPlace(observation: Observation, delivery: Delivery, outcome: Outcome): bool = {
-    val steady = and {
-      observation.led.indices().forall(index => observation.led[index].size() == 1),
-      delivery.kind == Start or observation.recorded.size() == 1,
-    }
+  pure def expectedOutcome(observation: Observation, delivery: Delivery): Outcome = {
     val led = observation.led.foldl(NotLed, (found, seen) => if (found == NotLed) onlyLed(seen) else found)
-    val expected = match led {
+    match led {
       | LedTo(place) => Delivered(place)
       | NotLed => match placeOf(delivery.surface) {
           | AtPlace(place) => if (delivery.kind == Start or observation.recorded.contains(true)) Delivered(place) else Dropped
           | NoPlace => Dropped
         }
     }
-    steady implies outcome == expected
   }
 
-  /// The rules a delivery step from `before` to `after` keeps. It creates no workflow and writes no
-  /// workflow row. A routed delivery that ended went where its bindings or its place say.
-  pure def deliveryStepKept(past: int -> Observation, before: World, after: World, id: int, ended: bool): StepKept = {
+  pure def routedAsBoundOrPlace(observation: Observation, delivery: Delivery, outcome: Outcome): bool =
+    routeSteady(observation, delivery) implies outcome == expectedOutcome(observation, delivery)
+
+  /// A watched event whose route and watchers held still over its life called its expected
+  /// conversation and every watcher's, each once, and no other.
+  pure def reachedEveryWatcherOnce(observation: Observation, final: Delivery): bool = {
+    val watchers = observation.watching
+      .fold(Set(), (found, seen) => seen)
+      .map(definition => PullRequestPlace(definition))
+    val targets = routedPlaces(match expectedOutcome(observation, final) {
+      | Delivered(place) => AtPlace(place)
+      | Dropped => NoPlace
+    }).union(watchers)
+    (routeSteady(observation, final) and observation.watching.size() == 1) implies and {
+      final.handed.length() == targets.size(),
+      targets.forall(place => final.handed.indices().filter(index => final.handed[index] == place).size() == 1),
+    }
+  }
+
+  /// Every watcher workflow that ran when a close's delivery read the watchers, and whose
+  /// conversation's call returned, started its end.
+  pure def endedEveryWatcher(after: World, final: Delivery): bool =
+    final.watchersRunning.forall(workflow =>
+      final.returned.contains(conversationOf(after, workflow)) implies statusOf(after, workflow) != Running)
+
+  /// The rules a delivery step from `before` to `after` keeps. `final` is the delivery once the
+  /// step's call returned or threw, and `ended` is true when the step returned the delivery to its
+  /// caller. It creates no workflow and writes no workflow row. A routed delivery that ended went
+  /// where its bindings or its place say, and a watched one also reached every watcher once. A
+  /// close's delivery that ended started the end of every running watcher it reached.
+  pure def deliveryStepKept(past: int -> Observation, before: World, after: World, id: int, final: Delivery, ended: bool): StepKept = {
     val delivery = before.deliveries.get(id)
-    val routed = delivery.kind != BaseMoved
+    val checked = ended and past.keys().contains(id)
     {
       aDeliveryNeverCreatesAWorkflow:
         after.workflows.keys() == before.workflows.keys() and after.rows.keys() == before.rows.keys(),
       anEventReachesItsBoundOrPlaceConversation:
-        (routed and ended and past.keys().contains(id)) implies
-          routedAsBoundOrPlace(past.get(id), delivery, outcomeOf(delivery)),
+        (checked and delivery.kind != BaseMoved) implies routedAsBoundOrPlace(past.get(id), delivery, outcomeOf(final)),
+      aWatchedObjectsEventReachesEveryWatcher:
+        (checked and delivery.surface == PullSurface) implies reachedEveryWatcherOnce(past.get(id), final),
+      aClosedPullRequestEndsItsWatchers:
+        (ended and delivery.kind == Closed) implies endedEveryWatcher(after, final),
     }
   }
 
   /// What a delivery step that removed a routed delivery shows.
-  pure def routedWitnesses(delivery: Delivery, ended: bool): StepWitnesses = {
-    val outcome = outcomeOf(delivery)
-    val routed = ended and delivery.kind != BaseMoved
+  pure def routedWitnesses(final: Delivery, ended: bool, after: World): StepWitnesses = {
+    val outcome = outcomeOf(final)
+    val routed = ended and final.kind != BaseMoved
     {
       ...NO_STEP_WITNESSES,
       bindingLedAway: routed and (match outcome {
-        | Delivered(place) => placeOf(delivery.surface) != AtPlace(place)
+        | Delivered(place) => placeOf(final.surface) != AtPlace(place)
         | Dropped => false
       }),
-      replyReachedItsPlace: routed and delivery.kind == Reply and (match outcome {
-        | Delivered(place) => placeOf(delivery.surface) == AtPlace(place)
+      replyReachedItsPlace: routed and final.kind == Reply and (match outcome {
+        | Delivered(place) => placeOf(final.surface) == AtPlace(place)
         | Dropped => false
       }),
-      replyDropped: routed and delivery.kind == Reply and outcome == Dropped and placeOf(delivery.surface) != NoPlace,
+      replyDropped: routed and final.kind == Reply and outcome == Dropped and placeOf(final.surface) != NoPlace,
+      mergeEndedTwoWatchers: and {
+        ended,
+        final.kind == Closed,
+        final.watchersRunning.size() == 2,
+        final.watchersRunning.forall(workflow =>
+          final.returned.contains(conversationOf(after, workflow)) and statusOf(after, workflow) != Running),
+      },
+      commentReachedTheOwnerAndTheWatcher: and {
+        ended,
+        final.kind == Reply,
+        final.surface == PullSurface,
+        final.returned.exists(place => not(isWatcherPlace(place))),
+        final.returned.exists(place => isWatcherPlace(place)),
+      },
     }
   }
 
@@ -463,7 +648,14 @@ module routerBindings {
   action eventArrives: bool = {
     nondet surface = SURFACES.oneOf()
     nondet kind = kindsOf(surface).oneOf()
-    val delivery = { surface: surface, kind: kind, phase: firstPhase(surface, kind) }
+    val delivery = {
+      surface: surface,
+      kind: kind,
+      phase: firstPhase(surface, kind),
+      handed: List(),
+      returned: Set(),
+      watchersRunning: Set(),
+    }
     all {
       world.deliveries.keys().size() < MAX_DELIVERIES,
       advance(
@@ -477,30 +669,35 @@ module routerBindings {
   /// The call a delivery waits on lands, and the delivery runs to its next call or its end.
   action deliveryResumes: bool = {
     nondet delivery = world.deliveries.keys().oneOf()
+    val final = afterCall(world.deliveries.get(delivery), true)
     val after = resumeDelivery(world, delivery)
     val ended = not(after.deliveries.keys().contains(delivery))
-    advance(after, deliveryStepKept(observations, world, after, delivery, ended), routedWitnesses(world.deliveries.get(delivery), ended))
+    advance(after, deliveryStepKept(observations, world, after, delivery, final, ended), routedWitnesses(final, ended, after))
   }
 
-  /// The call a base move fans out throws. The router logs it and goes on to the next conversation.
+  /// The call a fan-out makes throws. The router logs it and goes on to the next conversation.
   action fanOutCallFails: bool = {
     nondet delivery = world.deliveries.keys().filter(id => isFanningOut(world.deliveries.get(id).phase)).oneOf()
-    val after = fanOutNext(world, delivery)
-    advance(after, deliveryStepKept(observations, world, after, delivery, false), {
+    val final = afterCall(world.deliveries.get(delivery), false)
+    val after = fanOutNext(withDelivery(world, delivery, final), delivery)
+    val ended = not(after.deliveries.keys().contains(delivery))
+    advance(after, deliveryStepKept(observations, world, after, delivery, final, ended), {
       ...NO_STEP_WITNESSES,
-      fanOutWentOnPastAFailure: after.deliveries.keys().contains(delivery),
+      fanOutWentOnPastAFailure: not(ended),
     })
   }
 
   /// The router's invocation ends while a delivery waits on its call, such as on a deploy or a
-  /// cancel after the host hung up. The call landed or not. The delivery never resumes.
+  /// cancel after the host hung up. The call landed or not. The delivery never resumes, and its
+  /// caller gets an error.
   action routerInvocationEnds: bool = {
     nondet delivery = world.deliveries.keys().oneOf()
     nondet landed = Set(true, false).oneOf()
     val phase = world.deliveries.get(delivery).phase
     val written = if (landed) resumeDelivery(world, delivery) else world
     val after = finishDelivery(written, delivery)
-    advance(after, deliveryStepKept(observations, world, after, delivery, false), {
+    val final = afterCall(world.deliveries.get(delivery), landed)
+    advance(after, deliveryStepKept(observations, world, after, delivery, final, false), {
       ...NO_STEP_WITNESSES,
       routerEndedBeforeTheFirstCall: match phase {
         | Handling(place) => not(landed) and not(world.opened.contains(place))
@@ -515,9 +712,13 @@ module routerBindings {
   }
 
   /// The agent of an opened conversation without an active workflow sets a plan that names a
-  /// workflow definition. The store creates the running workflow, then the plan writes its row.
+  /// workflow definition. The store creates the running workflow, then the plan writes its row. A
+  /// pull request's conversation takes events only through its watch, so only a firing starts its
+  /// next workflow.
   action conversationPlansAWorkflow: bool = {
-    nondet place = world.opened.filter(place => activeWorkflowsOf(world, place).size() == 0).oneOf()
+    nondet place = world.opened
+      .filter(place => not(isWatcherPlace(place)) and activeWorkflowsOf(world, place).size() == 0)
+      .oneOf()
     val workflow = world.nextWorkflow
     val created = {
       ...world,
@@ -536,11 +737,36 @@ module routerBindings {
   /// writes its row, then it deletes its bindings, then its store ends it.
   action workflowEnds: bool = {
     nondet workflow = world.workflows.keys().filter(workflow => isRunning(world, workflow)).oneOf()
-    startWorkflowOperation(
-      withWorkflow(world, workflow, flow => { ...flow, status: Ending, hasIssueJob: false }),
-      workflow,
-      EndWritesStatus,
-    )
+    all {
+      world.operations.keys().size() < MAX_OPERATIONS,
+      advance(startEnd(world, workflow), ALL_KEPT, NO_STEP_WITNESSES),
+    }
+  }
+
+  /// A firing of a definition's trigger on the pull request reaches the conversation of the pull
+  /// request and that definition. Without an active workflow there, it opens the conversation and
+  /// creates the running workflow, then writes the workflow's row and its watch in one batch. A
+  /// firing that finds the workflow active prompts it or fails its attempt, which the trigger
+  /// firings spec models.
+  action aPullRequestFiringLands: bool = {
+    nondet definition = DEFINITIONS.oneOf()
+    val place = PullRequestPlace(definition)
+    val workflow = world.nextWorkflow
+    val created = {
+      ...world,
+      opened: world.opened.union(Set(place)),
+      workflows: world.workflows.put(workflow, {
+        conversation: place,
+        status: Running,
+        hasIssueJob: false,
+        recordedPulls: Set(),
+      }),
+      nextWorkflow: workflow + 1,
+    }
+    all {
+      activeWorkflowsOf(world, place).size() == 0,
+      startWorkflowOperation(created, workflow, FireWritesRow),
+    }
   }
 
   /// The pull requests a workflow recorded or binds now.
@@ -576,10 +802,17 @@ module routerBindings {
   }
 
   /// A running workflow binds the pull request its job opened, then records it. Each workflow opens
-  /// at most one, and only one workflow that has not ended opens each pull request.
+  /// at most one, and only one workflow that has not ended opens each pull request. A workflow
+  /// fired on the pull request does not open one.
   action workflowOpensThePullRequest: bool = {
-    nondet workflow = world.workflows.keys().filter(workflow =>
-        isRunning(world, workflow) and not(rowWriteAhead(world, workflow)) and pullsOf(world, workflow).size() == 0).oneOf()
+    nondet workflow = world.workflows.keys()
+      .filter(workflow => and {
+        isRunning(world, workflow),
+        not(rowWriteAhead(world, workflow)),
+        not(isWatcherPlace(conversationOf(world, workflow))),
+        pullsOf(world, workflow).size() == 0,
+      })
+      .oneOf()
     nondet pull = PULLS.filter(pull => world.workflows.keys().forall(other =>
         pullsOf(world, other).contains(pull) implies statusOf(world, other) == Done)).oneOf()
     startWorkflowOperation(world, workflow, PullBinds(pull))
@@ -592,8 +825,9 @@ module routerBindings {
 
   /// The D1 effect of the call an operation waits on, without the code after it.
   pure def landCall(state: World, operation: WorkflowOperation): World = match operation.phase {
-    | PlanWritesRow => writeRow(state, operation.workflow, Live)
-    | RestartWritesRow(status) => writeRow(state, operation.workflow, status)
+    | PlanWritesRow => writeRowAndWatch(state, operation.workflow, Live)
+    | FireWritesRow => writeRowAndWatch(state, operation.workflow, Live)
+    | RestartWritesRow(status) => writeRowAndWatch(state, operation.workflow, status)
     | EndWritesStatus => writeRow(state, operation.workflow, Ended)
     | EndUnbinds => unbindAll(state, operation.workflow)
     | JobBindsIssue(previous) => claim(state, Issue, previous, operation.workflow)
@@ -608,6 +842,7 @@ module routerBindings {
     val landed = landCall(state, operation)
     match operation.phase {
       | PlanWritesRow => finishOperation(landed, id)
+      | FireWritesRow => finishOperation(landed, id)
       | RestartWritesRow(_) =>
           if (statusOf(state, workflow) == Ending) withOperation(landed, id, EndWritesStatus)
           else finishOperation(landed, id)
@@ -632,6 +867,7 @@ module routerBindings {
 
   pure def isRowWrite(phase: OperationPhase): bool = match phase {
     | PlanWritesRow => true
+    | FireWritesRow => true
     | RestartWritesRow(_) => true
     | EndWritesStatus => true
     | _ => false
@@ -654,6 +890,11 @@ module routerBindings {
       endRemovedAnIssueBinding: waiting.phase == EndUnbinds and boundOf(world, Issue) == BoundTo(waiting.workflow),
       claimLandedAfterTheEnd: (match waiting.phase { | JobBindsIssue(_) => true | _ => false }) and rowEnded(world, waiting.workflow),
       lateRowWriteFoundTheEnd: isRowWrite(waiting.phase) and writtenStatus(waiting.phase) == Live and rowEnded(world, waiting.workflow),
+      lateWatchWriteFoundTheEnd: and {
+        waiting.phase == FireWritesRow,
+        rowEnded(world, waiting.workflow),
+        statusOf(world, waiting.workflow) == Done,
+      },
     })
   }
 
@@ -692,6 +933,7 @@ module routerBindings {
     workflowEnds,
     workflowStartsAJobOnTheIssue,
     workflowOpensThePullRequest,
+    aPullRequestFiringLands,
     workflowCallReturns,
     conversationRestarts,
   }
@@ -737,6 +979,25 @@ module routerBindings {
     world.workflows.keys().forall(workflow =>
       isRunning(world, workflow) implies
         world.workflows.get(workflow).recordedPulls.forall(pull => boundOf(world, pull) == BoundTo(workflow)))
+
+  /// An event on a watched pull request reaches every watcher's conversation once, in addition to
+  /// the conversation its binding leads to. It is checked when the delivery returns, on a delivery
+  /// whose route and watchers held still over its life.
+  val aWatchedObjectsEventReachesEveryWatcher: bool = stepKept.aWatchedObjectsEventReachesEveryWatcher
+
+  /// No watch outlives its workflow: the conversation of each definition that watches the pull
+  /// request has an active workflow.
+  val anEndedWorkflowKeepsNoWatch: bool =
+    world.watches.forall(definition => activeWorkflowsOf(world, PullRequestPlace(definition)).size() > 0)
+
+  /// The pull request has at most one active workflow per definition.
+  val oneActiveWatcherPerPullRequestAndDefinition: bool =
+    DEFINITIONS.forall(definition => activeWorkflowsOf(world, PullRequestPlace(definition)).size() <= 1)
+
+  /// A merge or close of the pull request starts the end of every running watcher it reached before
+  /// the router returns, so before ingress queues the event's firings. A call that threw is not
+  /// counted. It is checked when the delivery returns.
+  val aClosedPullRequestEndsItsWatchers: bool = stepKept.aClosedPullRequestEndsItsWatchers
 
   /// The events that reached the router, which model checking bounds.
   val eventsArrived: int = world.nextDelivery
@@ -835,4 +1096,33 @@ module routerBindings {
   /// Witness for `aRecordedPullRequestIsBoundToItsWorkflow`: an instance restart cut off the bind
   /// of a pull request the workflow found.
   val aRestartCutThePullRequestBind: bool = stepWitnesses.restartCutThePullRequestBind
+
+  /// Witness for `anEndedWorkflowKeepsNoWatch`, `oneActiveWatcherPerPullRequestAndDefinition`:
+  /// two definitions watch the pull request.
+  val twoDefinitionsWatchOnePullRequest: bool = world.watches.size() == 2
+
+  /// Witness for `aClosedPullRequestEndsItsWatchers`: a merge or close started the end of two
+  /// running watchers before the router returned.
+  val aMergeEndsTwoWatchers: bool = stepWitnesses.mergeEndedTwoWatchers
+
+  /// Witness for `aWatchedObjectsEventReachesEveryWatcher`: an event on the pull request reached
+  /// the conversation of the workflow that owns it and a watcher's.
+  val aCommentReachesTheOwnerAndTheWatcher: bool = stepWitnesses.commentReachedTheOwnerAndTheWatcher
+
+  /// Witness for `oneActiveWatcherPerPullRequestAndDefinition`, `anEndedWorkflowKeepsNoWatch`: a
+  /// firing after a watcher ended started the next workflow in the conversation of the pull request
+  /// and its definition.
+  val aCloseThenReopenStartsANewReview: bool =
+    DEFINITIONS.exists(definition => {
+      val place = PullRequestPlace(definition)
+      world.workflows.keys().exists(workflow => and {
+        conversationOf(world, workflow) == place,
+        isRunning(world, workflow),
+        world.workflows.keys().exists(earlier => earlier < workflow and conversationOf(world, earlier) == place),
+      })
+    })
+
+  /// Witness for `anEndedWorkflowKeepsNoWatch`: the row and watch write of a fired workflow landed
+  /// after its end removed the watch.
+  val aLateWatchWriteFoundTheEnd: bool = stepWitnesses.lateWatchWriteFoundTheEnd
 }

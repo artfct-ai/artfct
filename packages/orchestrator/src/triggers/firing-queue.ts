@@ -1,8 +1,11 @@
-import { chat } from "../clients";
+import type { IdentityQuery, VendorEvent, VendorEventDelivery } from "@artfct-ai/contracts/types";
+import { chat, codeHost } from "../clients";
 import { registeredConfig } from "../config/register-config";
 import { createDb } from "../db/client";
 import { deleteFiringThreadsBefore } from "../db/firing-threads";
 import type { Env } from "../env";
+import { resolveActor } from "../router/identity";
+import { fireMatchingTriggers } from "../router/vendor-event";
 import { consumeFiring, type FiringConsumer } from "./consumer";
 import { scheduledFirings } from "./schedule";
 import type { TriggerFiring } from "./types";
@@ -20,6 +23,18 @@ export async function runScheduledMinute(env: Env, scheduledTime: number): Promi
   await deleteFiringThreadsBefore(createDb(env.DB), new Date(scheduledTime - FIRING_RETENTION_MS));
 }
 
+/** Queue a firing for each trigger the vendor event matches, for a causer who passes access. */
+export function deliverVendorEvent(env: Env, event: VendorEvent): Promise<VendorEventDelivery> {
+  const router = {
+    definitions: registeredConfig().workflowDefinitions,
+    resolveActor: (query: IdentityQuery) => resolveActor(env, query),
+    sendFirings: async (firings: TriggerFiring[]) => {
+      await env.TRIGGER_FIRINGS.sendBatch(firings.map((body) => ({ body })));
+    },
+  };
+  return fireMatchingTriggers(router, event);
+}
+
 /** The firing queue's consumer. Each message is one attempt. */
 export async function consumeFiringBatch(
   env: Env,
@@ -29,6 +44,7 @@ export async function consumeFiringBatch(
   const consumer: FiringConsumer = {
     db: createDb(env.DB),
     chat: chat(env, config.adapters.chat.provider),
+    code: codeHost(env, config.adapters.code.provider),
     definitions: workflowDefinitions,
     fire: (conversationId, firing) => {
       return env.Conversation.getByName(conversationId).fire(conversationId, firing);

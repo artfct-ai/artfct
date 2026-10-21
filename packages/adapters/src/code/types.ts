@@ -3,13 +3,16 @@
  * sandboxes. Consumers program against `CodeHost`. GitHub implements it today.
  */
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { CodeUser } from "@artfct-ai/contracts/types";
+import type { CodeUser, VendorEvent } from "@artfct-ai/contracts/types";
 
 /** Resolves a code host login to a person the orchestrator trusts, or to null. */
 export type CodeActorResolver = (user: CodeUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the webhook is ignored. */
 export type CodeInbound = { event: InboundEvent } | { ignore: string };
+
+/** What the code host's vendor pass-through makes of a verified delivery: a vendor event, or a drop with its reason. */
+export type CodeVendorEvent = { event: VendorEvent } | { drop: string };
 
 /** What a code host webhook mapper needs besides the payload. */
 export type CodeInboundContext = {
