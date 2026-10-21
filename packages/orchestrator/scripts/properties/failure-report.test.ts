@@ -117,6 +117,7 @@ describe("propertyFailureReport", () => {
     const report = propertyFailureReport(SPEC_REPLAY_FILES["workflow-lifecycle"]!, 9, {
       outcome: "timed_out",
       output: "",
+      hungParts: [{ kind: "file" }],
     });
     expect(report).toContain(
       "### The workflow lifecycle spec replay timed out after 20 minutes on seed 9",
@@ -124,6 +125,24 @@ describe("propertyFailureReport", () => {
     expect(report).toContain("fast-check did not report a counterexample. Read the step log.");
     expect(report).toContain(
       "PROPERTY_SEED=9 PROPERTY_RUNS=1000 bun test ./src/workflow/workflow-lifecycle.replay.ts",
+    );
+  });
+
+  it("names each setup whose process hung", () => {
+    const report = propertyFailureReport(SPEC_REPLAY_FILES["workflow-lifecycle"]!, 9, {
+      outcome: "timed_out",
+      output: "",
+      hungParts: [
+        {
+          kind: "setup",
+          setup: "pagesFromModelCalls",
+          testNamePattern: " on pagesFromModelCalls$",
+        },
+        { kind: "setup", setup: "pullsForTwoIssues", testNamePattern: " on pullsForTwoIssues$" },
+      ],
+    });
+    expect(report).toContain(
+      "### The workflow lifecycle spec replay timed out on pagesFromModelCalls, pullsForTwoIssues after 20 minutes on seed 9",
     );
   });
 

@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { basename, join } from "node:path";
-import type { Subprocess } from "bun";
 
 /** A property test file, the package directory it runs from, and the runs each property in it takes per full e2e run. */
 export type PropertyFile = {
@@ -12,8 +11,15 @@ export type PropertyFile = {
   e2eRuns: number;
 };
 
-/** The outcome of one property file run, with everything it printed. */
-export type PropertyRun = { outcome: "passed" | "failed" | "timed_out"; output: string };
+/** One process of a property file run: the whole file, or the tests of one spec setup. */
+export type PropertyPart =
+  | { kind: "file" }
+  | { kind: "setup"; setup: string; testNamePattern: string };
+
+/** The outcome of one property file run, with everything it printed and the processes that hung. */
+export type PropertyRun =
+  | { outcome: "passed" | "failed"; output: string }
+  | { outcome: "timed_out"; output: string; hungParts: PropertyPart[] };
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const PACKAGES_DIR = join(ORCHESTRATOR_DIR, "..");
@@ -78,8 +84,8 @@ export function standalonePropertyFile(pathFromOrchestrator: string): PropertyFi
   );
 }
 
-/** A property file run past this is a hang, reported with its seed. */
-export const PROPERTY_FILE_TIMEOUT_MINUTES = 20;
+/** A property test process that runs past this is a hang, reported with its setup and seed. */
+export const PROPERTY_PROCESS_TIMEOUT_MINUTES = 20;
 
 /** The runs each property of a file takes in an e2e run, divided by `PROPERTY_RUNS_DIVISOR` for a light run. */
 function e2eRunCount(file: PropertyFile): number {
@@ -91,19 +97,20 @@ export function propertyReplayCommand(file: PropertyFile, seed: number): string 
   return `PROPERTY_SEED=${seed} PROPERTY_RUNS=${e2eRunCount(file)} ${[...file.runner, file.path].join(" ")}`;
 }
 
-/** One process of a property file run: the test runner arguments it adds, and the name on its output lines. */
-export type PropertyPart = { label: string; args: string[] };
-
 /**
  * The processes a property file runs in: one per spec setup of a replay file, or one for the
  * whole file. The process of the first setup also takes every test outside a setup.
  */
-export function propertyParts(file: PropertyFile, setups: string[]): PropertyPart[] {
+export function propertyParts(setups: string[]): PropertyPart[] {
   const [first, ...others] = setups;
-  if (!first || !others.length) return [{ label: file.title, args: [] }];
+  if (!first || !others.length) return [{ kind: "file" }];
   return [
-    { label: first, args: ["-t", `^(?!.* on (${others.join("|")})$)`] },
-    ...others.map((setup) => ({ label: setup, args: ["-t", ` on ${setup}$`] })),
+    { kind: "setup", setup: first, testNamePattern: `^(?!.* on (${others.join("|")})$)` },
+    ...others.map((setup) => ({
+      kind: "setup" as const,
+      setup,
+      testNamePattern: ` on ${setup}$`,
+    })),
   ];
 }
 
@@ -149,15 +156,15 @@ async function echoAndCollect(
   return text;
 }
 
-async function runPart(options: {
-  file: PropertyFile;
-  vars: Record<string, string>;
-  part: PropertyPart;
-  prefix: string;
-  children: Set<Subprocess>;
-}): Promise<{ exitCode: number; output: string }> {
-  const { file, vars, part, prefix, children } = options;
-  const child = Bun.spawn([...file.runner, file.path, ...part.args], {
+/** Runs one process of a property file, and stops it once it runs past the process time limit. */
+async function runPart(
+  file: PropertyFile,
+  vars: Record<string, string>,
+  part: PropertyPart,
+): Promise<{ exitCode: number; output: string; timedOut: boolean }> {
+  const testNameArgs = part.kind === "setup" ? ["-t", part.testNamePattern] : [];
+  const prefix = part.kind === "setup" ? `[${part.setup}] ` : "";
+  const child = Bun.spawn([...file.runner, file.path, ...testNameArgs], {
     cwd: join(PACKAGES_DIR, file.packageDir),
     env: {
       ...process.env,
@@ -167,14 +174,18 @@ async function runPart(options: {
     stdout: "pipe",
     stderr: "pipe",
   });
-  children.add(child);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill();
+  }, PROPERTY_PROCESS_TIMEOUT_MINUTES * 60_000);
   const [stdout, stderr, exitCode] = await Promise.all([
     echoAndCollect(child.stdout, process.stdout, prefix),
     echoAndCollect(child.stderr, process.stderr, prefix),
     child.exited,
   ]);
-  children.delete(child);
-  return { exitCode, output: stdout + stderr };
+  clearTimeout(timer);
+  return { exitCode, output: stdout + stderr, timedOut };
 }
 
 /** Runs one property file at its e2e run count on a seed, and echoes its output as it runs. */
@@ -231,37 +242,31 @@ function buildWorkspaceDependencies(packageDir: string): void {
 
 /**
  * Runs one property file with the property variables `vars`, and echoes its output as it runs. A
- * spec replay runs each setup in its own process, as many at once as the machine has cores.
+ * spec replay runs each setup in its own process, as many at once as the machine has cores. A
+ * process that hangs stops alone, and the others run to their end.
  */
 export async function runPropertyParts(
   file: PropertyFile,
   vars: Record<string, string>,
 ): Promise<PropertyRun> {
   buildWorkspaceDependencies(file.packageDir);
-  const parts = propertyParts(file, replayedSetups(file));
-  const children = new Set<Subprocess>();
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    for (const child of children) child.kill();
-  }, PROPERTY_FILE_TIMEOUT_MINUTES * 60_000);
+  const parts = propertyParts(replayedSetups(file));
   const outputs: string[] = [];
+  const hungParts: PropertyPart[] = [];
   let failed = false;
   const waiting = [...parts.entries()];
   const runWaitingParts = async () => {
     for (let next = waiting.shift(); next; next = waiting.shift()) {
-      if (timedOut) return;
       const [index, part] = next;
-      const prefix = parts.length > 1 ? `[${part.label}] ` : "";
-      const run = await runPart({ file, vars, part, prefix, children });
+      const run = await runPart(file, vars, part);
       outputs[index] = run.output;
+      if (run.timedOut) hungParts.push(part);
       if (run.exitCode !== 0) failed = true;
     }
   };
   const processes = Math.min(availableParallelism(), parts.length);
   await Promise.all(Array.from({ length: processes }, runWaitingParts));
-  clearTimeout(timer);
   const output = outputs.join("");
-  if (timedOut) return { outcome: "timed_out", output };
+  if (hungParts.length) return { outcome: "timed_out", output, hungParts };
   return { outcome: failed ? "failed" : "passed", output };
 }
