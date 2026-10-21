@@ -202,7 +202,10 @@ describe("linear route", () => {
     });
 
     it("answers with the reason", async () => {
-      expect(await result.response.json<unknown>()).toEqual({ ignored: "Cycle/create" });
+      expect(await result.response.json<unknown>()).toEqual({
+        conversational: { ignored: "Cycle/create" },
+        vendor_event: { dropped: "no causer" },
+      });
     });
 
     it("logs nothing", () => {

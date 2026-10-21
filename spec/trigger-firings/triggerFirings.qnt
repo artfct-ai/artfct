@@ -761,4 +761,13 @@ module triggerFirings {
     world.deliveries.keys().filter(delivery => world.deliveries.get(delivery).message == id).size() >= 2,
     startedThreadsOf(world, world.messages.get(id).firing).size() == 1,
   })
+
+  /// Witness for `aRetriedFiringKeepsItsThread`: a vendor event firing with a channel, such as a
+  /// Linear project created, started its workflow in the thread it recorded, and that thread's
+  /// conversation is recorded for replies.
+  val aProjectCreatedStartsInItsChannel: bool = FIRINGS.to(CHANNEL_FIRINGS - 1).exists(firing => and {
+    world.records.keys().contains(firing),
+    world.startedConversations.contains(world.records.get(firing)),
+    world.recordedConversations.contains(world.records.get(firing)),
+  })
 }

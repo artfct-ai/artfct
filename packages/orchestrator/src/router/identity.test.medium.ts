@@ -1,5 +1,6 @@
 import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
+import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { Actor } from "@artfct-ai/contracts/inbound";
 import { env } from "cloudflare:workers";
@@ -463,10 +464,52 @@ describe("resolveActor with a given client", () => {
     });
   });
 
-  describe("a Notion user without an email", () => {
+  describe("a Notion user without an email and without a document host", () => {
     it("answers null", async () => {
       expect(
-        await resolveActor(env, { source: "documents", user: { id: "N9" } }, { tracker }),
+        await resolveActor(
+          env,
+          { source: "documents", user: { id: "N9" } },
+          { tracker, documents: null },
+        ),
+      ).toBeNull();
+    });
+  });
+
+  describe("a Notion user named by id alone, as a vendor event names its causer", () => {
+    let documents: FakeDocuments;
+    let actor: Actor | null;
+
+    beforeEach(async () => {
+      documents = new FakeDocuments({ emails: { N7: "Seven@Acme.test" } });
+      tracker = new FakeTracker({
+        team: team(["L7"]),
+        usersByEmail: { "seven@acme.test": { id: "L7", name: "Seven" } },
+      });
+      actor = await resolveActor(
+        env,
+        { source: "documents", user: { id: "N7" } },
+        { tracker, documents },
+      );
+    });
+
+    it("joins the Linear user by the email the document host holds, lowercased", () => {
+      expect(actor).toEqual({ email: "seven@acme.test", display_name: "Seven" });
+    });
+
+    it("asks the document host for the email", () => {
+      expect(documents.calls).toEqual([{ method: "userEmail", args: ["N7"] }]);
+    });
+  });
+
+  describe("a Notion user whose email lookup fails", () => {
+    it("answers null", async () => {
+      expect(
+        await resolveActor(
+          env,
+          { source: "documents", user: { id: "N7" } },
+          { tracker, documents: new FakeDocuments({ failing: true }) },
+        ),
       ).toBeNull();
     });
   });

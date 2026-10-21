@@ -36,19 +36,23 @@ async function postWebhook(
   }
 }
 
-/** Posts a Linear webhook signed with `linear-signature`. Each delivery has its own id. */
+/**
+ * Posts a Linear webhook signed with `linear-signature`. Each delivery has its own id. Returns
+ * what the conversational path answered.
+ */
 export async function postLinearWebhook(
   payload: unknown,
   eventName = "AgentSessionEvent",
 ): Promise<WebhookReply> {
   const body = JSON.stringify(payload);
   const signature = await hmacSha256Hex(LINEAR_WEBHOOK_SECRET, body);
-  return postWebhook("/webhooks/linear", body, {
+  const reply = await postWebhook("/webhooks/linear", body, {
     "linear-signature": signature,
     "linear-delivery": crypto.randomUUID(),
     "linear-event": eventName,
     "user-agent": "Linear-Webhook",
   });
+  return reply.conversational as WebhookReply;
 }
 
 /** The GitHub route's reply: the conversational delivery, then the vendor event's. */

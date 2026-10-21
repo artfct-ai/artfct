@@ -147,6 +147,9 @@ export type LinearInstallResult =
   | { installed: true; organization: string; app_user_id: string }
   | { installed: false; error: string };
 
+/** The tracker install of the deployment: its workspace and the app user it acts as. */
+export type TrackerInstall = { workspace_id: string; app_user_id: string };
+
 /** One binding as listed for admins, with the conversation of the workflow that owns it. */
 export type BindingRecord = {
   source: BindingSource;
@@ -162,8 +165,8 @@ export interface OrchestratorRpc {
   deliver(event: InboundEvent): Promise<Delivery>;
   /** Resolve an external user to an authorized actor, or null. */
   resolveActor(query: IdentityQuery): Promise<Actor | null>;
-  /** The id of the tracker workspace the deployment is installed in. Null before the install. */
-  trackerWorkspace(): Promise<string | null>;
+  /** The tracker install of the deployment. Null before the install. */
+  trackerInstall(): Promise<TrackerInstall | null>;
   /** The status summary of a workflow. Null when the id names a workflow that was never created. */
   status(workflowId: string): Promise<WorkflowSummary | null>;
   /** The debug dump of one conversation's Durable Object. */

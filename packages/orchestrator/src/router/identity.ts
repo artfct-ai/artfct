@@ -1,5 +1,6 @@
 import type { Chat } from "@artfct-ai/adapters/chat/types";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { Actor } from "@artfct-ai/contracts/inbound";
 import type {
@@ -11,13 +12,19 @@ import type {
 } from "@artfct-ai/contracts/types";
 import type { Access } from "../config/config";
 import { registeredConfig } from "../config/register-config";
-import { chat as chatClient, codeHost, tracker as installedTracker } from "../clients";
+import {
+  chat as chatClient,
+  codeHost,
+  documents as documentsHost,
+  tracker as installedTracker,
+} from "../clients";
 import type { Env } from "../env";
 
 /** The vendor clients identity asks. Null stands for a vendor that is not connected. */
 export type IdentityClients = {
   tracker?: Tracker | null;
   code?: CodeHost | null;
+  documents?: Documents | null;
   chat?: Chat | null;
 };
 
@@ -42,8 +49,14 @@ export async function resolveActor(
       return identity.fromTracker(query.user);
     case "chat":
       return identity.fromChat(query.user);
-    case "documents":
-      return identity.fromDocuments(query.user);
+    case "documents": {
+      if (query.user.email) return identity.fromDocuments(query.user);
+      const host =
+        clients.documents === undefined
+          ? await documentsHost(env, adapters.documents.provider)
+          : clients.documents;
+      return identity.fromDocuments({ ...query.user, email: await hostEmail(host, query.user.id) });
+    }
     default: {
       const unhandled: never = query;
       throw new Error(`unhandled identity source ${JSON.stringify(unhandled)}`);
@@ -81,6 +94,20 @@ export async function resolveCodeActor(
 ): Promise<Actor | null> {
   if (!user.app && !(await mayPush(code, user))) return null;
   return { email: null, display_name: user.login };
+}
+
+/**
+ * The email the document host holds for its user, lowercased. A vendor event names its causer by
+ * id alone. An unanswered lookup leaves the person without an email, so unauthorized.
+ */
+async function hostEmail(host: Documents | null, userId: string): Promise<string | null> {
+  if (!host) return null;
+  try {
+    return (await host.userEmail(userId))?.toLowerCase() ?? null;
+  } catch (error) {
+    console.warn(`document host user lookup failed: ${String(error)}`);
+    return null;
+  }
 }
 
 /** An unanswered lookup leaves the person unauthorized. */

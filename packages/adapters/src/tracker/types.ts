@@ -3,13 +3,16 @@
  * Consumers program against `Tracker`. Linear implements it today. Documents live in `../documents`.
  */
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { ExternalUser } from "@artfct-ai/contracts/types";
+import type { ExternalUser, VendorEvent } from "@artfct-ai/contracts/types";
 
 /** Resolves a tracker user to a person the orchestrator trusts, or to null. */
 export type TrackerActorResolver = (user: ExternalUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the webhook is ignored. */
 export type TrackerInbound = { event: InboundEvent } | { ignore: string };
+
+/** What the tracker's vendor pass-through makes of a verified delivery: a vendor event, or a drop with its reason. */
+export type TrackerVendorEvent = { event: VendorEvent } | { drop: string };
 
 /** What a tracker webhook mapper needs besides the payload. */
 export type TrackerInboundContext = {

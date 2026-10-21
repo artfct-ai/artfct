@@ -28,6 +28,7 @@
     ],
     "aMinuteAndAChannelEvent": [
       "aChannelEventStartsInItsThread",
+      "aProjectCreatedStartsInItsChannel",
       "aFiringDeliveredTwiceStartsOnce",
       "aFiringStartsOnItsSecondAttempt",
       "aFiringRunsOutOfAttempts",

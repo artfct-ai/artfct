@@ -287,7 +287,10 @@ describe("linear webhook", () => {
     });
 
     it("answers the reason it was ignored", async () => {
-      expect(await response.json<unknown>()).toEqual({ ignored: "another workspace" });
+      expect(await response.json<unknown>()).toEqual({
+        conversational: { ignored: "another workspace" },
+        vendor_event: { dropped: "conversational" },
+      });
     });
 
     it("delivers nothing", () => {
@@ -303,7 +306,9 @@ describe("linear webhook", () => {
     it("is ignored", async () => {
       app = harness({ workspace: null });
       const response = await app.request(await linearPost(created));
-      expect(await response.json<unknown>()).toEqual({ ignored: "another workspace" });
+      expect(await response.json<unknown>()).toMatchObject({
+        conversational: { ignored: "another workspace" },
+      });
     });
   });
 
@@ -317,7 +322,10 @@ describe("linear webhook", () => {
     });
 
     it("reports what the orchestrator answered", async () => {
-      expect(await response.json<unknown>()).toEqual(DEFAULT_DELIVERY);
+      expect(await response.json<unknown>()).toEqual({
+        conversational: DEFAULT_DELIVERY,
+        vendor_event: { dropped: "conversational" },
+      });
     });
 
     it("looks no identity up, since there is no creator", () => {
@@ -341,7 +349,14 @@ describe("linear webhook", () => {
     });
 
     it("reports what the orchestrator answered", async () => {
-      expect(await response.json<unknown>()).toEqual(DEFAULT_DELIVERY);
+      expect(await response.json<unknown>()).toEqual({
+        conversational: DEFAULT_DELIVERY,
+        vendor_event: { dropped: "conversational" },
+      });
+    });
+
+    it("never hands the session over as a vendor event, since a session is conversational", () => {
+      expect(app.rpc.vendorEvents).toEqual([]);
     });
 
     it("delivers one event", () => {
@@ -392,7 +407,9 @@ describe("linear webhook", () => {
       });
 
       it("answers the reason it was ignored", async () => {
-        expect(await response.json<unknown>()).toEqual({ ignored: "comment no person wrote" });
+        expect(await response.json<unknown>()).toMatchObject({
+          conversational: { ignored: "comment no person wrote" },
+        });
       });
 
       it("delivers nothing, so the agent never answers its own comment", () => {
@@ -438,7 +455,7 @@ describe("linear webhook", () => {
       });
 
       it("reports what the orchestrator answered, and writes nothing back to Linear", async () => {
-        expect(await repeat.json<unknown>()).toEqual(DEFAULT_DELIVERY);
+        expect(await repeat.json<unknown>()).toMatchObject({ conversational: DEFAULT_DELIVERY });
       });
     });
   });
@@ -507,7 +524,10 @@ describe("notion webhook", () => {
     });
 
     it("reports the type it ignored", async () => {
-      expect(await response.json<unknown>()).toEqual({ ignored: "page.content_updated" });
+      expect(await response.json<unknown>()).toEqual({
+        conversational: { ignored: "page.content_updated" },
+        vendor_event: { dropped: "no causer" },
+      });
     });
 
     it("delivers nothing", () => {
@@ -526,7 +546,10 @@ describe("notion webhook", () => {
     });
 
     it("reports what the orchestrator answered", async () => {
-      expect(await response.json<unknown>()).toEqual(DEFAULT_DELIVERY);
+      expect(await response.json<unknown>()).toEqual({
+        conversational: DEFAULT_DELIVERY,
+        vendor_event: { dropped: "conversational" },
+      });
     });
 
     it("fetches the comment and then its author", () => {
@@ -552,6 +575,114 @@ describe("notion webhook", () => {
         reply_to: { source: "documents", page_id: NOTION_PAGE_ID },
         actor: { email: "dev@acme.test" },
       });
+    });
+  });
+});
+
+function projectCreated(actorId: string): string {
+  return JSON.stringify({
+    type: "Project",
+    action: "create",
+    organizationId: "org_acme",
+    webhookTimestamp: Date.now(),
+    actor: { id: actorId, type: "user", name: "Dev", email: "dev@acme.test" },
+    data: { id: "prj1", name: "Q4 launch" },
+  });
+}
+
+function pageCreated(author: { id: string; type: string }): string {
+  return JSON.stringify({
+    ...notionCommentCreated(),
+    type: "page.created",
+    authors: [author],
+    entity: { id: "pg1", type: "page" },
+  });
+}
+
+describe("linear vendor events", () => {
+  let app: Harness;
+
+  beforeEach(() => {
+    app = harness({ appUserId: LINEAR_APP_USER_ID });
+  });
+
+  describe("a project a person created", () => {
+    let response: Response;
+
+    beforeEach(async () => {
+      response = await app.request(await linearPost(projectCreated("u1")));
+    });
+
+    it("hands it over as a vendor event alone", async () => {
+      expect(await response.json<unknown>()).toEqual({
+        conversational: { ignored: "Project/create" },
+        vendor_event: { firings: 0 },
+      });
+      expect(app.rpc.deliveries).toEqual([]);
+    });
+
+    it("names it by Linear's type and action, with the person as the causer", () => {
+      expect(app.rpc.vendorEvents).toMatchObject([
+        {
+          delivery_id: "linear:delivery-1",
+          name: "linear.Project.create",
+          causer: { source: "tracker", user: { id: "u1", email: "dev@acme.test" } },
+        },
+      ]);
+    });
+  });
+
+  describe("a project the installed app created", () => {
+    it("never reaches the orchestrator as a vendor event", async () => {
+      const response = await app.request(await linearPost(projectCreated(LINEAR_APP_USER_ID)));
+      expect(await response.json<unknown>()).toMatchObject({
+        vendor_event: { dropped: "caused by the app" },
+      });
+      expect(app.rpc.vendorEvents).toEqual([]);
+    });
+  });
+});
+
+describe("notion vendor events", () => {
+  let app: Harness;
+
+  beforeEach(() => {
+    app = harness({ clients: { documents: fakeDocuments() } });
+  });
+
+  describe("a page a person created", () => {
+    let response: Response;
+
+    beforeEach(async () => {
+      response = await app.request(await notionPost(pageCreated({ id: "n1", type: "person" })));
+    });
+
+    it("hands it over as a vendor event alone", async () => {
+      expect(await response.json<unknown>()).toEqual({
+        conversational: { ignored: "page.created" },
+        vendor_event: { firings: 0 },
+      });
+      expect(app.rpc.deliveries).toEqual([]);
+    });
+
+    it("names it by Notion's type, with the author as the causer", () => {
+      expect(app.rpc.vendorEvents).toMatchObject([
+        {
+          delivery_id: "evt1",
+          name: "notion.page.created",
+          causer: { source: "documents", user: { id: "n1" } },
+        },
+      ]);
+    });
+  });
+
+  describe("a page the app's own integration created", () => {
+    it("never reaches the orchestrator as a vendor event", async () => {
+      const response = await app.request(await notionPost(pageCreated({ id: "b1", type: "bot" })));
+      expect(await response.json<unknown>()).toMatchObject({
+        vendor_event: { dropped: "caused by a bot" },
+      });
+      expect(app.rpc.vendorEvents).toEqual([]);
     });
   });
 });

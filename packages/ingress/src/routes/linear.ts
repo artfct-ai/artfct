@@ -1,11 +1,16 @@
 import { Hono } from "hono";
 import { linearInbound } from "@artfct-ai/adapters/tracker/linear/inbound";
+import { linearVendorEvent } from "@artfct-ai/adapters/tracker/linear/vendor-event";
 import { verifyLinearWebhook } from "@artfct-ai/adapters/tracker/linear/webhook";
 import type { HonoEnv } from "../env";
-import { secretNotConfigured } from "./guards";
+import { parseJsonBody, secretNotConfigured } from "./guards";
 import { tagSpan } from "./span";
 
-/** Linear webhooks. Linear expects a reply within 5 s. */
+/**
+ * Linear webhooks. Linear expects a reply within 5 s. The conversational mapper's event is
+ * delivered first. Then the Linear pass-through hands the delivery over as a vendor event or
+ * drops it.
+ */
 export const linearRoutes = new Hono<HonoEnv>();
 
 linearRoutes.post("/webhooks/linear", async (ctx) => {
@@ -14,18 +19,24 @@ linearRoutes.post("/webhooks/linear", async (ctx) => {
   const body = await ctx.req.text();
   if (!(await verifyLinearWebhook(secret, body, ctx.req.raw.headers)))
     return ctx.text("bad signature", 401);
-  const payload: unknown = JSON.parse(body);
+  const payload = parseJsonBody(body);
 
   const rpc = ctx.env.ORCHESTRATOR;
+  const install = await rpc.trackerInstall();
+  const deliveryId = ctx.req.header("linear-delivery") ?? null;
   const normalized = await linearInbound(payload, {
-    workspaceId: await rpc.trackerWorkspace(),
+    workspaceId: install?.workspace_id ?? null,
     resolveActor: (user) => rpc.resolveActor({ source: "tracker", user }),
-    deliveryId: ctx.req.header("linear-delivery") ?? null,
+    deliveryId,
   });
   tagSpan(ctx, {
     "artfct.vendor": "linear",
     "artfct.event.kind": "ignore" in normalized ? undefined : normalized.event.kind,
   });
-  if ("ignore" in normalized) return ctx.json({ ignored: normalized.ignore });
-  return ctx.json(await rpc.deliver(normalized.event));
+  const conversational =
+    "ignore" in normalized ? { ignored: normalized.ignore } : await rpc.deliver(normalized.event);
+  const passed = await linearVendorEvent(payload, { install, deliveryId });
+  const vendorEvent =
+    "drop" in passed ? { dropped: passed.drop } : await rpc.deliverVendorEvent(passed.event);
+  return ctx.json({ conversational, vendor_event: vendorEvent });
 });
