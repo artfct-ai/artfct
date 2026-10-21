@@ -171,6 +171,11 @@ const A_CLOSING_REPLY_LANDS_ONCE_THE_TRACKER_RECOVERS: FeedAction[] = [
   { kind: "wait", minutes: 2 },
 ];
 
+const A_TURN_END_GOING_ON_NARRATES_ITS_ACCOUNT: FeedAction[] = [
+  { kind: "say" },
+  { kind: "turn_end_going_on", reason: "end_turn" },
+];
+
 const A_WAITING_REPLY_FOLDS_INTO_THE_NEXT_TURN: FeedAction[] = [
   { kind: "health", health: "fails_before_storing" },
   { kind: "say" },
@@ -768,6 +773,7 @@ describe("session feed invariants", () => {
             [A_REPLY_WAITS_FOR_THE_NARRATION_THE_TRACKER_REFUSED],
             [THE_FEED_GIVES_UP_AFTER_AN_HOUR_OF_FAILURES],
             [A_WAITING_REPLY_FOLDS_INTO_THE_NEXT_TURN],
+            [A_TURN_END_GOING_ON_NARRATES_ITS_ACCOUNT],
           ],
         },
       );
