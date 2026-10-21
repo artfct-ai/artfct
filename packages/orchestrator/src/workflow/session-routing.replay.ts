@@ -119,6 +119,26 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
     setup: "trackerModelCall",
     file: "a-stop-ends-the-model-call-of-an-author-in-review",
   },
+  {
+    name: "gives up the alarm of a stored closing reply on a failed post once a later reply's alarm gave up",
+    setup: "trackerOnly",
+    file: "a-stored-closing-reply-gives-up-after-a-later-reply-gave-up",
+  },
+  {
+    name: "gives up the alarm of a closing reply cut before another reply's give-up on its next failed post",
+    setup: "trackerResearch",
+    file: "a-closing-reply-cut-before-a-give-up-gives-up-on-its-next-failure",
+  },
+  {
+    name: "gives up the alarm of a stored closing reply during a model call once a later reply's alarm gave up",
+    setup: "trackerModelCall",
+    file: "a-stored-closing-reply-gives-up-during-a-model-call-after-a-later-reply-gave-up",
+  },
+  {
+    name: "gives up the alarm of a stored closing reply in a sub-issue session once a later reply's alarm gave up",
+    setup: "chatThread",
+    file: "a-stored-closing-reply-in-a-sub-issue-session-gives-up-after-a-later-reply-gave-up",
+  },
 ];
 
 describe("session routing spec", () => {

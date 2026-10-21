@@ -1,0 +1,7417 @@
+{
+  "#meta": {
+    "format": "ITF",
+    "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
+    "source": "../../spec/session-routing/chatThread.qnt",
+    "status": "ok",
+    "description": "Created by Quint on Tue Oct 20 2026 22:17:07 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792549027583
+  },
+  "vars": [
+    "chatThread::sessionRouting::routing",
+    "chatThread::sessionRouting::lastStepKept",
+    "chatThread::sessionRouting::lastStep",
+    "chatThread::sessionRouting::sessionMessages",
+    "chatThread::sessionRouting::messagesToLand",
+    "chatThread::sessionRouting::lastDelivery",
+    "chatThread::sessionRouting::cutClosingReplies",
+    "mbt::actionTaken",
+    "mbt::nondetPicks"
+  ],
+  "states": [
+    {
+      "#meta": {
+        "index": 0
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": []
+        },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": []
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "init",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 1
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": true,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": []
+        },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "chatThreadJoins",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 2
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": []
+        },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "workflowRestarts",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [
+          {
+            "kind": {
+              "tag": "InfoPost",
+              "value": {
+                "#tup": []
+              }
+            },
+            "targets": {
+              "#set": [
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                },
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": []
+        },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": true
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "idleClockFires",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 4
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": []
+        },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": true
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "workflowRestarts",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 5
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": []
+        },
+        "ended": false,
+        "jobs": [],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "agentNamesTheSubject",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "Some",
+          "value": {
+            "tag": "IssueSubject",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 6
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": false,
+        "jobs": [
+          {
+            "author": {
+              "tag": "InTurn",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "0"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "agentStartsJob",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "Some",
+          "value": {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 7
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": false,
+        "jobs": [
+          {
+            "author": {
+              "tag": "InTurn",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "authorTurnEnds",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "Some",
+          "value": {
+            "tag": "TrackerUp",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "Some",
+          "value": {
+            "tag": "GivesUp",
+            "value": {
+              "#tup": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 8
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": false,
+        "jobs": [
+          {
+            "author": {
+              "tag": "InTurn",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "boardFlushes",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 9
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [
+          {
+            "kind": {
+              "tag": "FailedPost",
+              "value": {
+                "#tup": []
+              }
+            },
+            "targets": {
+              "#set": [
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                },
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": false,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "authorFails",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 10
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [
+          {
+            "kind": {
+              "tag": "InfoPost",
+              "value": {
+                "#tup": []
+              }
+            },
+            "targets": {
+              "#set": [
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                },
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": false,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": true
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "idleClockFires",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 11
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": false,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": true
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "boardFlushes",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 12
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [
+          {
+            "kind": {
+              "tag": "WorkflowFailedPost",
+              "value": {
+                "#tup": []
+              }
+            },
+            "targets": {
+              "#set": [
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                },
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "agentEndsWorkflow",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "Some",
+          "value": {
+            "tag": "Fails",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 13
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "trackerOpensSession",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "Some",
+          "value": {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 14
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "workflowRestarts",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 15
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "boardFlushes",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 16
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "StoppedActivity",
+              "value": {
+                "#tup": []
+              }
+            },
+            "stored": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "health": {
+          "tag": "FailsAfterStoring",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": [
+            {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            }
+          ]
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "personStops",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "Some",
+          "value": {
+            "tag": "FailsAfterStoring",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "Some",
+          "value": {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 17
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "workflowRestarts",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 18
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [
+          {
+            "kind": {
+              "tag": "InfoPost",
+              "value": {
+                "#tup": []
+              }
+            },
+            "targets": {
+              "#set": [
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                },
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "WroteIn",
+          "value": {
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "text": {
+              "tag": "Question",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "personWritesInSession",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "Some",
+          "value": {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "Some",
+          "value": {
+            "tag": "Question",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 19
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "1"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "0"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "StoppedActivity",
+              "value": {
+                "#tup": []
+              }
+            },
+            "stored": {
+              "#bigint": "0"
+            }
+          }
+        ],
+        "health": {
+          "tag": "FailsBeforeStoring",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": [
+            {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            }
+          ]
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "personStops",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "Some",
+          "value": {
+            "tag": "FailsBeforeStoring",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "Some",
+          "value": {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 20
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "1"
+            },
+            {
+              "armed": false,
+              "gaveUp": true,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "0"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "StoppedActivity",
+              "value": {
+                "#tup": []
+              }
+            },
+            "stored": {
+              "#bigint": "0"
+            }
+          }
+        ],
+        "health": {
+          "tag": "FailsBeforeStoring",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "closingReplyGivesUp",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 21
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "1"
+            },
+            {
+              "armed": false,
+              "gaveUp": true,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "0"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "2"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "StoppedActivity",
+              "value": {
+                "#tup": []
+              }
+            },
+            "stored": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "health": {
+          "tag": "FailsAfterStoring",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": [
+            {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            }
+          ]
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "personStops",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "Some",
+          "value": {
+            "tag": "FailsAfterStoring",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "Some",
+          "value": {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 22
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "1"
+            },
+            {
+              "armed": false,
+              "gaveUp": true,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "0"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "2"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "workflowRestarts",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 23
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "1"
+            },
+            {
+              "armed": false,
+              "gaveUp": true,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "0"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "2"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [
+          {
+            "kind": {
+              "tag": "StatusPost",
+              "value": {
+                "#tup": []
+              }
+            },
+            "targets": {
+              "#set": [
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "0"
+                  }
+                },
+                {
+                  "tag": "ChatThread",
+                  "value": {
+                    "#bigint": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "WroteIn",
+          "value": {
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "text": {
+              "tag": "StatusRequest",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "personWritesInSession",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "Some",
+          "value": {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "Some",
+          "value": {
+            "tag": "StatusRequest",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 24
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "1"
+            },
+            {
+              "armed": false,
+              "gaveUp": true,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "0"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "2"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [],
+        "health": {
+          "tag": "TrackerUp",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "boardFlushes",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 25
+      },
+      "chatThread::sessionRouting::cutClosingReplies": {
+        "#map": [
+          [
+            {
+              "#bigint": "0"
+            },
+            {
+              "armed": false,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "1"
+            },
+            {
+              "armed": false,
+              "gaveUp": true,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": true,
+              "stored": {
+                "#bigint": "0"
+              }
+            }
+          ],
+          [
+            {
+              "#bigint": "2"
+            },
+            {
+              "armed": true,
+              "gaveUp": false,
+              "job": {
+                "#bigint": "0"
+              },
+              "kind": {
+                "tag": "StoppedActivity",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "pastItsHour": false,
+              "stored": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        ]
+      },
+      "chatThread::sessionRouting::lastDelivery": {
+        "aRedeliveredMessageLands": false,
+        "aSecondDeliveryIsDropped": false
+      },
+      "chatThread::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
+        "answered": {
+          "#set": []
+        },
+        "cancelled": {
+          "#set": []
+        },
+        "feed": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "StoppedActivity",
+              "value": {
+                "#tup": []
+              }
+            },
+            "stored": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "health": {
+          "tag": "FailsBeforeStoring",
+          "value": {
+            "#tup": []
+          }
+        },
+        "plans": [],
+        "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
+        "stoppedIn": {
+          "#set": []
+        },
+        "turnEnded": {
+          "#set": []
+        },
+        "woke": false,
+        "wrote": {
+          "tag": "NobodyWrote",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
+        "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::messagesToLand": {
+        "#map": []
+      },
+      "chatThread::sessionRouting::routing": {
+        "boards": {
+          "#set": [
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "job": {
+                "#bigint": "0"
+              },
+              "thread": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "ended": true,
+        "jobs": [
+          {
+            "author": {
+              "tag": "Finished",
+              "value": {
+                "#tup": []
+              }
+            },
+            "buffered": false,
+            "cancelSent": false,
+            "containerClosed": false,
+            "handedOver": false,
+            "holdsInstruction": false,
+            "issue": {
+              "tag": "SubIssue",
+              "value": {
+                "#tup": []
+              }
+            },
+            "nudged": false,
+            "paused": false,
+            "queued": [],
+            "research": {
+              "tag": "NoResearch",
+              "value": {
+                "#tup": []
+              }
+            },
+            "researcherTodos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            },
+            "restarts": {
+              "#bigint": "1"
+            },
+            "stoppedEarly": false,
+            "todos": {
+              "tag": "NoTodos",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "links": [
+          {
+            "tag": "SubjectIssue",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "SubIssue",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "replyTargets": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            {
+              "tag": "Session",
+              "value": {
+                "tag": "SubIssue",
+                "value": {
+                  "#tup": []
+                }
+              }
+            }
+          ]
+        },
+        "subject": {
+          "tag": "IssueSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiting": {
+          "#set": [
+            {
+              "tag": "ChatThread",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          ]
+        },
+        "waitsForInput": false
+      },
+      "chatThread::sessionRouting::sessionMessages": {
+        "#map": []
+      },
+      "mbt::actionTaken": "closingReplyAlarmFires",
+      "mbt::nondetPicks": {
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "health": {
+          "tag": "Some",
+          "value": {
+            "tag": "FailsBeforeStoring",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "message": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "reply": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "researchEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "streamed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "text": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "todos": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnEnding": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    }
+  ]
+}
