@@ -37,7 +37,7 @@ type Route =
   | { kind: "drop"; reason: string };
 
 /**
- * Route an event to its workflow, or start the next one, and acknowledge it on its surface. A
+ * Route an event to its workflow, or create the next one, and acknowledge it on its surface. A
  * person's message in a tracker session that no workflow takes is told so.
  */
 export async function deliver(
@@ -61,11 +61,7 @@ export async function deliver(
   }
   const acking = await ackingTracker(env, ackTracker);
   await postStartingThought(acking, sessionId);
-  const delivery = await follow(env, db, event, route);
-  if (!event.actor && "dropped" in delivery) {
-    await postTrackerAck(acking, sessionId, { type: "error", body: NOTHING_TO_JOIN });
-  }
-  return delivery;
+  return follow(env, db, event, route);
 }
 
 /** The tracker session that gets the starting thought, or null. */
@@ -96,8 +92,8 @@ async function routeOf(db: Database, event: InboundEvent): Promise<Route> {
 
 /**
  * Decide where the event goes from the binding at `from` on. The first bound workflow that has
- * not ended is joined. Else a start, or a person's message on a binding whose workflow ended,
- * starts the next workflow. Every other event is dropped.
+ * not ended is joined. Else a start, with or without a person, or a person's message on a binding
+ * whose workflow ended, creates the next workflow. Every other event is dropped.
  */
 async function routeFrom(
   db: Database,
@@ -119,7 +115,6 @@ async function routeFrom(
       : `no workflow bound for ${event.kind}`;
     return { kind: "drop", reason };
   }
-  if (!event.actor) return { kind: "drop", reason: "no actor to start a workflow for" };
   return { kind: "create", bound: read.bound, replaced };
 }
 
@@ -190,10 +185,10 @@ async function startNextWorkflow(
 }
 
 /**
- * Hand the event to the running workflow. A workflow not created yet refuses it. A person's start
- * or message then takes its create over, and every other event is dropped. A workflow that ended
- * refuses a person's message, and the route goes on from the next binding. A start the workflow
- * took points its unbound bindings, and those whose workflow ended, at it.
+ * Hand the event to the running workflow. A workflow not created yet refuses it. A start or a
+ * person's message then takes its create over, and every other event is dropped. A workflow that
+ * ended refuses a start or a person's message, and the route goes on from the next binding. A
+ * start the workflow took points its unbound bindings, and those whose workflow ended, at it.
  */
 async function joinWorkflow(
   env: Env,
@@ -206,7 +201,7 @@ async function joinWorkflow(
   if ("refused" in answer) {
     switch (answer.refused) {
       case "not_created":
-        return isPersonsStartOrMessage(event)
+        return isStartOrPersonsMessage(event)
           ? takeOverCreate(env, db, event, route)
           : { dropped: `workflow ${workflowId} is not created yet` };
       case "ended": {
@@ -230,16 +225,16 @@ async function joinWorkflow(
   return { workflow_id: workflowId, created: false, joined, result: answer };
 }
 
-/** A start or a message that a person wrote. */
-function isPersonsStartOrMessage(event: InboundEvent): boolean {
-  return event.actor !== null && (event.kind === "start" || event.kind === "prompt");
+/** A start, with or without a person, or a message that a person wrote. */
+function isStartOrPersonsMessage(event: InboundEvent): boolean {
+  return event.kind === "start" || (event.kind === "prompt" && event.actor !== null);
 }
 
 /**
- * Create a workflow whose create has not returned with a person's event, such as one whose router
- * invocation ended mid-create. The row marks the takeover first, so an abandon of the first create
- * keeps the bindings. The create names the predecessor the first create recorded. A takeover that
- * a moved binding or an abandon refuses reads the route again.
+ * Create a workflow whose create has not returned with a start or a person's message, such as one
+ * whose router invocation ended mid-create. The row marks the takeover first, so an abandon of the
+ * first create keeps the bindings. The create names the predecessor the first create recorded. A
+ * takeover that a moved binding or an abandon refuses reads the route again.
  */
 async function takeOverCreate(
   env: Env,

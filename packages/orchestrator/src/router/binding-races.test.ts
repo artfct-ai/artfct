@@ -238,6 +238,48 @@ describe("a person's message in a chat thread whose workflow ended in its Durabl
   });
 });
 
+describe("a start without a person in a tracker session whose workflow ended in its Durable Object", () => {
+  let view: RouterView;
+  let start: string;
+
+  beforeEach(async () => {
+    const first = await replay.arrive("SessionASurface", "Start");
+    await replay.landUntil(first, never);
+    await replay.startWork(0, "end");
+    start = await replay.arrive("SessionASurface", "StartWithoutAPerson");
+    await replay.landUntil(start, never);
+    view = replay.project();
+  });
+
+  it("creates the next workflow", () => {
+    expect(replay.deliveryOf(start)).toMatchObject({ created: true });
+  });
+
+  it("binds the session and the issue to it", () => {
+    expect(view.bindings.SessionA).toBe(1);
+    expect(view.bindings.Issue).toBe(1);
+  });
+});
+
+describe("a start without a person in a tracker session whose router invocation ended mid-create", () => {
+  let start: string;
+
+  beforeEach(async () => {
+    const first = await replay.arrive("SessionASurface", "Start");
+    await replay.landUntil(first, (call) => call.startsWith("CreateWorkflow"));
+    await replay.endRouterInvocation(first, false);
+    start = await replay.arrive("SessionASurface", "StartWithoutAPerson");
+    await replay.landUntil(start, never);
+  });
+
+  it("takes the create over and creates the workflow the session is bound to", () => {
+    const view = replay.project();
+    expect(view.bindings.SessionA).toBe(0);
+    expect(view.objects[0]?.created).toBe(true);
+    expect(replay.deliveryOf(start)).toMatchObject({ created: true });
+  });
+});
+
 describe("the router's invocation ends while it abandons the next workflow after an end", () => {
   let message: string;
 

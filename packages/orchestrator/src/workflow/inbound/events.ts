@@ -39,7 +39,8 @@ function isMessage(event: InboundEvent): boolean {
 
 /**
  * Why the workflow refuses an event the router hands it, or null when it takes it. It refuses
- * every event before its create, and a person's message once its end started.
+ * every event before its create, and a start or a person's message once its end started, so the
+ * router creates the next workflow with it.
  */
 export function eventRefusalOf(
   workflow: WorkflowRuntime,
@@ -47,7 +48,8 @@ export function eventRefusalOf(
 ): EventRefusal | null {
   if (!workflow.store.workflowRow()) return { refused: "not_created" };
   const status = workflow.store.workflowStatus();
-  if (isWorkflowFinished(status) && isMessage(event)) return { refused: "ended", status };
+  const opensNext = event.kind === "start" || isMessage(event);
+  if (isWorkflowFinished(status) && opensNext) return { refused: "ended", status };
   return null;
 }
 
@@ -58,7 +60,10 @@ export type WorkflowStart = {
   endedWorkflowId: string | null;
 };
 
-/** Record a workflow's first event and hand it to the agent. */
+/**
+ * Record a workflow's first event and hand it to the agent. A person's event carries their words to
+ * the first turn. A start without a person runs an unprompted first turn.
+ */
 export async function createWorkflow(
   workflow: WorkflowRuntime,
   { workflowId, event, endedWorkflowId }: WorkflowStart,
@@ -81,7 +86,7 @@ export async function createWorkflow(
   await workflow.tellAgent(
     eventMessage(event, { first: true, job: null, artifact: null, notes }),
     "message",
-    { body: event.text.trim(), chat_message: chatMessageOf(event) },
+    event.actor ? { body: event.text.trim(), chat_message: chatMessageOf(event) } : undefined,
   );
   return { ok: true, workflow_id: workflowId };
 }

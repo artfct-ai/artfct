@@ -18,15 +18,16 @@ module routerBindingsTypes {
   /// repository carries none.
   type Surface = ThreadSurface | SessionASurface | SessionBSurface | PullSurface | BaseSurface
 
-  /// A start and a person's message come from a person. A start without a person, such as one
-  /// a bot sends, and every other event do not. A base move is a push to the base branch.
+  /// A start comes from a person, or without one, such as a tracker session the app opened itself.
+  /// A person's message comes from a person, and every other event does not. A base move is a
+  /// push to the base branch.
   type EventKind = Start | StartWithoutAPerson | PersonsMessage | OtherEvent | BaseMoved
 
   /// What one binding pointed at when a delivery or a job start read it: no workflow, or one workflow.
   type Bound = Unbound | BoundTo(int)
 
-  /// The workflow that ended on a binding before a person's message started the next workflow there,
-  /// or none.
+  /// The workflow that ended on a binding before a start or a person's message created the next
+  /// workflow there, or none.
   type Predecessor = NoPredecessor | PredecessorOf(int)
 
   /// The status of a workflow row in D1. A missing row reads as not ended. The router inserts a row
@@ -51,8 +52,8 @@ module routerBindingsTypes {
   /// A base move reads the workflows with a pull request bound, then hands the event to each one
   /// left, the smallest first. Each phase after the route is read names the workflow the delivery
   /// joins, creates, or hands the base move to. Checking names the workflow of the binding it
-  /// checks. A create that threw is abandoned in one batch. A person's event that finds its workflow
-  /// not created takes the create over, then creates it.
+  /// checks. A create that threw is abandoned in one batch. A start or a person's message that finds
+  /// its workflow not created takes the create over, then creates it.
   type DeliveryPhase =
     | ReadingPulls
     | FanningOut({ workflow: int, left: Set[int] })
@@ -131,13 +132,14 @@ module routerBindingsTypes {
   /// What a binding pointed at, whether that workflow's row ended, and whether its create returned.
   type Observed = { bound: Bound, ended: bool, created: bool }
 
-  /// Deliveries that overlapped in time. `reachedBeforeCreate` holds the workflows a person's event
+  /// Deliveries that overlapped in time. `startOrMessage` is true once a start or a person's message
+  /// arrived among them. `reachedBeforeCreate` holds the workflows a start or a person's message
   /// reached before their create returned. `routerDied` is true once the router's invocation ended
   /// mid-create.
   type Batch = {
     open: bool,
     surfaces: Set[Surface],
-    personWrote: bool,
+    startOrMessage: bool,
     quiet: bool,
     createFailed: bool,
     routerDied: bool,
@@ -168,7 +170,7 @@ module routerBindingsTypes {
     movedBindings: Set[{ key: Key, from: int }],
     predecessors: int -> int,
     eventsBeforeCreate: Set[int],
-    messagesOnEndedWorkflows: Set[int],
+    startsOrMessagesOnEndedWorkflows: Set[int],
     batch: Batch,
     lastBatch: Batch,
   }
@@ -206,7 +208,7 @@ module routerBindings {
   pure val EMPTY_BATCH: Batch = {
     open: false,
     surfaces: Set(),
-    personWrote: false,
+    startOrMessage: false,
     quiet: true,
     createFailed: false,
     routerDied: false,
@@ -242,7 +244,7 @@ module routerBindings {
     movedBindings: Set(),
     predecessors: Map(),
     eventsBeforeCreate: Set(),
-    messagesOnEndedWorkflows: Set(),
+    startsOrMessagesOnEndedWorkflows: Set(),
     batch: EMPTY_BATCH,
     lastBatch: EMPTY_BATCH,
   }
@@ -265,11 +267,12 @@ module routerBindings {
     | _ => Set(Start, StartWithoutAPerson, PersonsMessage, OtherEvent)
   }
 
-  /// A start or a message from a person.
-  pure def isPersonsEvent(kind: EventKind): bool = kind == Start or kind == PersonsMessage
-
   /// A start, from a person or not.
   pure def isStart(kind: EventKind): bool = kind == Start or kind == StartWithoutAPerson
+
+  /// A start, from a person or not, or a person's message. It creates the next workflow, and it
+  /// takes over a create that did not return.
+  pure def isStartOrPersonsMessage(kind: EventKind): bool = isStart(kind) or kind == PersonsMessage
 
   pure def sourceOf(key: Key): Source = match key {
     | Thread => ChatThread
@@ -328,6 +331,10 @@ module routerBindings {
   pure def isCreating(phase: DeliveryPhase): bool = match phase { | Creating(_) => true | _ => false }
 
   pure def isAbandoning(phase: DeliveryPhase): bool = match phase { | Abandoning(_) => true | _ => false }
+
+  pure def isClaiming(phase: DeliveryPhase): bool = match phase { | Claiming(_) => true | _ => false }
+
+  pure def isTakingOver(phase: DeliveryPhase): bool = match phase { | TakingOver(_) => true | _ => false }
 
   pure def boundOf(state: World, key: Key): Bound =
     if (state.bindings.keys().contains(key)) BoundTo(state.bindings.get(key)) else Unbound
@@ -416,13 +423,13 @@ module routerBindings {
     | NothingReplaced => NoPredecessor
   }
 
-  /// The route is read. A person's start, or a person's message on a binding whose workflow ended,
-  /// starts the next workflow by claiming the binding whose workflow ended, else the first binding.
-  /// The workflow that ended there is the next workflow's predecessor. Every other event is
-  /// dropped, a start without a person too.
+  /// The route is read. A start, from a person or not, or a person's message on a binding whose
+  /// workflow ended, creates the next workflow by claiming the binding whose workflow ended, else
+  /// the first binding. The workflow that ended there is the next workflow's predecessor. Every
+  /// other event is dropped.
   pure def decideRoute(state: World, id: int, delivery: Delivery): World = {
-    val startsNext = delivery.kind == Start or (delivery.kind == PersonsMessage and delivery.replaced != NothingReplaced)
-    if (not(startsNext)) finishDelivery(state, id)
+    val createsNext = isStart(delivery.kind) or (delivery.kind == PersonsMessage and delivery.replaced != NothingReplaced)
+    if (not(createsNext)) finishDelivery(state, id)
     else {
       val workflow = state.nextWorkflow
       val claiming = {
@@ -470,18 +477,19 @@ module routerBindings {
   }
 
   /// What the Durable Object of the joined workflow answers. It refuses every event before its
-  /// create returned, and a person's event once it ended.
+  /// create returned, and a start or a person's message once it ended.
   pure def tookEvent(state: World, delivery: Delivery, workflow: int): bool = {
     val object = objectOf(state, workflow)
-    object.created and not(object.ended and isPersonsEvent(delivery.kind))
+    object.created and not(object.ended and isStartOrPersonsMessage(delivery.kind))
   }
 
-  /// A workflow not created yet refuses the event. A person's event takes its create over, and the
-  /// delivery drops every other event. A workflow that ended refuses a person's event, and the route
-  /// goes on from the next binding. A start it took, from a person or not, rebinds.
+  /// A workflow not created yet refuses the event. A start or a person's message takes its create
+  /// over, and the delivery drops every other event. A workflow that ended refuses a start or a
+  /// person's message, and the route goes on from the next binding. A start it took, from a person
+  /// or not, rebinds.
   pure def afterHandle(state: World, id: int, delivery: Delivery, workflow: int): World = {
     val object = objectOf(state, workflow)
-    if (not(object.created) and isPersonsEvent(delivery.kind)) withDelivery(state, id, { ...delivery, phase: TakingOver(workflow) })
+    if (not(object.created) and isStartOrPersonsMessage(delivery.kind)) withDelivery(state, id, { ...delivery, phase: TakingOver(workflow) })
     else if (not(object.created)) finishDelivery(state, id)
     else if (not(tookEvent(state, delivery, workflow))) {
       val replaced = if (delivery.replaced == NothingReplaced) ReplacedAt(delivery.joined) else delivery.replaced
@@ -722,7 +730,7 @@ module routerBindings {
     }
     val reachedBeforeCreate = match delivery.phase {
       | Handling(workflow) =>
-          if (isPersonsEvent(delivery.kind) and not(objectOf(before, workflow).created)) Set(workflow) else Set()
+          if (isStartOrPersonsMessage(delivery.kind) and not(objectOf(before, workflow).created)) Set(workflow) else Set()
       | _ => Set()
     }
     val predecessors = match delivery.phase {
@@ -745,10 +753,10 @@ module routerBindings {
       movedBindings: past.movedBindings.union(movedFromRunning(before, after)),
       predecessors: predecessors,
       eventsBeforeCreate: past.eventsBeforeCreate.union(took.filter(workflow => not(objectOf(before, workflow).created))),
-      messagesOnEndedWorkflows:
-        if (isPersonsEvent(delivery.kind))
-          past.messagesOnEndedWorkflows.union(took.filter(workflow => objectOf(before, workflow).ended))
-        else past.messagesOnEndedWorkflows,
+      startsOrMessagesOnEndedWorkflows:
+        if (isStartOrPersonsMessage(delivery.kind))
+          past.startsOrMessagesOnEndedWorkflows.union(took.filter(workflow => objectOf(before, workflow).ended))
+        else past.startsOrMessagesOnEndedWorkflows,
       batch: if (closes) { ...batch, open: false } else batch,
       lastBatch: if (closes) { ...batch, open: false, after: observe(after) } else past.lastBatch,
     }
@@ -779,9 +787,9 @@ module routerBindings {
     }
     val routed = if (kind == BaseMoved) Set() else Set(surface)
     val batch = if (history.batch.open)
-        { ...history.batch, surfaces: history.batch.surfaces.union(routed), personWrote: history.batch.personWrote or isPersonsEvent(kind) }
+        { ...history.batch, surfaces: history.batch.surfaces.union(routed), startOrMessage: history.batch.startOrMessage or isStartOrPersonsMessage(kind) }
       else
-        { ...EMPTY_BATCH, open: true, surfaces: routed, personWrote: isPersonsEvent(kind), before: observe(world) }
+        { ...EMPTY_BATCH, open: true, surfaces: routed, startOrMessage: isStartOrPersonsMessage(kind), before: observe(world) }
     all {
       world.deliveries.keys().size() < MAX_DELIVERIES,
       world' = { ...withDelivery(world, world.nextDelivery, delivery), nextDelivery: world.nextDelivery + 1 },
@@ -1028,24 +1036,25 @@ module routerBindings {
   }
 
   /// The deliveries of `batch` overlapped on `surface` alone, with no workflow work, no failed
-  /// create and no end of the router's invocation among them. A person wrote, and the bindings of
-  /// the surface pointed only at workflows that ended.
-  pure def personWroteOnlyAfterAnEnd(batch: Batch, surface: Surface): bool = and {
+  /// create and no end of the router's invocation among them. A start or a person's message
+  /// arrived, and the bindings of the surface pointed only at workflows that ended.
+  pure def startOrMessageOnlyAfterAnEnd(batch: Batch, surface: Surface): bool = and {
     batch.surfaces.size() == 1,
     batch.quiet,
     not(batch.createFailed),
     not(batch.routerDied),
-    batch.personWrote,
+    batch.startOrMessage,
     onlyEndedWorkflowsBound(batch.before, surface),
   }
 
-  /// A person's message on a binding whose workflow ended starts exactly one new workflow, and the
-  /// binding then points at it. It is checked on the deliveries of one surface that overlap, with
-  /// no workflow work, no failed create and no end of the router's invocation among them.
-  val messageAfterEndStartsNextWorkflow: bool = {
+  /// A start, from a person or not, or a person's message, on a binding whose workflow ended
+  /// creates exactly one new workflow, and the binding then points at it. It is checked on the
+  /// deliveries of one surface that overlap, with no workflow work, no failed create and no end of
+  /// the router's invocation among them.
+  val aStartOrMessageAfterEndCreatesTheNextWorkflow: bool = {
     val batch = history.lastBatch
     batch.surfaces.forall(surface =>
-      personWroteOnlyAfterAnEnd(batch, surface) implies and {
+      startOrMessageOnlyAfterAnEnd(batch, surface) implies and {
         batch.created.size() == 1,
         batch.created.forall(started =>
           endedKeysIn(batch.before, surface).forall(key => batch.after.get(key).bound == BoundTo(started))),
@@ -1055,10 +1064,10 @@ module routerBindings {
   /// A delivery never moves or removes a binding that points at a running workflow.
   val aDeliveryLeavesTheBindingsOfARunningWorkflow: bool = history.movedBindings.size() == 0
 
-  /// A person's start or message that reaches a workflow whose create has not returned leaves that
-  /// workflow created once the deliveries that overlapped it end. It is checked when no create among
-  /// them threw and the router's invocation did not end mid-create.
-  val aPersonsEventCreatesTheWorkflowItFindsUncreated: bool = {
+  /// A start, from a person or not, or a person's message that reaches a workflow whose create has
+  /// not returned leaves that workflow created once the deliveries that overlapped it end. It is
+  /// checked when no create among them threw and the router's invocation did not end mid-create.
+  val aStartOrMessageCreatesTheWorkflowItFindsUncreated: bool = {
     val batch = history.lastBatch
     val excused = batch.createFailed or batch.routerDied
     not(excused) implies batch.reachedBeforeCreate.forall(workflow => objectOf(world, workflow).created)
@@ -1105,8 +1114,9 @@ module routerBindings {
   val oneRunningWorkflowHasAJobOnAnIssue: bool =
     world.objects.keys().filter(workflow => isRunning(world, workflow) and objectOf(world, workflow).hasIssueJob).size() <= 1
 
-  /// A person's message never reaches a workflow that ended. It starts the next workflow instead.
-  val aPersonsMessageNeverReachesAnEndedWorkflow: bool = history.messagesOnEndedWorkflows.size() == 0
+  /// A start, from a person or not, or a person's message never reaches a workflow that ended. It
+  /// creates the next workflow instead.
+  val aStartOrMessageNeverReachesAnEndedWorkflow: bool = history.startsOrMessagesOnEndedWorkflows.size() == 0
 
   /// A base move only hands the event to the workflows with a pull request bound. It never starts
   /// a workflow or moves a binding.
@@ -1126,21 +1136,21 @@ module routerBindings {
   }
 
   /// A binding points at a workflow whose create never returned, and no delivery creates it: the
-  /// router's invocation ended mid-create, or the create after a takeover threw. A person's next
-  /// event on the binding takes the create over.
-  pure def createLeftToAPersonsEvent(state: World, workflow: int): bool = and {
+  /// router's invocation ended mid-create, or the create after a takeover threw. The next start or
+  /// person's message on the binding takes the create over.
+  pure def createLeftToTheNextStartOrMessage(state: World, workflow: int): bool = and {
     not(objectOf(state, workflow).created),
     state.bindings.keys().exists(key => state.bindings.get(key) == workflow),
   }
 
   /// A write to the workflow's row is out or ahead: the status write of its end, the router's
-  /// create of it, or a create a person's next event takes over.
+  /// create of it, or a create the next start or person's message takes over.
   pure def rowWriteAhead(state: World, workflow: int): bool = or {
     state.operations.keys().exists(id =>
       state.operations.get(id).workflow == workflow and state.operations.get(id).phase == EndWritesStatus),
     state.deliveries.keys().exists(id =>
       targetsOf(state.deliveries.get(id).phase).contains(workflow) and routerCreatesOrAbandons(state.deliveries.get(id).phase)),
-    createLeftToAPersonsEvent(state, workflow),
+    createLeftToTheNextStartOrMessage(state, workflow),
   }
 
   /// Once neither the workflow's end nor a create of it has a status write out or ahead, the
@@ -1175,7 +1185,7 @@ module routerBindings {
       | _ => false
     })
 
-  /// A delivery hands a person's event to a workflow that ended.
+  /// A delivery hands a start or a person's message to a workflow that ended.
   val aDeliveryReachesAnEndedWorkflow: bool =
     world.deliveries.keys().exists(id => match world.deliveries.get(id).phase {
       | Handling(workflow) => world.deliveries.get(id).kind != OtherEvent and objectOf(world, workflow).ended
@@ -1186,31 +1196,33 @@ module routerBindings {
   val aStartRebindsItsBindings: bool =
     world.deliveries.keys().exists(id => isRebinding(world.deliveries.get(id).phase))
 
-  /// Witness for `messageAfterEndStartsNextWorkflow`: a person's message on an ended binding started the next workflow.
-  val aMessageAfterEndStartedTheNextWorkflow: bool = {
+  /// Witness for `aStartOrMessageAfterEndCreatesTheNextWorkflow`: a start or a person's message on
+  /// an ended binding created the next workflow.
+  val aStartOrMessageAfterEndCreatedTheNextWorkflow: bool = {
     val batch = history.lastBatch
     and {
-      batch.personWrote,
+      batch.startOrMessage,
       batch.created.size() == 1,
       batch.surfaces.forall(surface => keySet(keysOf(surface)).exists(key => batch.before.get(key).ended)),
     }
   }
 
-  /// Witness for `messageAfterEndStartsNextWorkflow`: a person's deliveries on one surface ended
-  /// with a failed create, and the router put the bindings back on the workflow that ended. A retry
-  /// of the person's message now meets the rule's premise.
+  /// Witness for `aStartOrMessageAfterEndCreatesTheNextWorkflow`: deliveries of a start or a
+  /// person's message on one surface ended with a failed create, and the router put the bindings
+  /// back on the workflow that ended. A retry of the event now meets the rule's premise.
   val aRetryAfterAFailedCreateFindsTheEndedWorkflow: bool = {
     val batch = history.lastBatch
     and {
       not(history.batch.open),
       batch.createFailed,
-      batch.personWrote,
+      batch.startOrMessage,
       batch.surfaces.size() == 1,
       batch.surfaces.exists(surface => onlyEndedWorkflowsBound(observe(world), surface)),
     }
   }
 
-  /// Witness for `messageAfterEndStartsNextWorkflow`: three deliveries from one surface run at once.
+  /// Witness for `aStartOrMessageAfterEndCreatesTheNextWorkflow`: three deliveries from one surface
+  /// run at once.
   val threeDeliveriesOverlapOnOneSurface: bool = and {
     world.deliveries.keys().size() == 3,
     world.deliveries.keys().map(id => world.deliveries.get(id).surface).size() == 1,
@@ -1266,9 +1278,10 @@ module routerBindings {
   /// of a workflow end, and the new instance writes it again.
   val aRestartCutTheEndStatusWrite: bool = stepWitnesses.restartCutTheEndStatusWrite
 
-  /// Witness for `aPersonsEventCreatesTheWorkflowItFindsUncreated`: a person's event found a
-  /// workflow that a binding pointed at, uncreated, before its deliveries began, and created it.
-  val aPersonsEventCreatedAWorkflowTheRouterLeft: bool = {
+  /// Witness for `aStartOrMessageCreatesTheWorkflowItFindsUncreated`: a start or a person's message
+  /// found a workflow that a binding pointed at, uncreated, before its deliveries began, and
+  /// created it.
+  val aStartOrMessageCreatedAWorkflowTheRouterLeft: bool = {
     val batch = history.lastBatch
     and {
       not(batch.createFailed),
@@ -1291,17 +1304,35 @@ module routerBindings {
   val aRouterDeathCutARebind: bool = stepWitnesses.routerEndedARebind
 
   /// Witness for `aDeliveryLeavesTheBindingsOfARunningWorkflow`: the abandon of a create that threw
-  /// found that a person's event took the create over, and kept its bindings.
+  /// found that a start or a person's message took the create over, and kept its bindings.
   val anAbandonFoundATakeover: bool = stepWitnesses.abandonFoundATakeover
 
   /// Witness for `aWorkflowHearsOfItsPredecessor`: the create after a takeover named the predecessor
   /// the router recorded.
   val aTakeoverNamedThePredecessor: bool = stepWitnesses.takeoverNamedAPredecessor
 
-  /// Witness for `aPersonsMessageNeverReachesAnEndedWorkflow`: a person wrote on a binding whose workflow ended.
+  /// Witness for `aStartOrMessageNeverReachesAnEndedWorkflow`: a person wrote on a binding whose
+  /// workflow ended.
   val aPersonWroteAfterAnEnd: bool =
     world.deliveries.keys().exists(id => and {
       world.deliveries.get(id).kind == PersonsMessage,
       world.deliveries.get(id).replaced != NothingReplaced,
+    })
+
+  /// Witness for `aStartOrMessageAfterEndCreatesTheNextWorkflow`: a start without a person on a
+  /// binding whose workflow ended claims that binding for the next workflow.
+  val aStartWithoutAPersonFollowsAnEnd: bool =
+    world.deliveries.keys().exists(id => and {
+      world.deliveries.get(id).kind == StartWithoutAPerson,
+      world.deliveries.get(id).replaced != NothingReplaced,
+      isClaiming(world.deliveries.get(id).phase),
+    })
+
+  /// Witness for `aStartOrMessageCreatesTheWorkflowItFindsUncreated`: a start without a person
+  /// takes over a create that did not return.
+  val aStartWithoutAPersonTakesACreateOver: bool =
+    world.deliveries.keys().exists(id => and {
+      world.deliveries.get(id).kind == StartWithoutAPerson,
+      isTakingOver(world.deliveries.get(id).phase),
     })
 }

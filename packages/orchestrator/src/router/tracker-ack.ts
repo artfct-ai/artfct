@@ -7,7 +7,7 @@ import type {
 /** The ephemeral thought a session gets before a workflow reads anything. */
 const ON_IT = "On it. Reading the issue.";
 
-/** Posted on a session nobody opened when no workflow is working on its issue. */
+/** Posted on a session when a person's prompt or status question finds no workflow on its issue. */
 export const NOTHING_TO_JOIN =
   "No workflow is working on this issue. Delegate it to me or mention me to start one.";
 

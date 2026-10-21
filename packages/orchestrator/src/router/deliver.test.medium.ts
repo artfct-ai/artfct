@@ -357,20 +357,6 @@ describe("deliver a start event", () => {
     });
   });
 
-  describe("a start without an authorized actor", () => {
-    beforeEach(async () => {
-      delivery = await deliver(env, { ...slackStart, id: "evt-anon", actor: null });
-    });
-
-    it("drops it", () => {
-      expect(delivery).toEqual({ dropped: "no actor to start a workflow for" });
-    });
-
-    it("binds nothing", async () => {
-      expect(await listBindings(db)).toEqual([]);
-    });
-  });
-
   describe("a start whose bindings reach an existing workflow", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_join");
@@ -528,34 +514,36 @@ describe("deliver a Linear session start", () => {
     });
   });
 
-  describe("a session nobody opened, on an issue no workflow claimed", () => {
+  describe("a session the app opened itself, on an issue no workflow claimed", () => {
+    let workflowId: string;
+
     beforeEach(async () => {
       delivery = await deliver(
         env,
         { ...linearStart, id: "evt-linear-unowned", actor: null },
         tracker,
       );
+      workflowId = workflowIdOf(delivery);
+      await stopTurnAndReadLog(workflowId);
     });
 
-    it("drops it", () => {
-      expect(delivery).toEqual({ dropped: "no actor to start a workflow for" });
+    it("creates the workflow", () => {
+      expect(delivery).toMatchObject({ created: true, result: { ok: true } });
     });
 
-    it("tells the session that no workflow is working on the issue", () => {
+    it("tells the session only that it is on it", () => {
       expect(activities(tracker)).toEqual([
         ["sess-7", { type: "thought", body: "On it. Reading the issue." }],
-        [
-          "sess-7",
-          {
-            type: "error",
-            body: "No workflow is working on this issue. Delegate it to me or mention me to start one.",
-          },
-        ],
       ]);
     });
 
-    it("binds nothing", async () => {
-      expect(await listBindings(db)).toEqual([]);
+    it("binds the issue and the session to the workflow", async () => {
+      expect(await findBinding(db, { source: "tracker_issue", external_id: "ISS-7" })).toBe(
+        workflowId,
+      );
+      expect(await findBinding(db, { source: "tracker_session", external_id: "sess-7" })).toBe(
+        workflowId,
+      );
     });
   });
 
@@ -592,7 +580,9 @@ describe("deliver a Linear session start", () => {
     });
   });
 
-  describe("a session nobody opened, on an issue a finished workflow claimed", () => {
+  describe("a session the app opened itself, on an issue a finished workflow claimed", () => {
+    let workflowId: string;
+
     beforeEach(async () => {
       await createWorkflow(db, "wf_linear_idle");
       await seedBinding({ source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_idle");
@@ -602,15 +592,18 @@ describe("deliver a Linear session start", () => {
         { ...linearStart, id: "evt-linear-idle", actor: null },
         tracker,
       );
+      workflowId = workflowIdOf(delivery);
+      await stopTurnAndReadLog(workflowId);
     });
 
-    it("drops it", () => {
-      expect(delivery).toEqual({ dropped: "no actor to start a workflow for" });
+    it("creates the next workflow", () => {
+      expect(delivery).toMatchObject({ created: true, result: { ok: true } });
+      expect(workflowId).not.toBe("wf_linear_idle");
     });
 
-    it("leaves the issue bound to the finished workflow", async () => {
+    it("moves the issue to the next workflow", async () => {
       expect(await findBinding(db, { source: "tracker_issue", external_id: "ISS-7" })).toBe(
-        "wf_linear_idle",
+        workflowId,
       );
     });
   });

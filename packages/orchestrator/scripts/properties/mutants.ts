@@ -600,14 +600,14 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "R1",
-    invariant: "routerBindings::messageAfterEndStartsNextWorkflow (claim)",
+    invariant: "routerBindings::aStartOrMessageAfterEndCreatesTheNextWorkflow (claim)",
     path: "src/router/deliver.ts",
     find: "    if (!claimWon) return follow(",
     replace: "    if (!(claimWon || true)) return follow(",
   },
   {
     id: "R2",
-    invariant: "routerBindings::messageAfterEndStartsNextWorkflow (bind all)",
+    invariant: "routerBindings::aStartOrMessageAfterEndCreatesTheNextWorkflow (bind all)",
     path: "src/router/deliver.ts",
     find: "    if (index === claimedIndex) continue;\n    const previous = bound.workflowId;",
     replace:
@@ -643,10 +643,28 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W420",
-    invariant: "routerBindings::aPersonsEventCreatesTheWorkflowItFindsUncreated",
+    invariant: "routerBindings::aStartOrMessageCreatesTheWorkflowItFindsUncreated",
     path: "src/router/deliver.ts",
-    find: "        return isPersonsStartOrMessage(event)\n",
+    find: "        return isStartOrPersonsMessage(event)\n",
     replace: "        return false\n",
+  },
+  {
+    id: "W298",
+    invariant:
+      "routerBindings::aStartOrMessageCreatesTheWorkflowItFindsUncreated (person-only takeover)",
+    path: "src/router/deliver.ts",
+    find: '  return event.kind === "start" || (event.kind === "prompt" && event.actor !== null);\n',
+    replace:
+      '  return event.actor !== null && (event.kind === "start" || event.kind === "prompt");\n',
+  },
+  {
+    id: "W299",
+    invariant:
+      "routerBindings::aStartOrMessageAfterEndCreatesTheNextWorkflow (start without a person dropped)",
+    path: "src/router/deliver.ts",
+    find: '  return { kind: "create", bound: read.bound, replaced };\n',
+    replace:
+      '  if (!event.actor) return { kind: "drop", reason: "no actor" };\n  return { kind: "create", bound: read.bound, replaced };\n',
   },
   {
     id: "W421",
@@ -973,11 +991,18 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W173",
-    invariant: "routerBindings::aPersonsMessageNeverReachesAnEndedWorkflow",
+    invariant: "routerBindings::aStartOrMessageNeverReachesAnEndedWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (isWorkflowFinished(status) && isMessage(event)) return { refused: "ended", status };',
-    replace:
-      '  if (isWorkflowFinished(status) && event.kind === "start") return { refused: "ended", status };',
+    find: '  const opensNext = event.kind === "start" || isMessage(event);\n',
+    replace: '  const opensNext = event.kind === "start";\n',
+  },
+  {
+    id: "W322",
+    invariant:
+      "routerBindings::aStartOrMessageNeverReachesAnEndedWorkflow (start without a person)",
+    path: "src/workflow/inbound/events.ts",
+    find: '  const opensNext = event.kind === "start" || isMessage(event);\n',
+    replace: "  const opensNext = isMessage(event);\n",
   },
   {
     id: "W174",

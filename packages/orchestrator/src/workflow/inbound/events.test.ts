@@ -10,7 +10,7 @@ import {
   seedPullRequestTask,
   seedTask,
 } from "../../../test/fake-runtime";
-import { freshRuntime } from "../../../test/fresh-runtime";
+import { freshRuntime, uncreatedRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
 import { openMemoryDb } from "../../../test/memory-db";
 import { testEnv } from "../../../test/test-env";
@@ -131,7 +131,7 @@ describe("a message a person wrote", () => {
   };
 
   describe("that starts the workflow in a chat thread", () => {
-    const started = scenario(freshRuntime, async (workflow) => {
+    const started = scenario(uncreatedRuntime, async (workflow) => {
       await createWorkflow(workflow, { workflowId: "wf_x", event: START, endedWorkflowId: null });
     });
 
@@ -145,6 +145,34 @@ describe("a message a person wrote", () => {
     it("keeps the words the person wrote", () =>
       started((workflow) => {
         expect(workflow.notes.map((note) => note.from?.body)).toEqual(["fix the flaky test"]);
+      }));
+  });
+
+  describe("that starts the workflow from a tracker session the app opened itself", () => {
+    const started = scenario(uncreatedRuntime, async (workflow) => {
+      await createWorkflow(workflow, {
+        workflowId: "wf_x",
+        event: {
+          id: "evt-app-session",
+          kind: "start",
+          actor: null,
+          bindings: [],
+          links: [],
+          text: "fix the flaky test",
+          reply_to: SESSION,
+        },
+        endedWorkflowId: null,
+      });
+    });
+
+    it("records the request", () =>
+      started((workflow) => {
+        expect(workflow.store.workflowRow()?.request_text).toBe("fix the flaky test");
+      }));
+
+    it("runs an unprompted first turn", () =>
+      started((workflow) => {
+        expect(workflow.notes.map((note) => note.from)).toEqual([undefined]);
       }));
   });
 
@@ -379,6 +407,11 @@ describe("eventRefusalOf", () => {
 
     it("takes an event nobody wrote", () => {
       expect(eventRefusalOf(workflow, STATUS)).toBeNull();
+    });
+
+    it("refuses a start without a person with its status", () => {
+      const start: InboundEvent = { ...PROMPT, id: "evt-start", kind: "start", actor: null };
+      expect(eventRefusalOf(workflow, start)).toEqual({ refused: "ended", status: "done" });
     });
   });
 

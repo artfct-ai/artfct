@@ -17,3 +17,8 @@ export const unstartedRuntime: Scenario<FakeRuntime> = async (run) => {
   createFakeWorkflow(workflow);
   await run(workflow);
 };
+
+/** A fresh fake runtime whose create has not run: it has no workflow row. */
+export const uncreatedRuntime: Scenario<FakeRuntime> = async (run) => {
+  await run(new FakeRuntime(openMemoryDb(), testEnv(), "uncreated"));
+};

@@ -39,8 +39,8 @@ export async function applyEvent(
 /**
  * Text a person wrote. A reply in a job session whose author runs goes to that author. A leading
  * verbal command runs here when one job clearly owns it. Anything else goes to the agent. A start
- * with no actor is a tracker session to adopt. Any other text with no actor has no person behind
- * it and is dropped.
+ * with no actor that reaches a running workflow is a tracker session to adopt. Any other text with
+ * no actor has no person behind it and is dropped.
  */
 async function onHumanText(
   workflow: WorkflowRuntime,
@@ -84,7 +84,7 @@ export function verbalCommandToRun(
   return parsed.control === "cancel" || active === 1 ? parsed : null;
 }
 
-/** A session nobody opened becomes a reply target. The orchestrator does not post in it. */
+/** A session the app opened itself becomes a reply target. The orchestrator does not post in it. */
 async function adoptSession(workflow: WorkflowRuntime, event: InboundEvent): Promise<"handled"> {
   const issue = event.reply_to?.source === "tracker" ? event.reply_to.issue_id : "the issue";
   await workflow.tellAgent(

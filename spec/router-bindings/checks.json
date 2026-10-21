@@ -1,15 +1,15 @@
 {
   "invariants": [
-    "messageAfterEndStartsNextWorkflow",
+    "aStartOrMessageAfterEndCreatesTheNextWorkflow",
     "aDeliveryLeavesTheBindingsOfARunningWorkflow",
     "aWorkflowGetsEventsOnlyOnceCreated",
     "anAbandonedWorkflowKeepsNoBinding",
     "anEndedWorkflowKeepsNoCodeHostBinding",
     "oneRunningWorkflowHasAJobOnAnIssue",
-    "aPersonsMessageNeverReachesAnEndedWorkflow",
+    "aStartOrMessageNeverReachesAnEndedWorkflow",
     "aBaseMoveOnlyHandsTheEventOn",
     "theRouterRowMatchesTheWorkflowEnd",
-    "aPersonsEventCreatesTheWorkflowItFindsUncreated",
+    "aStartOrMessageCreatesTheWorkflowItFindsUncreated",
     "aRecordedPullRequestIsBoundToItsWorkflow",
     "aBindingStaysBoundThroughItsDeliveries",
     "aWorkflowHearsOfItsPredecessor"
@@ -26,16 +26,18 @@
       "aDeliveryJoinsAWorkflow",
       "aDeliveryReachesAWorkflowBeforeItsCreate",
       "aDeliveryReachesAnEndedWorkflow",
-      "aMessageAfterEndStartedTheNextWorkflow",
+      "aStartOrMessageAfterEndCreatedTheNextWorkflow",
       "aRetryAfterAFailedCreateFindsTheEndedWorkflow",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
       "aRestartCutTheEndStatusWrite",
       "aPersonWroteAfterAnEnd",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft",
+      "aStartOrMessageCreatedAWorkflowTheRouterLeft",
       "aRouterDeathCutAnAbandon",
       "anAbandonFoundATakeover",
-      "aTakeoverNamedThePredecessor"
+      "aTakeoverNamedThePredecessor",
+      "aStartWithoutAPersonFollowsAnEnd",
+      "aStartWithoutAPersonTakesACreateOver"
     ],
     "twoSessionsOnOneIssue": [
       "aWorkflowStarted",
@@ -52,7 +54,7 @@
       "aPersonWroteAfterAnEnd",
       "aStartWithoutAPersonRebinds",
       "threeDeliveriesOverlapOnOneSurface",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft",
+      "aStartOrMessageCreatedAWorkflowTheRouterLeft",
       "aRouterDeathCutAnAbandon",
       "aRouterDeathCutARebind"
     ],
@@ -69,7 +71,7 @@
       "thePullRequestIsBound",
       "aPersonWroteAfterAnEnd",
       "aStartWithoutAPersonRebinds",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft",
+      "aStartOrMessageCreatedAWorkflowTheRouterLeft",
       "aRestartCutThePullRequestBind",
       "aRouterDeathCutAnAbandon",
       "aRouterDeathCutARebind"
