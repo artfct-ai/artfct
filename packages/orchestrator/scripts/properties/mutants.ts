@@ -50,8 +50,8 @@ export const MUTANTS: Mutant[] = [
     id: "W3",
     invariant: "workflowLifecycle::nothingReopensAFinishedWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: "  const settled = workflow.store.workflowFinished() && !asksTheAgent(event);\n",
-    replace: "  const settled = workflow.store.workflowFinished() && !isMessage(event);\n",
+    find: "  return workflow.store.workflowFinished() && !asksTheAgent(event);\n",
+    replace: "  return workflow.store.workflowFinished() && !isMessage(event);\n",
   },
   {
     id: "W4",
@@ -2259,9 +2259,9 @@ export const MUTANTS: Mutant[] = [
     id: "W405",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow (a message during an end)",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (!settled) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n",
+    find: "  if (!answeredAsFinished(workflow, event)) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n",
     replace:
-      '  if (isMessage(event) && workflow.store.workflowRow()?.status === "ending")\n    await changeWorkflowStatus(workflow, "running");\n  if (!settled) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n',
+      '  if (isMessage(event) && workflow.store.workflowRow()?.status === "ending")\n    await changeWorkflowStatus(workflow, "running");\n  if (!answeredAsFinished(workflow, event)) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n',
   },
   {
     id: "W395",
