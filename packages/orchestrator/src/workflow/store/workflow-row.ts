@@ -1,6 +1,6 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { WorkflowStatus } from "@artfct-ai/contracts/types";
-import { desc, eq, ne } from "drizzle-orm";
+import { desc, eq, ne, sql } from "drizzle-orm";
 import { BoardStore } from "../board/board-store";
 import { replyTargetKey } from "./reply-target-key";
 import {
@@ -68,9 +68,47 @@ function subjectTrackerId(subject: Subject): string {
  * turn record of the conversation.
  */
 export class WorkflowRowStore extends BoardStore {
+  private readonly openedConversation = this.db.select().from(conversation).prepare();
+  private readonly unendedWorkflow = this.db
+    .select()
+    .from(workflows)
+    .where(ne(workflows.status, "ended"))
+    .prepare();
+  private readonly newestWorkflow = this.db
+    .select()
+    .from(workflows)
+    .orderBy(desc(workflows.created_at))
+    .prepare();
+  private readonly endOfWorkflow = this.db
+    .select({
+      ends_as: workflowEnd.ends_as,
+      reason: workflowEnd.reason,
+      answering: workflowEnd.answering,
+      posted: workflowEnd.posted,
+    })
+    .from(workflowEnd)
+    .where(eq(workflowEnd.workflow_id, sql.placeholder("workflowId")))
+    .prepare();
+  private readonly stagePlanOfWorkflow = this.db
+    .select({
+      stages: stagePlan.stages,
+      job_slots: stagePlan.job_slots,
+      page_parent: stagePlan.page_parent,
+      root_page: stagePlan.root_page,
+    })
+    .from(stagePlan)
+    .where(eq(stagePlan.workflow_id, sql.placeholder("workflowId")))
+    .prepare();
+  private readonly subjectOfWorkflow = this.db
+    .select()
+    .from(workflowSubject)
+    .where(eq(workflowSubject.workflow_id, sql.placeholder("workflowId")))
+    .prepare();
+  private readonly agentTurnRecord = this.db.select().from(agentTurn).prepare();
+
   /** The conversation. Null before the event that opens it. */
   conversation(): ConversationRow | null {
-    return this.db.select().from(conversation).get() ?? null;
+    return this.openedConversation.get() ?? null;
   }
 
   /** The conversation, or throw. For code paths that run only once it was opened. */
@@ -91,16 +129,12 @@ export class WorkflowRowStore extends BoardStore {
 
   /** The one workflow of the conversation that has not ended. Null before the first and after the end. */
   activeWorkflow(): WorkflowRow | null {
-    return this.db.select().from(workflows).where(ne(workflows.status, "ended")).get() ?? null;
+    return this.unendedWorkflow.get() ?? null;
   }
 
   /** The active workflow, else the last one that ended. Null before the first workflow. */
   workflowRow(): WorkflowRow | null {
-    return (
-      this.activeWorkflow() ??
-      this.db.select().from(workflows).orderBy(desc(workflows.created_at)).get() ??
-      null
-    );
+    return this.activeWorkflow() ?? this.newestWorkflow.get() ?? null;
   }
 
   /** The workflow, or throw. For code paths that run only once a plan created it. */
@@ -140,14 +174,7 @@ export class WorkflowRowStore extends BoardStore {
   workflowEnd(): WorkflowEnd | null {
     const workflow = this.workflowRow();
     if (!workflow) return null;
-    const { ends_as, reason, answering, posted } = workflowEnd;
-    return (
-      this.db
-        .select({ ends_as, reason, answering, posted })
-        .from(workflowEnd)
-        .where(eq(workflowEnd.workflow_id, workflow.workflow_id))
-        .get() ?? null
-    );
+    return this.endOfWorkflow.get({ workflowId: workflow.workflow_id }) ?? null;
   }
 
   /** Start the end: record it and move the workflow to `ending`, so a restart goes on with it. */
@@ -173,14 +200,7 @@ export class WorkflowRowStore extends BoardStore {
   stagePlan(): StagePlan | null {
     const workflow = this.workflowRow();
     if (!workflow) return null;
-    const { stages, job_slots, page_parent, root_page } = stagePlan;
-    return (
-      this.db
-        .select({ stages, job_slots, page_parent, root_page })
-        .from(stagePlan)
-        .where(eq(stagePlan.workflow_id, workflow.workflow_id))
-        .get() ?? null
-    );
+    return this.stagePlanOfWorkflow.get({ workflowId: workflow.workflow_id }) ?? null;
   }
 
   /** Write the stage plan, or replace the one a former plan wrote. */
@@ -196,11 +216,7 @@ export class WorkflowRowStore extends BoardStore {
   subject(): Subject | null {
     const workflow = this.workflowRow();
     if (!workflow) return null;
-    const row = this.db
-      .select()
-      .from(workflowSubject)
-      .where(eq(workflowSubject.workflow_id, workflow.workflow_id))
-      .get();
+    const row = this.subjectOfWorkflow.get({ workflowId: workflow.workflow_id });
     return row ? subjectOf(row) : null;
   }
 
@@ -218,7 +234,7 @@ export class WorkflowRowStore extends BoardStore {
 
   /** The agent turn record. Null while no turn runs or waits to resume. */
   agentTurn(): AgentTurnRow | null {
-    return this.db.select().from(agentTurn).get() ?? null;
+    return this.agentTurnRecord.get() ?? null;
   }
 
   /** Record the turn that starts, in place of the lost turn it resumes. */
