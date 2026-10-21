@@ -138,7 +138,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W15",
-    invariant: "workflowLifecycle::workflowStartsOnlyFromAPlan",
+    invariant: "workflowLifecycle::aWorkflowExistsOnlyFromAPlan",
     path: "src/agent/tools/start/start.ts",
     find: "        const notStarted = validateWorkflowStarted(workflow);",
     replace: "        const notStarted: string | null = null;",
@@ -900,7 +900,7 @@ export const MUTANTS: Mutant[] = [
     id: "W191",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (active.status === "waiting_input") await changeWorkflowStatus(workflow, "running");\n',
+    find: '  if (workflow.store.activeWorkflow()?.status === "waiting_input")\n    await changeWorkflowStatus(workflow, "running");\n',
     replace: "",
   },
   {
@@ -1226,7 +1226,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W127",
-    invariant: "workflowLifecycle::workflowKeepsItsDefinition",
+    invariant: "workflowLifecycle::oneActiveWorkflowPerConversation",
     path: "src/agent/tools/plan.ts",
     find: "  if (active === null || active.definition === named) return null;\n",
     replace: "  return null;\n",
@@ -2605,6 +2605,23 @@ export const MUTANTS: Mutant[] = [
     find: "  return context.resolveActor({ id: author.id, email: email?.toLowerCase() ?? null });\n",
     replace: "  return context.resolveActor({ id: author.id, email });\n",
     propertyFile: "../adapters/src/documents/notion/inbound.property.ts",
+  },
+  {
+    id: "W440",
+    invariant: "workflowLifecycle::workflowKeepsItsDefinition",
+    path: "src/agent/tools/plan.ts",
+    find: "  const oneActive = validateOneActiveWorkflow(active, definition.name);\n  if (oneActive) return oneActive;\n",
+    replace:
+      "  if (active && active.definition !== definition.name)\n    workflow.store.updateWorkflow({ definition: definition.name });\n",
+  },
+  {
+    id: "W441",
+    invariant:
+      "workflowLifecycle::aWorkflowExistsOnlyFromAPlan (the first event creates the workflow)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  workflow.log(null, `opened from ${event.kind}`);\n",
+    replace:
+      '  workflow.store.createWorkflow({ workflow_id: conversationId, definition: workflow.workflowDefinitions()[0]!.name, name: "opened", reason: "opened", repo: null, subject: null });\n  workflow.log(null, `opened from ${event.kind}`);\n',
   },
 ];
 

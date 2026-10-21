@@ -292,7 +292,7 @@
           "#set": []
         },
         "endingPosts": [],
-        "idleArmed": true,
+        "idleArmed": false,
         "issueMoves": {
           "#bigint": "0"
         },
@@ -317,7 +317,7 @@
           }
         },
         "status": {
-          "tag": "New",
+          "tag": "NoWorkflow",
           "value": {
             "#tup": []
           }

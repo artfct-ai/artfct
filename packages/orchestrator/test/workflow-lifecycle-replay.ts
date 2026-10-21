@@ -262,7 +262,7 @@ const STEP_MS = 10 * 60_000;
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 
 const TASK_STATUSES = ["Busy", "InReview", "TaskDone", "TaskCancelled", "TaskFailed"] as const;
-const WORKFLOW_STATUSES = ["New", "Running", "WaitingInput", "Ending", "Ended"] as const;
+const WORKFLOW_STATUSES = ["NoWorkflow", "Running", "WaitingInput", "Ending", "Ended"] as const;
 const END_STATUSES = ["Done", "Failed", "Cancelled"] as const;
 const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready", "Accepted", "Removed"] as const;
 const PULLS_ON_HOST = ["NoPull", "PullOpen", "PullMerged", "PullClosed"] as const;
@@ -960,7 +960,7 @@ export class WorkflowLifecycleReplay {
       .filter((task) => JOB_ROLES.includes(task.role))
       .map((task) => task.task_id);
     return {
-      status: created === null ? "New" : WORKFLOW_STATUS_OF[created.status],
+      status: created === null ? "NoWorkflow" : WORKFLOW_STATUS_OF[created.status],
       definition: created === null ? null : created.definition === SECOND_DEFINITION ? 1 : 0,
       jobSlots: stagePlan?.job_slots ?? null,
       subject: specSubjectOf(store.subject()),

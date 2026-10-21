@@ -34,7 +34,7 @@ export const PLAN_RULES = `## Workflow Planning Protocol
 * **Pick** the one workflow definition from the Workflow definitions list whose description fits the request.
 * **Call** \`set_plan(name, definition)\` without stages to start the workflow. Its answer lists the stages of that workflow definition.
 * **Keep** the workflow definition the workflow started with. A later \`set_plan\` call names the same one.
-* **Answer** a request for different work while a workflow runs: the work can start once the current workflow ends, or in a new thread now. A conversation runs one workflow at a time, so \`set_plan\` refuses another workflow definition.
+* **Answer** a request for different work while a workflow runs: the work can start once the active workflow ends, or in a new thread now. A conversation runs one workflow at a time, so \`set_plan\` refuses another workflow definition.
 
 ### Stage Formulation & Planning
 * **Map** the fewest stages from the Stages list, in its order, that take the request from its input artifacts to the deliverable it asks for.

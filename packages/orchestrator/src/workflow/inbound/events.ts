@@ -190,10 +190,10 @@ async function acknowledge(workflow: WorkflowRuntime, event: InboundEvent): Prom
 
 /** A message wakes a sleeping workflow and starts its idle clock over. A conversation without one has no idle clock. */
 async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
-  const active = workflow.store.activeWorkflow();
-  if (!active) return;
+  if (!workflow.store.activeWorkflow()) return;
   await armIdle(workflow);
-  if (active.status === "waiting_input") await changeWorkflowStatus(workflow, "running");
+  if (workflow.store.activeWorkflow()?.status === "waiting_input")
+    await changeWorkflowStatus(workflow, "running");
 }
 
 /**
