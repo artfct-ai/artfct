@@ -136,6 +136,12 @@ export class WorkflowStore extends WorkflowRowStore {
     .from(tasks)
     .where(and(eq(tasks.job_id, sql.placeholder("jobId")), eq(tasks.role, sql.placeholder("role"))))
     .prepare();
+  private readonly jobsOfWorkflow = this.db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.workflow_id, sql.placeholder("workflowId")))
+    .orderBy(jobs.created_at)
+    .prepare();
   private readonly jobById = this.db
     .select()
     .from(jobs)
@@ -271,12 +277,7 @@ export class WorkflowStore extends WorkflowRowStore {
   jobs(): JobRow[] {
     const workflow = this.workflowRow();
     if (!workflow) return [];
-    return this.db
-      .select()
-      .from(jobs)
-      .where(eq(jobs.workflow_id, workflow.workflow_id))
-      .orderBy(jobs.created_at)
-      .all();
+    return this.jobsOfWorkflow.all({ workflowId: workflow.workflow_id });
   }
 
   /** How many jobs the conversation started. The store never deletes a job, so it numbers the next. */
