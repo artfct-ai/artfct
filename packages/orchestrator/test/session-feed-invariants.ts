@@ -81,17 +81,20 @@ export function narrationPostsAtMostOncePerInterval(posts: FeedPost[], intervalM
 /**
  * Every narration line the author wrote posts, in the order it was written. A line posts again
  * only after a post that carried it did not land for the orchestrator. Only a line that waited as
- * the feed gave up after its quiet span may never post.
+ * the feed gave up after its quiet span may never post. A folded closing reply is not such a line.
  */
 export function everyNarrationLinePostsInOrder(
   posts: FeedPost[],
   written: string[],
   givenUp: string[],
+  folded: FoldedReply[],
 ): void {
+  const foldedBodies = new Set(folded.map((reply) => reply.body));
+  const authored = written.filter((line) => !foldedBodies.has(line));
   const posted: string[] = [];
   const unacknowledged = new Set<string>();
   for (const post of posts.filter(isNarration)) {
-    for (const line of narrationLines(post)) {
+    for (const line of narrationLines(post).filter((carried) => !foldedBodies.has(carried))) {
       if (!posted.includes(line)) posted.push(line);
       else if (!unacknowledged.has(line)) {
         violated("everyNarrationLinePostsInOrder", `the line ${line} posted twice`);
@@ -99,11 +102,11 @@ export function everyNarrationLinePostsInOrder(
       if (!post.acknowledged) unacknowledged.add(line);
     }
   }
-  const expected = written.filter((line) => posted.includes(line) || !givenUp.includes(line));
+  const expected = authored.filter((line) => posted.includes(line) || !givenUp.includes(line));
   if (posted.join("|") !== expected.join("|")) {
     violated(
       "everyNarrationLinePostsInOrder",
-      `posted ${JSON.stringify(posted)}, written ${JSON.stringify(written)}`,
+      `posted ${JSON.stringify(posted)}, written ${JSON.stringify(authored)}`,
     );
   }
 }
@@ -111,18 +114,35 @@ export function everyNarrationLinePostsInOrder(
 /** The closing reply of a turn end: its activity id, when its turn ended, and the lines before it. */
 export type ClosingTurn = { id: string; endedAt: number; linesBefore: number };
 
+/** A closing reply that folded into the narration as its author's next turn started, and when. */
+export type FoldedReply = { id: string; body: string; at: number };
+
 /**
- * Every closing reply lands. Only a reply whose tracker refused its posts from its turn end until
- * the give-up span after it may be lost. `postableAt` holds each moment the tracker took posts.
+ * Every closing reply lands: under its activity id, or as a line of the narration it folded into,
+ * unless that narration was given up. Only a reply whose tracker refused its posts from its turn
+ * end until the give-up span after it may be lost. `postableAt` holds each moment the tracker took
+ * posts.
  */
 export function everyClosingReplyLands(
   posts: FeedPost[],
   closings: ClosingTurn[],
   postableAt: number[],
   givesUpAfterMs: number,
+  folds: { folded: FoldedReply[]; givenUp: string[] },
 ): void {
   for (const closing of closings) {
     if (posts.some((post) => post.id === closing.id)) continue;
+    const fold = folds.folded.find((reply) => reply.id === closing.id);
+    if (fold) {
+      const narrated = posts.some(
+        (post) =>
+          isNarration(post) && post.at >= fold.at && narrationLines(post).includes(fold.body),
+      );
+      if (!narrated && !folds.givenUp.includes(fold.body)) {
+        violated("everyClosingReplyLands", `the folded reply ${fold.body} never posted`);
+      }
+      continue;
+    }
     const couldLand = postableAt.some(
       (at) => at >= closing.endedAt && at <= closing.endedAt + givesUpAfterMs,
     );
@@ -182,10 +202,18 @@ export function aQuietFeedStopsRetrying(retry: FeedRetry, givesUpAfterMs: number
   }
 }
 
-/** The reply that closes a turn never also posts as narration. */
-export function theReplyNeverPostsAsNarration(posts: FeedPost[], replies: string[]): void {
+/**
+ * The reply that closes a turn never also posts as narration, unless it folded into the narration
+ * as the author's next turn started.
+ */
+export function theReplyNeverPostsAsNarration(
+  posts: FeedPost[],
+  replies: string[],
+  folded: FoldedReply[],
+): void {
+  const unfolded = replies.filter((text) => !folded.some((reply) => reply.body === text));
   for (const post of posts.filter(isNarration)) {
-    const reply = replies.find((text) => narrationLines(post).some((line) => line.includes(text)));
+    const reply = unfolded.find((text) => narrationLines(post).some((line) => line.includes(text)));
     if (reply) violated("theReplyNeverPostsAsNarration", `the reply ${reply} posted as narration`);
   }
 }

@@ -44,6 +44,7 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     if (step.cutClosingReplies) {
       expect(replay.cutClosingReplies(), divergence(step)).toEqual(step.cutClosingReplies);
     }
+    if (step.narration) expect(replay.narration(), divergence(step)).toEqual(step.narration);
   }
   replay = null;
 }

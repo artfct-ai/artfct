@@ -83,7 +83,8 @@ module sessionRoutingTypes {
   /// message, and `DoneActivity` is the response without one. `StoppedActivity` is the stopped
   /// reply. `NarratedAccount` is the author's last message as narration, a persistent thought,
   /// when the author goes straight into its next turn. The spec does not model the other thoughts
-  /// of the feed: the narration before a tool call, receipts, and heartbeats.
+  /// of the feed, receipts and heartbeats. The narration before a tool call is the author's
+  /// `FeedNarration`.
   type FeedKind = ReplyActivity | DoneActivity | StoppedActivity | ErrorActivity | NarratedAccount
 
   /// One feed activity in the job session of a job, and how many activities the tracker stored
@@ -154,7 +155,12 @@ module sessionRoutingTypes {
   /// ended without a payload its author may take. `startRefusedBesideTheIssuesJob` holds when a
   /// job start names an issue whose job is not over and is refused. `accounts` holds the jobs
   /// whose author's turn ended on its own while the feed kept the author's last message, the
-  /// turn's closing account.
+  /// turn's closing account. `feedClosed` holds the jobs whose author's feed closed, and
+  /// `narrationLines` those whose author's tool call made its message a narration line.
+  /// `replyAlarmFired` holds the job of a closing reply whose alarm fired, and `anHourPassed`
+  /// holds when the clock moved an hour. `held` holds each closing reply that waits on its alarm
+  /// behind narration the tracker failed, without a post. `folded` holds the closing replies that
+  /// folded into the narration.
   type StepFacts = {
     wrote: Wrote,
     answered: Set[Target],
@@ -169,6 +175,12 @@ module sessionRoutingTypes {
     researchEnded: Set[{ job: int, ending: ResearchEnding }],
     startRefusedBesideTheIssuesJob: bool,
     accounts: Set[int],
+    feedClosed: Set[int],
+    narrationLines: Set[int],
+    replyAlarmFired: Set[int],
+    anHourPassed: bool,
+    held: List[FeedPost],
+    folded: Set[int],
   }
 
   /// Whether the last step kept each rule that spans a step.
@@ -185,6 +197,7 @@ module sessionRoutingTypes {
     aStopAnswersOnlyInTheFeed: bool,
     aResearcherThatDidNotFinishRestartsOrFails: bool,
     aTurnEndNeverDropsItsAccount: bool,
+    aClosingReplyNeverOvertakesAnEarlierOne: bool,
   }
 
   /// The state of one step and the feed activities and posts of the turn end that led to it.
@@ -209,8 +222,13 @@ module sessionRoutingTypes {
 
   /// A closing reply whose post an instance restart or a tracker failure cut: its job, its kind,
   /// how many activities the tracker stored under its activity id, whether its alarm is still
-  /// armed, and whether its alarm gave up an hour after its turn ended.
-  type CutClosingReply = { job: int, kind: FeedKind, stored: int, armed: bool, gaveUp: bool }
+  /// armed, whether its alarm gave up an hour after its turn ended, and whether it folded into
+  /// the narration of its author.
+  type CutClosingReply = { job: int, kind: FeedKind, stored: int, armed: bool, gaveUp: bool, folded: bool }
+
+  /// The narration of a job's author: whether lines wait to post, and whether the last post was
+  /// within the narration interval, so a line after a tool call waits for a later post.
+  type FeedNarration = { waits: bool, postedLately: bool }
 }
 
 /// Routing in a workflow that starts from a chat thread or from a tracker session.
@@ -299,7 +317,16 @@ module sessionRouting {
     researchEnded: Set(),
     startRefusedBesideTheIssuesJob: false,
     accounts: Set(),
+    feedClosed: Set(),
+    narrationLines: Set(),
+    replyAlarmFired: Set(),
+    anHourPassed: false,
+    held: List(),
+    folded: Set(),
   }
+
+  /// The narration of an author that has not narrated.
+  pure val QUIET_NARRATION: FeedNarration = { waits: false, postedLately: false }
 
   pure val NO_DELIVERY_WITNESSES: DeliveryWitnesses = {
     aRedeliveredMessageLands: false,
@@ -323,6 +350,9 @@ module sessionRouting {
   /// The closing replies whose post an instance restart or a tracker failure cut, by the order of
   /// the cuts.
   var cutClosingReplies: int -> CutClosingReply
+
+  /// The narration of each job's author.
+  var feedNarration: int -> FeedNarration
 
   pure def isChatThread(target: Target): bool = match target {
     | ChatThread(_) => true
@@ -548,13 +578,18 @@ module sessionRouting {
       postsOf(facts).exists(posted => reaches(after, posted.targets, session))),
   }
 
+  /// True when the closing reply of the job waits on its alarm behind narration the tracker
+  /// failed, and is of an accepted kind.
+  pure def heldIs(facts: StepFacts, id: int, accepted: FeedKind => bool): bool =
+    facts.held.select(posted => posted.job == id and accepted(posted.kind)).length() > 0
+
   /// Each author whose turn ended and who idles unfinished in its job session ends its feed on a
-  /// response or an error.
+  /// response or an error, or holds it on its alarm behind narration the tracker failed.
   pure def feedEndsWhenItsAuthorIdles(after: Routing, facts: StepFacts): bool =
     facts.turnEnded.forall(id => {
       val job = after.jobs[id]
       val idlesInSession = (job.author == Idle or job.author == InReview) and hasSession(after, job.issue)
-      idlesInSession implies feedOfJob(facts, id).length() > 0
+      idlesInSession implies (feedOfJob(facts, id).length() > 0 or heldIs(facts, id, _ => true))
     })
 
   /// Each turn that ended on its own with a closing account posts it. An author that idles in its
@@ -593,14 +628,15 @@ module sessionRouting {
   }
 
   /// A stop keeps the workflow status, posts nothing, and ends the feed of the session's author
-  /// on the stopped reply. A cancelled turn that leaves its author idle in its job session ends
-  /// the feed the same way.
+  /// on the stopped reply, or holds that reply on its alarm behind narration the tracker failed.
+  /// A cancelled turn that leaves its author idle in its job session ends the feed the same way.
   pure def stopAnswersOnlyInTheFeed(before: Routing, after: Routing, facts: StepFacts): bool = and {
     facts.stoppedIn.forall(issue => and {
       after.ended == before.ended,
       after.waitsForInput == before.waitsForInput,
       facts.posts.length() == 0,
-      sessionJob(before, issue).forall(id => lastFeedIs(facts, id, kind => kind == StoppedActivity)),
+      sessionJob(before, issue).forall(id =>
+        lastFeedIs(facts, id, kind => kind == StoppedActivity) or heldIs(facts, id, kind => kind == StoppedActivity)),
     }),
     facts.cancelled.forall(id => {
       val job = after.jobs[id]
@@ -622,7 +658,25 @@ module sessionRouting {
       }
     })
 
-  pure def rulesKeptBy(before: Routing, after: Routing, facts: StepFacts): KeptRules = {
+  /// As a job's feed closes, every closing reply of the job that waited on its alarm folds into
+  /// the narration, so no closing lands ahead of an earlier one.
+  pure def noReplyOvertakes(
+    facts: StepFacts,
+    repliesBefore: int -> CutClosingReply,
+    repliesAfter: int -> CutClosingReply,
+  ): bool =
+    facts.feedClosed.forall(id => repliesBefore.keys().forall(reply => {
+      val cut = repliesBefore.get(reply)
+      (cut.job == id and cut.armed) implies not(repliesAfter.get(reply).armed)
+    }))
+
+  pure def rulesKeptBy(
+    before: Routing,
+    after: Routing,
+    facts: StepFacts,
+    repliesBefore: int -> CutClosingReply,
+    repliesAfter: int -> CutClosingReply,
+  ): KeptRules = {
     orchestratorStaysOutOfSessionsWhenChatExists: staysOutOfSessions(after, facts),
     linearOnlyAsksReachTheStartingSession: asksReachTheStartingSession(after, facts),
     sessionMessageReachesItsRunningAuthorSilently: reachesRunningAuthorSilently(before, after, facts),
@@ -635,8 +689,92 @@ module sessionRouting {
     aStopAnswersOnlyInTheFeed: stopAnswersOnlyInTheFeed(before, after, facts),
     aResearcherThatDidNotFinishRestartsOrFails: unfinishedResearchRestartsOrFails(before, after, facts),
     aTurnEndNeverDropsItsAccount: turnEndKeepsItsAccount(before, after, facts),
+    aClosingReplyNeverOvertakesAnEarlierOne: noReplyOvertakes(facts, repliesBefore, repliesAfter),
   }
 
+  pure def narrationOf(narration: int -> FeedNarration, id: int): FeedNarration =
+    if (narration.keys().contains(id)) narration.get(id) else QUIET_NARRATION
+
+  /// `foldWaitingClosingReplies` as a feed closes: the armed closing replies of the jobs whose
+  /// feed closed.
+  pure def foldedAtClose(replies: int -> CutClosingReply, facts: StepFacts): Set[int] =
+    replies.keys().filter(reply => replies.get(reply).armed and facts.feedClosed.contains(replies.get(reply).job))
+
+  /// Whether narration waits for the author as the step posts it: it waited, or the step added a
+  /// line, a folded closing reply, or the closing account.
+  pure def narrationWaitsBeforeItsPost(
+    narration: int -> FeedNarration,
+    replies: int -> CutClosingReply,
+    facts: StepFacts,
+    id: int,
+  ): bool = or {
+    narrationOf(narration, id).waits,
+    facts.narrationLines.contains(id),
+    foldedAtClose(replies, facts).exists(reply => replies.get(reply).job == id),
+    feedOfJob(facts, id).select(posted => posted.kind == NarratedAccount).length() > 0,
+  }
+
+  /// `postWaitingNarration`: a closing feed and a closing reply's alarm post the narration that
+  /// waits now. A narration line posts it once the interval since the last post has passed. A
+  /// tracker failure fails the post, and the narration waits on.
+  pure def narrationPosts(
+    narration: int -> FeedNarration,
+    replies: int -> CutClosingReply,
+    facts: StepFacts,
+    id: int,
+  ): bool = {
+    val lately = narrationOf(narration, id).postedLately and not(facts.anHourPassed)
+    val attempted = or {
+      facts.feedClosed.contains(id),
+      facts.replyAlarmFired.contains(id),
+      facts.narrationLines.contains(id) and not(lately),
+    }
+    and {
+      narrationWaitsBeforeItsPost(narration, replies, facts, id),
+      attempted,
+      not(TRACKER_FAILURES.contains(facts.health)),
+    }
+  }
+
+  /// `startSessionFeedTurn` and `startModelTurn`: the author's next turn starts in the step, after
+  /// it was not in its turn, after its turn ended, or in a fresh sandbox.
+  pure def turnStarts(before: Routing, after: Routing, facts: StepFacts, id: int): bool =
+    if (after.jobs[id].author != InTurn) false
+    else if (id >= before.jobs.length()) true
+    else or {
+      before.jobs[id].author != InTurn,
+      after.jobs[id].restarts > before.jobs[id].restarts,
+      facts.turnEnded.contains(id),
+    }
+
+  /// `foldWaitingClosingReplies` as a turn starts: the armed closing replies of the jobs whose
+  /// author's turn starts.
+  pure def foldedAtTurnStart(before: Routing, after: Routing, facts: StepFacts, replies: int -> CutClosingReply): Set[int] =
+    replies.keys().filter(reply => replies.get(reply).armed and turnStarts(before, after, facts, replies.get(reply).job))
+
+  pure def foldReplies(replies: int -> CutClosingReply, folded: Set[int]): int -> CutClosingReply =
+    folded.fold(replies, (sofar, reply) => sofar.set(reply, { ...sofar.get(reply), armed: false, folded: true }))
+
+  /// The narration of each job after the step. A closing reply that folds as a turn starts waits
+  /// for a later post.
+  pure def narrationAfter(
+    narration: int -> FeedNarration,
+    replies: int -> CutClosingReply,
+    facts: StepFacts,
+    after: Routing,
+    foldedIntoATurn: Set[int],
+  ): int -> FeedNarration =
+    jobIds(after).mapBy(id => {
+      val posts = narrationPosts(narration, replies, facts, id)
+      {
+        waits: (narrationWaitsBeforeItsPost(narration, replies, facts, id) and not(posts)) or foldedIntoATurn.contains(id),
+        postedLately: (narrationOf(narration, id).postedLately and not(facts.anHourPassed)) or posts,
+      }
+    })
+
+  /// One step: the state after it, its facts, and the session messages and cut closing replies
+  /// after it. A closing feed folds the closing replies of its job that wait on their alarm into
+  /// the narration, before its own closing. A turn start folds them after the step's cuts.
   action moveMessages(
     after: Routing,
     facts: StepFacts,
@@ -644,14 +782,28 @@ module sessionRouting {
     toLandAfter: int -> MessageToLand,
     delivery: DeliveryWitnesses,
     repliesAfter: int -> CutClosingReply,
-  ): bool = all {
-    routing' = after,
-    lastStepKept' = rulesKeptBy(routing, after, facts),
-    lastStep' = facts,
-    sessionMessages' = messagesAfter,
-    messagesToLand' = toLandAfter,
-    lastDelivery' = delivery,
-    cutClosingReplies' = repliesAfter,
+  ): bool = {
+    val atClose = foldedAtClose(cutClosingReplies, facts)
+    val closed = foldReplies(repliesAfter, atClose)
+    val atTurnStart = foldedAtTurnStart(routing, after, facts, closed)
+    val folded = foldReplies(closed, atTurnStart)
+    val stepFacts = { ...facts, folded: atClose.union(atTurnStart) }
+    all {
+      routing' = after,
+      lastStepKept' = rulesKeptBy(routing, after, stepFacts, cutClosingReplies, folded),
+      lastStep' = stepFacts,
+      sessionMessages' = messagesAfter,
+      messagesToLand' = toLandAfter,
+      lastDelivery' = delivery,
+      cutClosingReplies' = folded,
+      feedNarration' = narrationAfter(
+        feedNarration,
+        cutClosingReplies,
+        facts,
+        after,
+        atTurnStart.map(reply => closed.get(reply).job),
+      ),
+    }
   }
 
   action move(after: Routing, facts: StepFacts): bool =
@@ -692,35 +844,46 @@ module sessionRouting {
   /// `feed` added. The alarm a closing reply armed before its post stays armed.
   pure def withCutClosingReplies(replies: int -> CutClosingReply, feed: List[FeedPost]): int -> CutClosingReply =
     feed.foldl(replies, (cut, posted) =>
-      cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true, gaveUp: false }))
+      cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true, gaveUp: false, folded: false }))
 
   /// A step whose feed activities are closing replies, posted last. On a restart mid post, the
   /// step's state is written and the Durable Object restarts. The notifier does not retry the
   /// activity. When the restart or a tracker failure cuts a closing reply, its alarm stays armed.
+  /// A tracker failure also fails the narration that waits, and the closing reply behind it waits
+  /// on its alarm without a post.
   action moveWithFeed(after: Routing, facts: StepFacts): bool =
     if (RESTARTS_MID_POST.contains(facts.health)) all {
       facts.feed.length() == 1,
       restartAfter(after, facts, withCutClosingReplies(cutClosingReplies, facts.feed)),
     }
-    else if (TRACKER_FAILURES.contains(facts.health))
+    else if (TRACKER_FAILURES.contains(facts.health)) {
+      val heldJobs = facts.feedClosed.filter(id => narrationWaitsBeforeItsPost(feedNarration, cutClosingReplies, facts, id))
+      val attempted = facts.feed.foldl(List(), (cut, posted) =>
+        cut.append(if (heldJobs.contains(posted.job)) { ...posted, stored: 0 } else posted))
       moveMessages(
         after,
-        facts,
+        {
+          ...facts,
+          feed: facts.feed.select(posted => not(heldJobs.contains(posted.job))),
+          held: facts.feed.select(posted => heldJobs.contains(posted.job)),
+        },
         sessionMessages,
         messagesToLand,
         NO_DELIVERY_WITNESSES,
-        withCutClosingReplies(cutClosingReplies, facts.feed),
+        withCutClosingReplies(cutClosingReplies, attempted),
       )
+    }
     else move(after, facts)
 
   action init: bool = all {
     routing' = INITIAL_ROUTING,
-    lastStepKept' = rulesKeptBy(INITIAL_ROUTING, INITIAL_ROUTING, NO_FACTS),
+    lastStepKept' = rulesKeptBy(INITIAL_ROUTING, INITIAL_ROUTING, NO_FACTS, Map(), Map()),
     lastStep' = NO_FACTS,
     sessionMessages' = Map(),
     messagesToLand' = Map(),
     lastDelivery' = NO_DELIVERY_WITNESSES,
     cutClosingReplies' = Map(),
+    feedNarration' = Map(),
   }
 
   /// `closingWhenTheAuthorGoesOn`: the author goes straight into its next turn, so a reply that
@@ -865,6 +1028,9 @@ module sessionRouting {
     { ...ended, state: { ...ended.state, ended: true, waitsForInput: false } }
   }
 
+  /// The jobs of the feed activities, whose feed closed.
+  pure def jobsOfFeed(feed: List[FeedPost]): Set[int] = feed.foldl(Set(), (jobs, posted) => jobs.union(Set(posted.job)))
+
   /// A person's message waits for the agent's next turn.
   pure def wakeTheAgent(state: Routing, issue: Issue, wrote: Wrote): StepResult =
     { state: { ...state, waiting: state.waiting.union(Set(Session(issue))) }, facts: { ...NO_FACTS, wrote: wrote, woke: true } }
@@ -893,12 +1059,12 @@ module sessionRouting {
           val one = cancelJob(sofar.state, id)
           { state: one.state, feed: sofar.feed.concat(one.feed) }
         })
-        { state: cancelled.state, facts: { ...NO_FACTS, wrote: wrote, posts: reply, feed: cancelled.feed } }
+        { state: cancelled.state, facts: { ...NO_FACTS, wrote: wrote, posts: reply, feed: cancelled.feed, feedClosed: jobsOfFeed(cancelled.feed) } }
       }
       else wakeTheAgent(state, issue, wrote)
     } else {
       val cancelled = cancelEveryJob(state)
-      { state: cancelled.state, facts: { ...NO_FACTS, wrote: wrote, posts: reply, feed: cancelled.feed } }
+      { state: cancelled.state, facts: { ...NO_FACTS, wrote: wrote, posts: reply, feed: cancelled.feed, feedClosed: jobsOfFeed(cancelled.feed) } }
     }
   }
 
@@ -1155,7 +1321,8 @@ module sessionRouting {
   pure def inTurn(state: Routing, id: int): bool = id < state.jobs.length() and state.jobs[id].author == InTurn
 
   /// An author in its turn streams. The feed keeps a message for the closing reply. A tool call
-  /// starts the message over and shows progress. A tool call does not post.
+  /// starts the message over and shows progress. A tool call does not post, and the message
+  /// before it becomes a narration line.
   action authorStreams: bool = {
     nondet id = JOB_SLOTS.oneOf()
     nondet streamed = Set(Message, ToolCall).oneOf()
@@ -1163,7 +1330,11 @@ module sessionRouting {
       inTurn(routing, id),
       match streamed {
         | Message => move(says(routing, id), NO_FACTS)
-        | ToolCall => move(withJob(routing, id, job => { ...forgetMessage(job), nudged: false }), NO_FACTS)
+        | ToolCall =>
+            move(
+              withJob(routing, id, job => { ...forgetMessage(job), nudged: false }),
+              { ...NO_FACTS, narrationLines: if (routing.jobs[id].buffered) Set(id) else Set() },
+            )
       },
     }
   }
@@ -1230,6 +1401,7 @@ module sessionRouting {
             cancelled: if (turnEnding == Cancelled) Set(id) else Set(),
             health: health,
             accounts: if (endsOnItsOwn and spoke.jobs[id].buffered) Set(id) else Set(),
+            feedClosed: Set(id),
           },
         ),
       },
@@ -1246,7 +1418,7 @@ module sessionRouting {
       val failed = failAuthor(routing, id)
       move(
         flushBoard(failed.state, id),
-        { ...NO_FACTS, posts: failed.posts, feed: feedOf(routing, id, ErrorActivity, TrackerUp) },
+        { ...NO_FACTS, posts: failed.posts, feed: feedOf(routing, id, ErrorActivity, TrackerUp), feedClosed: Set(id) },
       ),
     }
   }
@@ -1271,7 +1443,7 @@ module sessionRouting {
     val feed = chosen.fold(List(), (posts, id) => posts.concat(feedOf(routing, id, StoppedActivity, health)))
     all {
       hasSession(routing, issue),
-      moveWithFeed(stopped, { ...NO_FACTS, feed: feed, stoppedIn: Set(issue), health: health }),
+      moveWithFeed(stopped, { ...NO_FACTS, feed: feed, stoppedIn: Set(issue), health: health, feedClosed: chosen }),
     }
   }
 
@@ -1300,6 +1472,7 @@ module sessionRouting {
             stoppedIn: Set(issue),
             turnEnded: Set(id),
             health: health,
+            feedClosed: Set(id),
           },
         ),
       },
@@ -1309,19 +1482,31 @@ module sessionRouting {
   /// The Durable Object restarts between steps.
   action workflowRestarts: bool = restartAfter(routing, NO_FACTS, cutClosingReplies)
 
-  /// The alarm of a closing reply whose post a restart or a tracker failure cut fires, and posts
-  /// the reply again under its activity id, so the tracker stores it once. The alarm is done once
-  /// the reply lands. A restart while the post is out keeps the alarm armed, and a failed post
-  /// arms it again, so it fires again.
+  /// The alarm of a closing reply whose post a restart or a tracker failure cut fires. It posts the
+  /// narration that waits, then the reply again under its activity id, so the tracker stores it
+  /// once. The alarm is done once the reply lands. A restart while the post is out keeps the alarm
+  /// armed, and a failed post arms it again, so it fires again. When the tracker fails the
+  /// narration, the alarm does not post the reply and arms again.
   action closingReplyAlarmFires: bool = {
     nondet reply = cutClosingReplies.keys().oneOf()
     nondet health = Set(TrackerUp).union(RESTARTS_MID_POST).union(TRACKER_FAILURES).oneOf()
     val cut = cutClosingReplies.get(reply)
+    val heldBehindNarration = narrationOf(feedNarration, cut.job).waits and TRACKER_FAILURES.contains(health)
     val posted = { ...cut, stored: if (cut.stored > 0) cut.stored else storedAcrossAttempts(health) }
-    val facts = { ...NO_FACTS, feed: List({ job: cut.job, kind: cut.kind, stored: posted.stored }), health: health }
+    val fired = { ...NO_FACTS, health: health, replyAlarmFired: Set(cut.job) }
+    val facts = { ...fired, feed: List({ job: cut.job, kind: cut.kind, stored: posted.stored }) }
     all {
       cut.armed,
-      if (RESTARTS_MID_POST.contains(health)) restartAfter(routing, facts, cutClosingReplies.set(reply, posted))
+      if (heldBehindNarration)
+        moveMessages(
+          routing,
+          { ...fired, held: List({ job: cut.job, kind: cut.kind, stored: cut.stored }) },
+          sessionMessages,
+          messagesToLand,
+          NO_DELIVERY_WITNESSES,
+          cutClosingReplies,
+        )
+      else if (RESTARTS_MID_POST.contains(health)) restartAfter(routing, facts, cutClosingReplies.set(reply, posted))
       else
         moveMessages(
           routing,
@@ -1336,16 +1521,19 @@ module sessionRouting {
 
   /// The alarm of a closing reply that the tracker has not stored fires an hour after the reply's
   /// turn ended, and the tracker fails its post again before storing it. The alarm gives up and is
-  /// not armed again.
+  /// not armed again. When narration waits, the tracker fails it and the alarm does not post the
+  /// reply.
   action closingReplyGivesUp: bool = {
     nondet reply = cutClosingReplies.keys().oneOf()
     val cut = cutClosingReplies.get(reply)
+    val lastTry = { job: cut.job, kind: cut.kind, stored: 0 }
+    val fired = { ...NO_FACTS, health: FailsBeforeStoring, replyAlarmFired: Set(cut.job), anHourPassed: true }
     all {
       cut.armed,
       cut.stored == 0,
       moveMessages(
         routing,
-        { ...NO_FACTS, feed: List({ job: cut.job, kind: cut.kind, stored: 0 }), health: FailsBeforeStoring },
+        if (narrationOf(feedNarration, cut.job).waits) { ...fired, held: List(lastTry) } else { ...fired, feed: List(lastTry) },
         sessionMessages,
         messagesToLand,
         NO_DELIVERY_WITNESSES,
@@ -1494,7 +1682,7 @@ module sessionRouting {
     all {
       not(routing.ended),
       ending == Finishes implies routing.jobs.foldl(true, (over, job) => over and not(isUnfinished(job))),
-      move(cancelled.state, { ...NO_FACTS, posts: List(post(routing, kind, Set())), feed: cancelled.feed }),
+      move(cancelled.state, { ...NO_FACTS, posts: List(post(routing, kind, Set())), feed: cancelled.feed, feedClosed: jobsOfFeed(cancelled.feed) }),
     }
   }
 
@@ -1643,14 +1831,27 @@ module sessionRouting {
   })
 
   /// Every closing reply whose post an instance restart or a tracker failure cut is stored once,
-  /// unless its alarm is still armed or gave up an hour after its turn ended.
+  /// unless its alarm is still armed, gave up an hour after its turn ended, or the reply folded
+  /// into the narration of its author.
   val closingReplyLandsOnce: bool = cutClosingReplies.keys().forall(reply => {
     val cut = cutClosingReplies.get(reply)
     and {
       cut.stored <= 1,
-      not(cut.armed) implies (cut.stored == 1 or cut.gaveUp),
+      not(cut.armed) implies (cut.stored == 1 or cut.gaveUp or cut.folded),
     }
   })
+
+  /// A closing reply waits on its alarm only while its author is between turns. A turn start folds
+  /// it into the narration, so a response does not mark the job session complete while the author
+  /// works, and it does not land after the reply of the next turn.
+  val aClosingReplyWaitsOnlyBetweenTurns: bool = cutClosingReplies.keys().forall(reply => {
+    val cut = cutClosingReplies.get(reply)
+    cut.armed implies routing.jobs[cut.job].author != InTurn
+  })
+
+  /// As a job's feed closes, no closing reply of the job that waited on its alarm stays armed, so
+  /// the new closing does not land ahead of it.
+  val aClosingReplyNeverOvertakesAnEarlierOne: bool = lastStepKept.aClosingReplyNeverOvertakesAnEarlierOne
 
   /// The closing replies whose post an instance restart or a tracker failure cut, which model
   /// checking bounds.
@@ -1781,8 +1982,24 @@ module sessionRouting {
   val aCutClosingReplyPostsOnItsAlarm: bool =
     cutClosingReplies.keys().exists(reply => {
       val cut = cutClosingReplies.get(reply)
-      not(cut.armed) and not(cut.gaveUp)
+      not(cut.armed) and not(cut.gaveUp) and not(cut.folded)
     })
+
+  /// Witness for `closingReplyLandsOnce`: the alarm of a closing reply fires while the tracker fails the narration that waits, so the reply does not post.
+  val anAlarmHoldsItsReplyBehindNarration: bool = lastStep.replyAlarmFired.size() > 0 and lastStep.held.length() > 0
+
+  /// Witness for `aClosingReplyWaitsOnlyBetweenTurns`: a closing reply that waited on its alarm folds into the narration as its author's next turn starts.
+  val aWaitingReplyFoldsAtTheNextTurn: bool =
+    lastStep.folded.exists(reply => routing.jobs[cutClosingReplies.get(reply).job].author == InTurn)
+
+  /// Witness for `aClosingReplyNeverOvertakesAnEarlierOne`: a feed closes while an earlier closing reply of its job waits on its alarm, and that reply folds into the narration.
+  val aClosingFoldsAWaitingReply: bool = lastStep.folded.exists(reply => {
+    val id = cutClosingReplies.get(reply).job
+    lastStep.feedClosed.contains(id) and routing.jobs[id].author != InTurn
+  })
+
+  /// Witness for `aStopAnswersOnlyInTheFeed`: the tracker fails the narration that waits as a stop closes the feed, so the stopped reply waits behind it on its alarm.
+  val aStopHoldsItsReplyBehindNarration: bool = lastStep.stoppedIn.size() > 0 and lastStep.held.length() > 0
 
   /// Witness for `closingReplyLandsOnce`: the tracker fails the closing reply of a stop, and its alarm stays armed.
   val aFailedStopArmsItsClosingReply: bool =

@@ -44,13 +44,16 @@ export const RECEIPT_TEXT = "Got it. Working on your message.";
 /** The heartbeat of a turn whose todo list names no step in progress. */
 export const STILL_WORKING_TEXT = "Still working.";
 
+/** The content of a closing reply: a response or an error. */
+type ClosingContent = Extract<AgentActivityContent, { type: "response" | "error" }>;
+
 /**
  * The payload of a closing reply's alarm: the job session, the reply under its activity id, and
  * when its turn ended.
  */
 export type ClosingReplyAlarm = {
   session: TrackerSession;
-  activity: FeedActivity;
+  activity: FeedActivity & { content: ClosingContent };
   ended_at: string;
 };
 
@@ -161,13 +164,17 @@ function isoNow(workflow: WorkflowRuntime): string {
   return new Date(workflow.now()).toISOString();
 }
 
-/** A turn of the author went in flight. Its start counts as activity, and the feed's tick runs. */
+/**
+ * A turn of the author went in flight. Its start counts as activity, a closing reply that waits
+ * folds into the narration, and the feed's tick runs.
+ */
 export async function startSessionFeedTurn(
   workflow: WorkflowRuntime,
   task: TaskRow,
 ): Promise<void> {
   if (!feedSessionOf(workflow, task)) return;
   workflow.store.touchSessionFeed(task.task_id, isoNow(workflow));
+  await foldWaitingClosingReplies(workflow, task);
   const alarm: TaskAlarm = { task_id: task.task_id };
   await workflow.startRepeatingAlarm(SESSION_FEED_TICK_SECONDS, "tendSessionFeed", alarm);
 }
@@ -271,7 +278,7 @@ export function closingWhenTheAuthorGoesOn(closing: FeedClosing): FeedClosing | 
   return closing.kind === "reply" ? { kind: "narrated_account" } : null;
 }
 
-function closingContent(closing: PostedClosing, message: string): AgentActivityContent {
+function closingContent(closing: PostedClosing, message: string): ClosingContent {
   switch (closing.kind) {
     case "reply":
       return { type: "response", body: message || DONE_TEXT };
@@ -288,9 +295,9 @@ function closingContent(closing: PostedClosing, message: string): AgentActivityC
 
 /**
  * End the author's session feed for this turn, and post the closing when one is given. A turn end
- * counts as activity, and a narrated account joins the narration that waits. The reply's alarm is
- * armed before the post and cancelled once the reply lands, so a failed post or an instance
- * restart does not lose the reply.
+ * counts as activity, and an earlier reply that waits and a narrated account join the narration
+ * that waits. The reply's alarm is armed before the post and cancelled once the reply lands, so a
+ * failed post or an instance restart does not lose the reply.
  */
 export async function closeSessionFeed(
   workflow: WorkflowRuntime,
@@ -300,6 +307,7 @@ export async function closeSessionFeed(
   if (workflow.store.sessionFeed(task.task_id)) {
     workflow.store.touchSessionFeed(task.task_id, isoNow(workflow));
   }
+  await foldWaitingClosingReplies(workflow, task);
   const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";
   const account = closing?.kind === "narrated_account" ? message.trim() : "";
   if (account) workflow.store.appendNarration(task.task_id, account, isoNow(workflow));
@@ -338,6 +346,30 @@ export async function postClosingReply(
     return;
   }
   await workflow.scheduleAlarm(CLOSING_REPLY_ALARM_SECONDS, "postClosingReply", reply);
+}
+
+/**
+ * Fold each closing reply of the author that still waits on its alarm into the narration that
+ * waits. The feed goes on past the reply, so posted later it would land after a newer line, and as
+ * a response during a new turn it would mark the job session complete while the author works.
+ */
+export async function foldWaitingClosingReplies(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+): Promise<void> {
+  const waiting = (await workflow.cancelAlarmsWhere(
+    "postClosingReply",
+    (payload) => (payload as ClosingReplyAlarm).activity.task_id === task.task_id,
+  )) as ClosingReplyAlarm[];
+  for (const reply of waiting) {
+    workflow.store.appendNarration(task.task_id, reply.activity.content.body, isoNow(workflow));
+    workflow.log(task.task_id, closingReplyFoldedLine(reply.activity.id));
+  }
+}
+
+/** The log line of a closing reply that folded into the narration of its author. */
+export function closingReplyFoldedLine(activityId: string): string {
+  return `closing reply ${activityId} folded into the narration`;
 }
 
 /**
