@@ -1,5 +1,6 @@
-import { jsonRpcResponse } from "@artfct-ai/acp/jsonrpc";
-import { AgentMethods } from "@artfct-ai/acp/methods";
+import type { SessionNotification } from "@agentclientprotocol/sdk";
+import { jsonRpcNotification, jsonRpcResponse } from "@artfct-ai/acp/jsonrpc";
+import { AgentMethods, ClientMethods } from "@artfct-ai/acp/methods";
 import { ClaudeCodeSteering } from "@artfct-ai/adapters/harness/claude-code/steering";
 import { FakeHarness } from "@artfct-ai/adapters/test/fake-harness";
 import { describe, expect, it } from "vitest";
@@ -55,6 +56,15 @@ function steerIdOf(turn: Turn): number {
   return lastFrame(turn.socket).id!;
 }
 
+function reportToolCall(turn: Turn): Promise<void> {
+  const update: SessionNotification = {
+    sessionId: "s1",
+    update: { sessionUpdate: "tool_call", toolCallId: "call-1", title: "Read the schema" },
+  };
+  const frame = JSON.stringify(jsonRpcNotification(ClientMethods.sessionUpdate, update));
+  return onBridgeMessage(turn.workflow, turn.socket.connection, frame);
+}
+
 describe("an instruction to an author whose harness steers, while its turn runs", () => {
   it("sends the steering request with the instruction into the running turn", () =>
     instructed(({ socket }) => {
@@ -103,24 +113,54 @@ describe("an instruction to an author whose harness steers, while its turn runs"
       }));
   });
 
-  describe("that reaches the harness after its turn ended", () => {
-    const refused = scenario(instructed, (turn) =>
+  describe("that the harness declines because its turn has not started", () => {
+    const declined = scenario(instructed, (turn) =>
       answer(turn, steerIdOf(turn), { outcome: "promptRequired", reason: "noRunningTurn" }),
     );
 
-    it("keeps the steer out until the turn end arrives", () =>
-      refused(({ workflow }) => {
-        expect(workflow.store.steers().map((steer) => steer.status)).toEqual(["out"]);
+    it("lets the instruction wait again", () =>
+      declined(({ workflow }) => {
+        expect(workflow.store.steers()).toEqual([]);
+        expect(workflow.store.peekPrompt(TASK)?.text).toBe(INSTRUCTION);
       }));
 
-    it("sends the instruction as the next prompt", () =>
-      refused(async (turn) => {
+    it("steers it again when the turn reports progress", () =>
+      declined(async (turn) => {
+        const declinedSteer = steerIdOf(turn);
+        await reportToolCall(turn);
+        expect(lastFrame(turn.socket)).toMatchObject({
+          method: "_session/steering",
+          params: { prompt: [{ type: "text", text: INSTRUCTION }] },
+        });
+        expect(steerIdOf(turn)).not.toBe(declinedSteer);
+        expect(turn.workflow.store.steers().map((steer) => steer.status)).toEqual(["out"]);
+      }));
+
+    it("sends it as the next prompt when the turn ends without progress", () =>
+      declined(async (turn) => {
         await answer(turn, turn.promptId, { stopReason: "end_turn" });
         expect(lastFrame(turn.socket)).toMatchObject({
           method: AgentMethods.sessionPrompt,
           params: { prompt: [{ type: "text", text: INSTRUCTION }] },
         });
         expect(turn.workflow.store.steers().map((steer) => steer.status)).toEqual(["taken"]);
+      }));
+  });
+
+  describe("that reaches the harness after its turn ended", () => {
+    const late = scenario(instructed, async (turn) => {
+      const steer = steerIdOf(turn);
+      await answer(turn, turn.promptId, { stopReason: "end_turn" });
+      await answer(turn, steer, { outcome: "promptRequired", reason: "noRunningTurn" });
+    });
+
+    it("keeps the instruction that the next prompt carried", () =>
+      late(({ workflow, socket }) => {
+        expect(lastFrame(socket)).toMatchObject({
+          method: AgentMethods.sessionPrompt,
+          params: { prompt: [{ type: "text", text: INSTRUCTION }] },
+        });
+        expect(workflow.store.steers().map((steer) => steer.status)).toEqual(["taken"]);
       }));
   });
 });

@@ -10,7 +10,8 @@
 /// The bridge and its harness are modelled from the outside. A bridge sends a frame only on a
 /// socket that both ends hold open. The harness answers its prompts and handshake requests in the
 /// order they came. It answers a steer apart from them, and it answers a steer it took before it
-/// ends that turn.
+/// ends that turn. Until a turn reports progress, the harness may not have started it yet, so it
+/// may decline a steer that reaches it then.
 module harnessSessionTypes {
   /// The status of the author task. A task in this model cannot finish done.
   type TaskStatus = Queued | Provisioning | Working | InReview | Cancelled | Failed
@@ -76,7 +77,8 @@ module harnessSessionTypes {
 
   /// One bridge process and its harness. `token` is the bridge token it started with. `received`
   /// holds the person prompts its harness session received, except those of a cancelled turn.
-  /// `inTurn` holds the ones its running turn received.
+  /// `inTurn` holds the ones its running turn received. `turnShowedProgress` says its running
+  /// turn reported progress, so the harness started that turn.
   type Bridge = {
     generation: int,
     token: int,
@@ -85,6 +87,7 @@ module harnessSessionTypes {
     requests: List[Request],
     received: Set[int],
     inTurn: Set[int],
+    turnShowedProgress: bool,
   }
 
   /// What runs after the call that returns, innermost first. `CloseFeedWithoutStopReason` throws
@@ -137,7 +140,8 @@ module harnessSessionTypes {
   /// has open entries. `steers` holds the steered person prompts. `delivered` holds the person
   /// prompts a harness turn received and ended without a cancel. `discarded` holds the ones a stop
   /// or the end of the task dropped. `receivedTwice` counts a harness session that received a
-  /// person prompt it already had.
+  /// person prompt it already had. `declinedBeforeProgress` holds the person prompts whose steer
+  /// the harness declined since the running turn went out or last reported progress.
   type World = {
     status: TaskStatus,
     restarts: int,
@@ -183,6 +187,7 @@ module harnessSessionTypes {
     delivered: Set[int],
     discarded: Set[int],
     receivedTwice: int,
+    declinedBeforeProgress: Set[int],
     resumesChosen: int,
     faults: int,
     actions: int,
@@ -206,7 +211,8 @@ module harnessSessionTypes {
     | DialStep
     | DurableObjectRestartStep
     | AnswerStep({ reachedItsOwnRow: bool, purpose: RpcPurpose })
-    | SteerAnswerStep({ injected: bool, reachedItsRow: bool })
+    | SteerAnswerStep({ injected: bool, intoATurn: bool, reachedItsRow: bool })
+    | ProgressStep
     | EmptyTurnEndStep
     | OutcomeStep({ laterPromptInFlight: bool })
 
@@ -281,6 +287,8 @@ module harnessSessionTypes {
     theBranchBindingFails: bool,
     aSteerIsTaken: bool,
     aSteerRacesTheTurnEnd: bool,
+    aSteerArrivesBeforeItsTurnStarts: bool,
+    aDeclinedSteerGoesAgainOnProgress: bool,
     aRestartLandsWhileASteerIsOut: bool,
     aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction: bool,
     aLostTurnReturnsATakenInstruction: bool,
@@ -361,6 +369,7 @@ module harnessSession {
     delivered: Set(),
     discarded: Set(),
     receivedTwice: 0,
+    declinedBeforeProgress: Set(),
     resumesChosen: 0,
     faults: 0,
     actions: 0,
@@ -619,6 +628,13 @@ module harnessSession {
   /// `peekPrompt`: the queued prompts that wait for the next turn. A steered person prompt does not.
   pure def waiting(w: World): List[PromptKind] = w.queue.select(kind => waits(w, kind))
 
+  /// The person prompts that wait for the next turn.
+  pure def waitingPersons(w: World): Set[int] =
+    waiting(w).foldl(Set(), (persons, kind) => match kind {
+      | PersonPrompt(person) => persons.union(Set(person))
+      | _ => persons
+    })
+
   /// The queue without its oldest waiting prompt.
   pure def withoutFirstWaiting(w: World): World = {
     val kept = w.queue.foldl({ removed: false, queue: List() }, (progress, kind) =>
@@ -652,6 +668,7 @@ module harnessSession {
         turnText: false,
         status: if (w.status == InReview) Working else w.status,
         promptsSent: w.promptsSent + 1,
+        declinedBeforeProgress: Set(),
       }
       val held = match carried {
         | NoPerson => inFlight
@@ -898,6 +915,7 @@ module harnessSession {
         requests: List(),
         received: Set(),
         inTurn: Set(),
+        turnShowedProgress: false,
       }),
     }
 
@@ -943,6 +961,7 @@ module harnessSession {
       ...process,
       received: if (cancelled) process.received.exclude(inTurn) else process.received,
       inTurn: Set(),
+      turnShowedProgress: false,
     })
     { ...ended, delivered: if (cancelled) w.delivered else w.delivered.union(inTurn) }
   }
@@ -1261,8 +1280,17 @@ module harnessSession {
     aTaskLeftQueuedDuringItsBranchBinding:
       step.kind == BranchBindingReturnStep and step.before.status != Queued,
     theBranchBindingFails: step.kind == BranchBindingReturnStep and step.after.faults > step.before.faults,
-    aSteerIsTaken: step.kind == SteerAnswerStep({ injected: true, reachedItsRow: true }),
-    aSteerRacesTheTurnEnd: step.kind == SteerAnswerStep({ injected: false, reachedItsRow: true }),
+    aSteerIsTaken: step.kind == SteerAnswerStep({ injected: true, intoATurn: true, reachedItsRow: true }),
+    aSteerRacesTheTurnEnd: step.kind == SteerAnswerStep({ injected: false, intoATurn: false, reachedItsRow: true }),
+    aSteerArrivesBeforeItsTurnStarts: and {
+      step.kind == SteerAnswerStep({ injected: false, intoATurn: true, reachedItsRow: true }),
+      step.after.declinedBeforeProgress.size() > step.before.declinedBeforeProgress.size(),
+    },
+    aDeclinedSteerGoesAgainOnProgress: and {
+      step.kind == ProgressStep,
+      waitingPersons(step.before).intersect(step.before.declinedBeforeProgress).size() > 0,
+      step.after.steers.size() > step.before.steers.size(),
+    },
     aRestartLandsWhileASteerIsOut:
       step.kind == DurableObjectRestartStep and step.before.steers.exists(row => row.status == SteerOut),
     aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction: and {
@@ -1816,27 +1844,43 @@ module harnessSession {
     { steer: scan.steer, intoATurn: scan.intoATurn }
   }
 
-  /// `onSteerAnswer`: the running turn took the person prompt of an injected steer. A steer the
-  /// turn did not take changes nothing, and its person prompt waits for the turn end.
+  /// `declineSteer`: the steer row of request `rpc` goes while it is out, so its person prompt waits
+  /// again.
+  pure def declineSteer(w: World, rpc: int): World = {
+    val declined = w.steers.filter(steer => steer.rpc == rpc and steer.status == SteerOut)
+    {
+      ...w,
+      steers: w.steers.exclude(declined),
+      declinedBeforeProgress: w.declinedBeforeProgress.union(declined.map(steer => steer.person)),
+    }
+  }
+
+  /// `onSteerAnswer`: the running turn took the person prompt of an injected steer. The person
+  /// prompt of a declined steer waits again.
   pure def onSteerAnswer(w: World, request: Request, injected: bool): World =
     rowsWith(w, request.id).foldl(takeRow(w, request), (taken, row) =>
-      if (row.purpose == Steer and injected)
+      if (row.purpose != Steer) taken
+      else if (injected)
         { ...taken, steers: taken.steers.map(steer => if (steer.rpc == request.id) { ...steer, status: SteerTaken } else steer) }
-      else taken)
+      else declineSteer(taken, request.id))
 
   /// The harness answers its oldest steer. A turn that runs takes it and its harness session
   /// receives the person prompt. Without a running turn, the harness answers that it needs a
-  /// prompt.
+  /// prompt. A turn that has not reported progress may not have started yet, so the harness may
+  /// answer that way before it.
   action harnessAnswersASteer: bool = all {
     world.bridges.indices().exists(bridge => steerable(world, bridge)),
     nondet bridge = world.bridges.indices().filter(index => steerable(world, index)).oneOf()
+    nondet beforeItsTurnStarts = Set(true, false).oneOf()
     val oldest = oldestSteer(world.bridges[bridge])
+    val notStarted = beforeItsTurnStarts and not(world.bridges[bridge].turnShowedProgress)
+    val injected = oldest.intoATurn and not(notStarted)
     val removed = withoutRequest(world, bridge, oldest.steer)
-    val answered = if (oldest.intoATurn) receivePerson(removed, bridge, oldest.steer.carries) else removed
+    val answered = if (injected) receivePerson(removed, bridge, oldest.steer.carries) else removed
     val reachedItsRow = served(world, bridge) and rowsWith(world, oldest.steer.id).length() > 0
     move(
-      if (served(world, bridge)) onSteerAnswer(answered, oldest.steer, oldest.intoATurn) else answered,
-      SteerAnswerStep({ injected: oldest.intoATurn, reachedItsRow: reachedItsRow }),
+      if (served(world, bridge)) onSteerAnswer(answered, oldest.steer, injected) else answered,
+      SteerAnswerStep({ injected: injected, intoATurn: oldest.intoATurn, reachedItsRow: reachedItsRow }),
     ),
   }
 
@@ -1849,12 +1893,22 @@ module harnessSession {
     | FinishedTodoList => storeTodos(w, false)
   }
 
-  /// The harness reports a tool call or a todo list change during its turn.
+  /// `onSessionUpdate` with progress: the running turn steers the person prompts that wait, such
+  /// as one whose steer the harness declined.
+  pure def steerOnProgress(w: World): World = if (w.promptInFlight) drainQueue(w, List()) else w
+
+  /// The harness reports a tool call or a todo list change during its turn, so it started that turn.
   action harnessShowsProgress: bool = all {
     world.bridges.indices().exists(bridge => runsATurn(world, bridge)),
     nondet bridge = world.bridges.indices().filter(index => runsATurn(world, index)).oneOf()
     nondet report = Set(ToolCall, OpenTodoList, FinishedTodoList).oneOf()
-    move(if (served(world, bridge)) reportProgress(touchProgress(world), report) else world, OtherStep),
+    val started = changeBridges(world, Set(bridge), process => { ...process, turnShowedProgress: true })
+    move(
+      if (served(world, bridge))
+        reportProgress({ ...steerOnProgress(touchProgress(started)), declinedBeforeProgress: Set() }, report)
+      else started,
+      ProgressStep,
+    ),
   }
 
   /// The harness writes the page and prints its link during its turn. `recordArtifact` stores it,
@@ -2129,10 +2183,11 @@ module harnessSession {
   }
 
   /// K10. While a turn runs and the task is not paused, every queued person prompt has a steer out
-  /// or is taken. A harness that cannot steer keeps its queue, and this spec does not model one.
+  /// or is taken, unless the harness declined its steer and the turn has not reported progress
+  /// since. A harness that cannot steer keeps its queue, and this spec does not model one.
   val aPersonPromptDoesNotWaitForTheTurnToEnd: bool =
     (turnRunning(world) and not(world.paused) and not(isFinished(world.status))) implies
-      waiting(world).select(isPersonPrompt).length() == 0
+      waitingPersons(world).subseteq(world.declinedBeforeProgress)
 
   /// K15. A harness session receives each person prompt at most once, by steer or as a prompt,
   /// unless the turn that received it was cancelled.
@@ -2362,6 +2417,14 @@ module harnessSession {
   /// Witness for `aPersonPromptIsNeverDropped`: a steer reaches the harness after its turn ended,
   /// so its person prompt goes as the next prompt.
   val aSteerRacesTheTurnEnd: bool = stepWitnesses.aSteerRacesTheTurnEnd
+
+  /// Witness for `aPersonPromptDoesNotWaitForTheTurnToEnd`: a steer reaches the harness before its
+  /// turn started, and the harness declines it.
+  val aSteerArrivesBeforeItsTurnStarts: bool = stepWitnesses.aSteerArrivesBeforeItsTurnStarts
+
+  /// Witness for `aPersonPromptDoesNotWaitForTheTurnToEnd`: the running turn reports progress and
+  /// steers again a person prompt whose steer the harness declined.
+  val aDeclinedSteerGoesAgainOnProgress: bool = stepWitnesses.aDeclinedSteerGoesAgainOnProgress
 
   /// Witness for `aPersonPromptIsNeverDropped`: the Durable Object restarts while a steer is out.
   val aRestartLandsWhileASteerIsOut: bool = stepWitnesses.aRestartLandsWhileASteerIsOut

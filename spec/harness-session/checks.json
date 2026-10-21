@@ -83,6 +83,8 @@
       "aStoppedTaskGetsTheTaskPrompt",
       "aSteerIsTaken",
       "aSteerRacesTheTurnEnd",
+      "aSteerArrivesBeforeItsTurnStarts",
+      "aDeclinedSteerGoesAgainOnProgress",
       "aRestartLandsWhileASteerIsOut",
       "aLostTurnReturnsATakenInstruction"
     ],
@@ -131,6 +133,8 @@
       "aStoppedTaskGetsTheTaskPrompt",
       "aSteerIsTaken",
       "aSteerRacesTheTurnEnd",
+      "aSteerArrivesBeforeItsTurnStarts",
+      "aDeclinedSteerGoesAgainOnProgress",
       "aRestartLandsWhileASteerIsOut",
       "aLostTurnReturnsATakenInstruction"
     ],
@@ -179,6 +183,8 @@
       "aStoppedTaskGetsTheTaskPrompt",
       "aSteerIsTaken",
       "aSteerRacesTheTurnEnd",
+      "aSteerArrivesBeforeItsTurnStarts",
+      "aDeclinedSteerGoesAgainOnProgress",
       "aRestartLandsWhileASteerIsOut",
       "aLostTurnReturnsATakenInstruction"
     ],
@@ -196,6 +202,8 @@
       "theAgentWakesAfterAnEmptyTurn",
       "aSteerIsTaken",
       "aSteerRacesTheTurnEnd",
+      "aSteerArrivesBeforeItsTurnStarts",
+      "aDeclinedSteerGoesAgainOnProgress",
       "aRestartLandsWhileASteerIsOut",
       "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction",
       "aLostTurnReturnsATakenInstruction"

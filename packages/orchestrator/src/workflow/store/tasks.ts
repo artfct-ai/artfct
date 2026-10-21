@@ -25,6 +25,8 @@ export type SandboxRow = typeof sandboxes.$inferSelect;
 export type SessionFeedRow = typeof sessionFeeds.$inferSelect;
 export type QueuedPrompt = Pick<typeof promptQueue.$inferSelect, "id" | "text" | "instruction">;
 export type PromptSteerRow = typeof promptSteers.$inferSelect;
+/** How many of a task's queued prompts wait, are steered into its running turn, or were taken by it. */
+export type PromptCounts = { waiting: number; steered: number; taken: number };
 export type PendingRpc = Pick<typeof rpc.$inferSelect, "purpose" | "method">;
 export type ModelUsageRow = typeof modelUsage.$inferSelect;
 export type NewModelUsage = Omit<ModelUsageRow, "id" | "at">;
@@ -498,6 +500,32 @@ export class WorkflowStore extends WorkflowRowStore {
       .set({ status: "taken" })
       .where(and(eq(promptSteers.rpc_id, rpcId), eq(promptSteers.status, "out")))
       .run();
+  }
+
+  /** The harness declined the steer request `rpcId`, so its instruction waits again. */
+  declineSteer(rpcId: number): void {
+    this.db
+      .delete(promptSteers)
+      .where(and(eq(promptSteers.rpc_id, rpcId), eq(promptSteers.status, "out")))
+      .run();
+  }
+
+  /**
+   * A task's queued prompts by where they stand: waiting for the next turn, steered into the
+   * running turn without an answer yet, or taken by it.
+   */
+  promptCounts(taskId: string): PromptCounts {
+    const rows = this.db
+      .select({ status: promptSteers.status })
+      .from(promptQueue)
+      .leftJoin(promptSteers, eq(promptSteers.prompt_id, promptQueue.id))
+      .where(eq(promptQueue.task_id, taskId))
+      .all();
+    return {
+      waiting: rows.filter((row) => row.status === null).length,
+      steered: rows.filter((row) => row.status === "out").length,
+      taken: rows.filter((row) => row.status === "taken").length,
+    };
   }
 
   /** The turn ended on its own. Its taken instructions leave the queue, and the rest wait again. */

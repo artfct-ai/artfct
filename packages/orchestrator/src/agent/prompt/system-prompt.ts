@@ -7,7 +7,7 @@ import type { ToolSet } from "ai";
 import { taskQuiet, heldForReview, refinerInFlight } from "../../workflow/refiner/loop";
 import { runningPolisherOf } from "../../workflow/refiner/stage-refiner";
 import { taskAtWork } from "../../workflow/task/at-work";
-import type { ArtifactRow, TaskRow } from "../../workflow/store/tasks";
+import type { ArtifactRow, PromptCounts, TaskRow } from "../../workflow/store/tasks";
 import { jobSlotsOf } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
 import { stageAfterInput } from "../message/input-artifact";
@@ -231,7 +231,7 @@ function stateLines(workflow: WorkflowRuntime, turn: TurnFacts): string[] {
   const active = store.activeAuthorAndResearcherTasks();
   return [
     "## Current state",
-    "Read from the store and the hosts for this request. Say whether a task runs, and where page comments are, only from these lines, never from earlier messages. `activity=running` means a turn of the task runs now. `activity=idle` means it runs nothing and nothing is queued for it. `held_comments` counts the comments on the page that its author has not received.",
+    "Read from the store and the hosts for this request. Say whether a task runs, and where page comments are, only from these lines, never from earlier messages. `activity=running` means a turn of the task runs now. `activity=idle` means it runs nothing and nothing is queued for it. `queued_prompts` counts the prompts that wait for the task's next turn. `taken_instructions` counts the person instructions its running turn took, so its author has read them. `steered_instructions` counts the ones sent into its running turn that its harness has not answered yet. A count of zero is left out. `held_comments` counts the comments on the page that its author has not received.",
     `Workflow: ${created.workflow_id} status=${created.status}`,
     plan
       ? `Workflow definition: ${plan.definition}`
@@ -263,12 +263,27 @@ function reviewLine(workflow: WorkflowRuntime, author: TaskRow, artifact: Artifa
 /** Whether a task runs a turn right now, as the store holds it. */
 type TaskActivity = "starting" | "running" | "prompt_queued" | "paused" | "idle";
 
-function taskActivity(workflow: WorkflowRuntime, task: TaskRow): TaskActivity {
+function taskActivity(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  prompts: PromptCounts,
+): TaskActivity {
   if (task.paused_at !== null) return "paused";
   if (task.status === "queued" || task.status === "provisioning") return "starting";
   if (taskAtWork(workflow, task)) return "running";
-  const queued = workflow.store.queue().some((row) => row.task_id === task.task_id);
-  return queued ? "prompt_queued" : "idle";
+  return prompts.waiting > 0 ? "prompt_queued" : "idle";
+}
+
+function promptsPart(prompts: PromptCounts): string {
+  const counts: [string, number][] = [
+    ["queued_prompts", prompts.waiting],
+    ["taken_instructions", prompts.taken],
+    ["steered_instructions", prompts.steered],
+  ];
+  return counts
+    .filter(([, count]) => count > 0)
+    .map(([field, count]) => ` ${field}=${count}`)
+    .join("");
 }
 
 function heldCommentsPart(heldComments: ReadonlyMap<string, number | null>, jobId: string) {
@@ -289,5 +304,6 @@ function jobLine(
     : " artifact=none";
   const sandbox = workflow.store.sandbox(task.task_id);
   const runsOn = sandbox ? `harness=${sandbox.harness}` : "execution=model";
-  return `- job ${job.job_id} stage=${job.stage}${item} ${task.role}=${task.task_id} status=${task.status} activity=${taskActivity(workflow, task)} ${runsOn} model=${task.model}${target}`;
+  const prompts = workflow.store.promptCounts(task.task_id);
+  return `- job ${job.job_id} stage=${job.stage}${item} ${task.role}=${task.task_id} status=${task.status} activity=${taskActivity(workflow, task, prompts)}${promptsPart(prompts)} ${runsOn} model=${task.model}${target}`;
 }
