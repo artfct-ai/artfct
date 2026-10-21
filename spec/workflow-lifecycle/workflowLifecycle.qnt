@@ -1771,7 +1771,7 @@ module workflowLifecycle {
       lastStepReached' = witnessesReachedBy(step),
       lastStepToldTheAgent' = after.told,
       lastStepAnswered' = answered,
-      firedTheWorkflow' = firedTheWorkflow or createsByFiring(step),
+      firedTheWorkflow' = (firedTheWorkflow or createsByFiring(step)),
     }
   }
 

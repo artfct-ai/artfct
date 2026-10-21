@@ -175,7 +175,7 @@ module triggerFirings {
 
   /// The attempt failed. Before the last attempt the consumer sends the next one. After the last,
   /// it logs the error and posts the failure line in the thread it has.
-  pure def fail(w: World, delivery: int, thread: ThreadRef): World =
+  pure def attemptFailed(w: World, delivery: int, thread: ThreadRef): World =
     if (messageOf(w, delivery).attempt < LAST_ATTEMPT) withPhase(w, delivery, SendOut)
     else match thread {
       | InThread(line) => {
@@ -212,8 +212,8 @@ module triggerFirings {
   /// The next attempt of the delivery's firing, which a failed attempt sends.
   pure def withNextAttempt(w: World, delivery: int): World = {
     val message = messageOf(w, delivery)
-    val next = { firing: message.firing, attempt: message.attempt + 1, delay: delayBefore(message.attempt + 1), acked: false }
-    { ...w, messages: w.messages.put(w.messages.keys().size(), next) }
+    val nextAttempt = { firing: message.firing, attempt: message.attempt + 1, delay: delayBefore(message.attempt + 1), acked: false }
+    { ...w, messages: w.messages.put(w.messages.keys().size(), nextAttempt) }
   }
 
   /// The scheduled runs so far, one first attempt each.
@@ -232,8 +232,8 @@ module triggerFirings {
   }
 
   /// One step that does not reach a step witness.
-  action move(next: World): bool = all {
-    world' = next,
+  action move(nextWorld: World): bool = all {
+    world' = nextWorld,
     conversationRestarts' = conversationRestarts,
     lateRuns' = lateRuns,
     stepWitnesses' = NO_STEP_WITNESSES,
@@ -272,7 +272,7 @@ module triggerFirings {
       nondet posted = Set(true, false).oneOf()
       val lostTheRace = world.records.keys().contains(messageOf(world, delivery).firing)
       all {
-        world' = if (posted) startLinePosted(world, delivery) else fail(world, delivery, NoThread),
+        world' = if (posted) startLinePosted(world, delivery) else attemptFailed(world, delivery, NoThread),
         conversationRestarts' = conversationRestarts,
         lateRuns' = lateRuns,
         stepWitnesses' = { ...NO_STEP_WITNESSES, lostTheRecordRace: posted and lostTheRace },
@@ -323,7 +323,7 @@ module triggerFirings {
     all {
       calling.size() > 0,
       nondet delivery = calling.oneOf()
-      move(fail(world, delivery, calledThread(world.deliveries.get(delivery).phase))),
+      move(attemptFailed(world, delivery, calledThread(world.deliveries.get(delivery).phase))),
     }
   }
 
@@ -336,7 +336,7 @@ module triggerFirings {
       answering.size() > 0,
       nondet delivery = answering.oneOf()
       all {
-        world' = fail(world, delivery, calledThread(world.deliveries.get(delivery).phase)),
+        world' = attemptFailed(world, delivery, calledThread(world.deliveries.get(delivery).phase)),
         conversationRestarts' = conversationRestarts + 1,
         lateRuns' = lateRuns,
         stepWitnesses' = NO_STEP_WITNESSES,
