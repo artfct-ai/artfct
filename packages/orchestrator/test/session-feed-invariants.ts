@@ -281,8 +281,6 @@ export function heartbeatsAndNarrationWaitWhileTheQuotaIsLow(posts: FeedPost[]):
 
 /** What one person's message in the job session did. */
 export type InstructionOutcome = {
-  /** The workflow had not ended when the message arrived. */
-  workflowRuns: boolean;
   /** The session's author was in a turn when the message arrived. */
   authorInTurn: boolean;
   /** The message is in the author's prompt queue. */
@@ -294,9 +292,9 @@ export type InstructionOutcome = {
 };
 
 /**
- * A person's message to a running workflow gets one receipt, an ephemeral thought. It reaches
- * the author in its turn as a prompt, or else wakes the agent, whose turn answers. A message to a
- * finished workflow gets the reply that it ended instead.
+ * A person's message gets one receipt, an ephemeral thought. It reaches the author in its turn as
+ * a prompt, or else wakes the agent, whose turn answers. After the workflow ended, it wakes the
+ * agent the same way.
  */
 export function everyInstructionGetsAReceipt(
   outcome: InstructionOutcome,
@@ -305,16 +303,6 @@ export function everyInstructionGetsAReceipt(
   const receipts = outcome.posts.filter(
     (post) => post.type === "thought" && post.ephemeral && post.body === receiptText,
   );
-  if (!outcome.workflowRuns) {
-    const replies = outcome.posts.filter((post) => post.type === "response");
-    if (receipts.length > 0 || replies.length !== 1) {
-      violated(
-        "everyInstructionGetsAReceipt",
-        `a finished workflow posted ${JSON.stringify(outcome.posts.map((post) => post.body))}`,
-      );
-    }
-    return;
-  }
   if (receipts.length !== 1 || outcome.posts.length !== 1) {
     violated(
       "everyInstructionGetsAReceipt",

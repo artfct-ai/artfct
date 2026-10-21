@@ -555,9 +555,9 @@ module sessionRouting {
     if (hasChat(state)) chatThreads(state).subseteq(targets) and targets.size() > 0
     else targets.contains(wrote)
 
-  /// A person's message in a session without a running author waits for an agent turn, or gets
-  /// a reply when the workflow ended. A verbal command gets its reply, or waits for an agent turn
-  /// when it did not run. An agent turn's post reaches each session it answers, or the chat
+  /// A person's message in a session without a running author waits for an agent turn. Once the
+  /// workflow ended, a status request or a verbal command gets a reply. Before the end, a verbal
+  /// command gets its reply, or waits for an agent turn when it did not run. An agent turn's post reaches each session it answers, or the chat
   /// threads.
   pure def withoutAnAuthorIsAnswered(before: Routing, after: Routing, facts: StepFacts): bool = and {
     match facts.wrote {
@@ -565,7 +565,7 @@ module sessionRouting {
           runningSessionJob(before, wrote.issue).size() == 0 implies {
             val replied = postsOf(facts).exists(posted => reaches(after, posted.targets, Session(wrote.issue)))
             val waits = facts.woke and after.waiting.contains(Session(wrote.issue))
-            if (before.ended) replied
+            if (before.ended and wrote.text != Question) replied
             else match wrote.text {
               | PauseCommand => replied or waits
               | CancelCommand => replied or waits
@@ -1071,13 +1071,15 @@ module sessionRouting {
   /// What a person's message in a session does when it lands. In the job session of a running
   /// author, the message is a prompt for that author, a verbal command too. Anywhere else a verbal
   /// command runs, and any other message wakes the agent. A message other than a status request
-  /// wakes a sleeping workflow. A finished workflow answers the person.
+  /// wakes a sleeping workflow. A finished workflow answers a status request or a verbal command,
+  /// and a question wakes the agent.
   pure def messageLands(state: Routing, issue: Issue, text: SessionText): StepResult = {
     val session = Session(issue)
     val wrote = WroteIn({ issue: issue, text: text })
     val running = runningSessionJob(state, issue)
     val woken = { ...state, waitsForInput: state.waitsForInput and text == StatusRequest }
-    if (state.ended) {
+    if (state.ended and text == Question) wakeTheAgent(state, issue, wrote)
+    else if (state.ended) {
       val kind = if (text == StatusRequest) StatusPost else InfoPost
       val reply = { kind: kind, targets: replyTargetsOf(state, session) }
       { state: state, facts: { ...NO_FACTS, wrote: wrote, posts: List(reply) } }
@@ -1091,8 +1093,9 @@ module sessionRouting {
   }
 
   /// A person writes in one of the workflow's tracker sessions, and the message lands in the same
-  /// step. A status request does not wait on the idle clock, and a finished workflow answers at
-  /// once. Any other message lands here when nothing else ran while it waited on the idle clock.
+  /// step. A status request does not wait on the idle clock, and a message to a finished workflow
+  /// lands at once. Any other message lands here when nothing else ran while it waited on the idle
+  /// clock.
   action personWritesInSession: bool = {
     nondet issue = ISSUES.oneOf()
     nondet text = SESSION_TEXTS.oneOf()

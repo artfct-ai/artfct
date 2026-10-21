@@ -4,7 +4,7 @@ import type { Env } from "../src/env";
 function isRouterWrite(sql: string): boolean {
   return (
     sql.startsWith('insert into "workflows"') ||
-    (sql.startsWith('insert into "bindings"') && sql.includes(" select "))
+    (sql.startsWith('insert into "bindings"') && sql.includes(" do update "))
   );
 }
 

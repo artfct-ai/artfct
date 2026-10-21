@@ -562,8 +562,10 @@ module routerBindings {
   /// A running workflow starts a job on the issue. It reads where the issue's binding points. A
   /// binding that points at it lets the job start. A binding that points at no workflow, or at one
   /// whose row ended, moves to it before it records the job. Any other binding refuses the job.
+  /// A job starts only after its workflow's row write returned, since the plan awaits that write
+  /// and every event awaits the start step.
   action workflowStartsAJobOnTheIssue: bool = {
-    nondet workflow = world.workflows.keys().filter(workflow => isRunning(world, workflow)).oneOf()
+    nondet workflow = world.workflows.keys().filter(workflow => isRunning(world, workflow) and not(rowWriteAhead(world, workflow))).oneOf()
     all {
       SETUP_KEYS.contains(Issue),
       not(world.workflows.get(workflow).hasIssueJob),
@@ -576,7 +578,8 @@ module routerBindings {
   /// A running workflow binds the pull request its job opened, then records it. Each workflow opens
   /// at most one, and only one workflow that has not ended opens each pull request.
   action workflowOpensThePullRequest: bool = {
-    nondet workflow = world.workflows.keys().filter(workflow => isRunning(world, workflow) and pullsOf(world, workflow).size() == 0).oneOf()
+    nondet workflow = world.workflows.keys().filter(workflow =>
+        isRunning(world, workflow) and not(rowWriteAhead(world, workflow)) and pullsOf(world, workflow).size() == 0).oneOf()
     nondet pull = PULLS.filter(pull => world.workflows.keys().forall(other =>
         pullsOf(world, other).contains(pull) implies statusOf(world, other) == Done)).oneOf()
     startWorkflowOperation(world, workflow, PullBinds(pull))

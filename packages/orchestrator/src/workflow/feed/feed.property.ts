@@ -228,7 +228,7 @@ type Witnesses = {
   receiptsInATurn: number;
   receiptsBetweenTurns: number;
   receiptsAfterTheAuthorFinished: number;
-  repliesOfAnEndedWorkflow: number;
+  receiptsAfterTheWorkflowEnded: number;
   repostedAfterARestart: number;
   narrationPostedAfterTheTurn: number;
   accountsNarrated: number;
@@ -570,7 +570,6 @@ class FeedRun {
     this.countInstruction();
     everyInstructionGetsAReceipt(
       {
-        workflowRuns: !this.workflowEnded,
         authorInTurn: this.inFlight,
         reachedTheAuthor: this.workflow.store.queue().some((row) => row.text === text),
         wokeTheAgent: this.workflow.notes
@@ -583,7 +582,7 @@ class FeedRun {
   }
 
   private countInstruction(): void {
-    if (this.workflowEnded) this.witnesses.repliesOfAnEndedWorkflow += 1;
+    if (this.workflowEnded) this.witnesses.receiptsAfterTheWorkflowEnded += 1;
     else if (this.authorFinished) this.witnesses.receiptsAfterTheAuthorFinished += 1;
     else if (this.inFlight) this.witnesses.receiptsInATurn += 1;
     else this.witnesses.receiptsBetweenTurns += 1;
@@ -772,7 +771,7 @@ describe("session feed invariants", () => {
         receiptsInATurn: 0,
         receiptsBetweenTurns: 0,
         receiptsAfterTheAuthorFinished: 0,
-        repliesOfAnEndedWorkflow: 0,
+        receiptsAfterTheWorkflowEnded: 0,
         repostedAfterARestart: 0,
         narrationPostedAfterTheTurn: 0,
         accountsNarrated: 0,
@@ -824,7 +823,7 @@ describe("session feed invariants", () => {
       expect(witnesses.receiptsInATurn).toBeGreaterThan(0);
       expect(witnesses.receiptsBetweenTurns).toBeGreaterThan(0);
       expect(witnesses.receiptsAfterTheAuthorFinished).toBeGreaterThan(0);
-      expect(witnesses.repliesOfAnEndedWorkflow).toBeGreaterThan(0);
+      expect(witnesses.receiptsAfterTheWorkflowEnded).toBeGreaterThan(0);
       expect(witnesses.repostedAfterARestart).toBeGreaterThan(0);
       expect(witnesses.narrationPostedAfterTheTurn).toBeGreaterThan(0);
       expect(witnesses.accountsNarrated).toBeGreaterThan(0);
