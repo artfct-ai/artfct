@@ -34,7 +34,7 @@ import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
-import { startJob, type JobIssue } from "../src/workflow/lifecycle";
+import { startJob, writeRouterWorkflowStatus, type JobIssue } from "../src/workflow/lifecycle";
 import { deliverToConversation, handleEvent } from "../src/workflow/inbound/events";
 import { plainText } from "../src/notify/messages";
 import { outbox } from "../src/workflow/store/schema";
@@ -582,6 +582,7 @@ export class WorkflowWorld {
     });
     workflow.store.addReplyTarget(ORIGINS[setup.origin]);
     patchPlan(workflow, { repo: REPO });
+    await writeRouterWorkflowStatus(workflow);
     patchStagePlan(workflow, {
       stages: [stage],
       job_slots: SLOTS,
