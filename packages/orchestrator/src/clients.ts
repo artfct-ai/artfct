@@ -11,7 +11,10 @@ import {
   githubPullUrl,
 } from "@artfct-ai/adapters/code/github/url";
 import type { CodeHost, CodeReview } from "@artfct-ai/adapters/code/types";
+import { isGithubPullRequestEventName } from "@artfct-ai/adapters/code/github/vendor-event-name";
+import { githubConversationalEvents } from "@artfct-ai/adapters/code/github/conversational-events";
 import { SlackChat } from "@artfct-ai/adapters/chat/slack/chat";
+import { slackConversationalEvents } from "@artfct-ai/adapters/chat/slack/conversational-events";
 import type { Chat } from "@artfct-ai/adapters/chat/types";
 import { LinearDocuments } from "@artfct-ai/adapters/documents/linear/documents";
 import { NotionDocuments } from "@artfct-ai/adapters/documents/notion/documents";
@@ -20,6 +23,7 @@ import {
   NOTION_PAGE_PARENT_HINT,
   notionCliEnv,
 } from "@artfct-ai/adapters/documents/notion/cli";
+import { notionConversationalEvents } from "@artfct-ai/adapters/documents/notion/conversational-events";
 import { notionPageFromUrl } from "@artfct-ai/adapters/documents/notion/page-id";
 import type { Documents } from "@artfct-ai/adapters/documents/types";
 import { CloudflareGateway } from "@artfct-ai/adapters/gateway/cloudflare/gateway";
@@ -35,6 +39,7 @@ import {
 import type { HostInstructions } from "@artfct-ai/adapters/instructions";
 import type { McpServer } from "@artfct-ai/adapters/mcp";
 import { LinearTracker } from "@artfct-ai/adapters/tracker/linear/tracker";
+import { linearConversationalEvents } from "@artfct-ai/adapters/tracker/linear/conversational-events";
 import {
   LINEAR_ISSUES_INSTRUCTIONS,
   LINEAR_MCP_TOOLS,
@@ -290,6 +295,47 @@ export function cloneUrl(adapters: Adapters, repoFull: string): string {
   switch (adapters.code.provider) {
     case "github":
       return githubCloneUrl(repoFull);
+    default: {
+      const unreachable: never = adapters.code.provider;
+      throw new Error(`unhandled code provider ${String(unreachable)}`);
+    }
+  }
+}
+
+/** The vendor of each capability the deployment configures, as vendor event names begin. */
+export function configuredVendors(adapters: Adapters): string[] {
+  const providers = [adapters.code, adapters.tracker, adapters.chat, adapters.documents].map(
+    (adapter) => adapter.provider,
+  );
+  return [...new Set(providers)];
+}
+
+/**
+ * The vendor events that reach a conversation as a start or a message, across the configured
+ * vendors. A trigger never fires on one.
+ */
+export function conversationalEvents(adapters: Adapters): string[] {
+  return configuredVendors(adapters).flatMap((vendor): readonly string[] => {
+    switch (vendor) {
+      case "github":
+        return githubConversationalEvents;
+      case "slack":
+        return slackConversationalEvents;
+      case "linear":
+        return linearConversationalEvents;
+      case "notion":
+        return notionConversationalEvents;
+      default:
+        return [];
+    }
+  });
+}
+
+/** True when the vendor event is about a pull request on the configured code host. */
+export function vendorEventIsAboutPull(adapters: Adapters, eventName: string): boolean {
+  switch (adapters.code.provider) {
+    case "github":
+      return isGithubPullRequestEventName(eventName);
     default: {
       const unreachable: never = adapters.code.provider;
       throw new Error(`unhandled code provider ${String(unreachable)}`);

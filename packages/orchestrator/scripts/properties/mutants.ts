@@ -651,9 +651,9 @@ export const MUTANTS: Mutant[] = [
     id: "W543",
     invariant: "routerBindings::anEndedWorkflowKeepsNoBinding (code host bindings only)",
     path: "src/db/bindings.ts",
-    find: "  await db.delete(bindings).where(eq(bindings.workflow_id, workflowId));\n",
+    find: "  return db.delete(bindings).where(eq(bindings.workflow_id, workflowId));\n",
     replace:
-      '  await db\n    .delete(bindings)\n    .where(and(eq(bindings.workflow_id, workflowId), eq(bindings.source, "code_pull")));\n',
+      '  return db\n    .delete(bindings)\n    .where(and(eq(bindings.workflow_id, workflowId), eq(bindings.source, "code_pull")));\n',
   },
   {
     id: "W544",
@@ -2611,17 +2611,17 @@ export const MUTANTS: Mutant[] = [
     id: "W460",
     invariant: "triggerFirings::aFiringStartsAtMostOneWorkflow (the handler ignores the seen key)",
     path: "src/workflow/inbound/firing.ts",
-    find: '  if (workflow.store.eventSeen(key)) return { kind: "duplicate" };\n',
-    replace: "",
+    find: '  if (workflow.store.eventSeen(key)) return { kind: "duplicate" };\n  const event = await screenedFiringEvent(workflow, firing.cause);\n  if (workflow.store.eventSeen(key)) return { kind: "duplicate" };\n',
+    replace: "  const event = await screenedFiringEvent(workflow, firing.cause);\n",
   },
   {
     id: "W461",
     invariant:
       "triggerFirings::aFiringStartsAtMostOneWorkflow (the seen key is recorded after an await)",
     path: "src/workflow/inbound/firing.ts",
-    find: '  workflow.store.markEventSeen(key);\n  if (!workflow.store.conversation()) {\n    workflow.store.openConversation({\n      conversation_id: conversationId,\n      origin,\n    });\n  }\n  workflow.store.createWorkflow({\n    workflow_id: workflowId,\n    definition: definition.name,\n    name,\n    reason: `Fired by ${firedBy}`,\n    repo: null,\n    request_text: trigger.prompt,\n    request_links: [],\n    subject: null,\n  });\n  await workflow.tellAgent(\n    firingMessage({\n      trigger: firedBy,\n      prompt: trigger.prompt,\n      notes: [\n        `Workflow "${name}" started from workflow definition ${definition.name}.`,\n        `Call set_plan with definition ${definition.name} and the stages to run.`,\n      ],\n      stages: stageLines(workflow.config(), definition),\n    }),\n    "message",\n  );\n',
+    find: '  workflow.store.markEventSeen(key);\n  if (!workflow.store.conversation()) {\n    workflow.store.openConversation({\n      conversation_id: conversationId,\n      origin,\n    });\n  }\n  workflow.store.createWorkflow({\n    workflow_id: workflowId,\n    definition: definition.name,\n    name,\n    reason: `Fired by ${firedBy}`,\n    repo: origin.source === "code" ? origin.repo : null,\n    request_text: trigger.prompt,\n    request_links: [],\n    subject: null,\n  });\n  await workflow.tellAgent(\n    firingMessage({\n      first: true,\n      trigger: firedBy,\n      prompt: trigger.prompt,\n      event,\n      notes: [\n        `Workflow "${name}" started from workflow definition ${definition.name}.`,\n        `Call set_plan with definition ${definition.name} and the stages to run.`,\n      ],\n      stages: stageLines(workflow.config(), definition),\n    }),\n    "message",\n  );\n',
     replace:
-      '  if (!workflow.store.conversation()) {\n    workflow.store.openConversation({\n      conversation_id: conversationId,\n      origin,\n    });\n  }\n  workflow.store.createWorkflow({\n    workflow_id: workflowId,\n    definition: definition.name,\n    name,\n    reason: `Fired by ${firedBy}`,\n    repo: null,\n    request_text: trigger.prompt,\n    request_links: [],\n    subject: null,\n  });\n  await workflow.tellAgent(\n    firingMessage({\n      trigger: firedBy,\n      prompt: trigger.prompt,\n      notes: [\n        `Workflow "${name}" started from workflow definition ${definition.name}.`,\n        `Call set_plan with definition ${definition.name} and the stages to run.`,\n      ],\n      stages: stageLines(workflow.config(), definition),\n    }),\n    "message",\n  );\n  workflow.store.markEventSeen(key);\n',
+      '  if (!workflow.store.conversation()) {\n    workflow.store.openConversation({\n      conversation_id: conversationId,\n      origin,\n    });\n  }\n  workflow.store.createWorkflow({\n    workflow_id: workflowId,\n    definition: definition.name,\n    name,\n    reason: `Fired by ${firedBy}`,\n    repo: origin.source === "code" ? origin.repo : null,\n    request_text: trigger.prompt,\n    request_links: [],\n    subject: null,\n  });\n  await workflow.tellAgent(\n    firingMessage({\n      first: true,\n      trigger: firedBy,\n      prompt: trigger.prompt,\n      event,\n      notes: [\n        `Workflow "${name}" started from workflow definition ${definition.name}.`,\n        `Call set_plan with definition ${definition.name} and the stages to run.`,\n      ],\n      stages: stageLines(workflow.config(), definition),\n    }),\n    "message",\n  );\n  workflow.store.markEventSeen(key);\n',
   },
   {
     id: "W462",
@@ -2636,9 +2636,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "triggerFirings::aFiringStartsAtMostOneWorkflow (the record race loser calls its own thread)",
     path: "src/triggers/consumer.ts",
-    find: "  return keepFiringThread(consumer.db, firing, { channel: trigger.channel, thread: posted.ts });\n",
+    find: "  return keepFiringThread(consumer.db, firing, { channel, thread: posted.ts });\n",
     replace:
-      "  const thread = { channel: trigger.channel, thread: posted.ts };\n  await keepFiringThread(consumer.db, firing, thread);\n  return thread;\n",
+      "  const thread = { channel, thread: posted.ts };\n  await keepFiringThread(consumer.db, firing, thread);\n  return thread;\n",
   },
   {
     id: "W464",
@@ -2679,23 +2679,23 @@ export const MUTANTS: Mutant[] = [
     path: "src/triggers/consumer.ts",
     find: "  if (delay !== undefined) {\n",
     replace:
-      "  if (outcome.thread) await postFailureLine(consumer, firing, outcome.thread);\n  if (delay !== undefined) {\n",
+      "  if (outcome.origin) await postFailureLine(consumer, firing, outcome.origin);\n  if (delay !== undefined) {\n",
   },
   {
     id: "W469",
     invariant:
       "triggerFirings::aFailedFiringIsTriedUntilItsAttemptsRunOut (the last failure posts no failure line)",
     path: "src/triggers/consumer.ts",
-    find: "  if (outcome.thread) await postFailureLine(consumer, firing, outcome.thread);\n",
+    find: "  if (outcome.origin) await postFailureLine(consumer, firing, outcome.origin);\n",
     replace: "",
   },
   {
     id: "W470",
     invariant: "scheduleInvariants::scheduleFiresOnItsMinutes (the match uses the run's clock)",
     path: "src/triggers/schedule.ts",
-    find: "      if (!scheduleMatches(trigger.schedule, minute)) return [];\n",
+    find: '      if (!("schedule" in trigger) || !scheduleMatches(trigger.schedule, minute)) return [];\n',
     replace:
-      "      if (!scheduleMatches(trigger.schedule, scheduledMinute(Date.now()))) return [];\n",
+      '      if (!("schedule" in trigger) || !scheduleMatches(trigger.schedule, scheduledMinute(Date.now()))) return [];\n',
     propertyFile: "src/triggers/schedule.property.ts",
   },
   {
@@ -2714,6 +2714,164 @@ export const MUTANTS: Mutant[] = [
     find: "  const oneActive = validateOneActiveWorkflow(active, definition.name);\n  if (oneActive) return oneActive;\n",
     replace:
       '  const oneActive = validateOneActiveWorkflow(active, definition.name);\n  if (oneActive && active?.reason.startsWith("Fired by"))\n    workflow.store.updateWorkflow({ definition: definition.name });\n  else if (oneActive) return oneActive;\n',
+  },
+  {
+    id: "W480",
+    invariant: "inboundInvariants::aConversationalEventNeverFires (pass-through)",
+    path: "../adapters/src/code/github/vendor-event.ts",
+    find: '  if (isGithubConversationalEvent(name)) return { drop: "conversational" };\n',
+    replace: "",
+    propertyFile: "../adapters/src/code/github/vendor-event.property.ts",
+  },
+  {
+    id: "W481",
+    invariant: "inboundInvariants::aConversationalEventNeverFires (mapper)",
+    path: "../adapters/src/code/github/inbound.ts",
+    find: "  if (isGithubConversationalEvent(name)) return CONVERSATIONAL_MAPPERS[name](eventContext);\n",
+    replace:
+      "  const byHeader = Object.entries(CONVERSATIONAL_MAPPERS).find(([listed]) => listed.startsWith(`github.${eventName}.`));\n  if (byHeader) return byHeader[1](eventContext);\n",
+    propertyFile: "../adapters/src/code/github/vendor-event.property.ts",
+  },
+  {
+    id: "W482",
+    invariant: "inboundInvariants::aConversationalEventNeverFires (config load)",
+    path: "src/config/event-triggers.ts",
+    find: "  if (conversationalEvents(adapters).includes(trigger.event)) {\n",
+    replace: "  if (false) {\n",
+    propertyFile: "src/config/event-triggers.property.ts",
+  },
+  {
+    id: "W483",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (the app's own event)",
+    path: "../adapters/src/code/github/vendor-event.ts",
+    find: '  if (context.ownLogins.includes(sender.login)) return { drop: "caused by the app" };\n',
+    replace: "",
+    propertyFile: "../adapters/src/code/github/vendor-event.property.ts",
+  },
+  {
+    id: "W484",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (a fork)",
+    path: "../adapters/src/code/github/vendor-event.ts",
+    find: "  if (pull && pull.head.repo?.full_name !== repository.full_name) {\n",
+    replace: "  if (false) {\n",
+    propertyFile: "../adapters/src/code/github/vendor-event.property.ts",
+  },
+  {
+    id: "W485",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (no causer)",
+    path: "../adapters/src/code/github/vendor-event.ts",
+    find: '  const { repository, sender, pull_request: pull } = parsed.data;\n  if (!sender) return { drop: "no causer" };\n',
+    replace:
+      '  const { repository, pull_request: pull } = parsed.data;\n  const sender = parsed.data.sender ?? { login: "ghost", type: "User" };\n',
+    propertyFile: "../adapters/src/code/github/vendor-event.property.ts",
+  },
+  {
+    id: "W486",
+    invariant: "triggerMatchingInvariants::aTriggerFiresOnlyWhenEveryFilterHolds (any one filter)",
+    path: "src/triggers/match.ts",
+    find: "  return Object.entries(trigger.filters).every(([path, accepted]) => {\n",
+    replace:
+      "  return Object.entries(trigger.filters).length === 0 || Object.entries(trigger.filters).some(([path, accepted]) => {\n",
+    propertyFile: "src/router/vendor-event.property.ts",
+  },
+  {
+    id: "W487",
+    invariant: "triggerMatchingInvariants::aTriggerFiresOnlyWhenEveryFilterHolds (a missing path)",
+    path: "src/triggers/match.ts",
+    find: "  return candidates.some((candidate) => accepted.includes(candidate));\n",
+    replace:
+      "  return value === undefined || candidates.some((candidate) => accepted.includes(candidate));\n",
+    propertyFile: "src/router/vendor-event.property.ts",
+  },
+  {
+    id: "W488",
+    invariant: "triggerMatchingInvariants::anUnmatchedEventStaysInMemory",
+    path: "src/router/vendor-event.ts",
+    find: '  const matched = matchingTriggers(router.definitions, event);\n  if (matched.length === 0) return { dropped: `no trigger matches ${event.name}` };\n  if (!(await router.resolveActor(event.causer))) {\n    return { dropped: "the causer is not authorized" };\n  }\n',
+    replace:
+      '  if (!(await router.resolveActor(event.causer))) {\n    return { dropped: "the causer is not authorized" };\n  }\n  const matched = matchingTriggers(router.definitions, event);\n  if (matched.length === 0) return { dropped: `no trigger matches ${event.name}` };\n',
+    propertyFile: "src/router/vendor-event.property.ts",
+  },
+  {
+    id: "W489",
+    invariant: "triggerMatchingInvariants::aTriggerFiresOnlyForAnAuthorizedCauser",
+    path: "src/router/vendor-event.ts",
+    find: '  if (!(await router.resolveActor(event.causer))) {\n    return { dropped: "the causer is not authorized" };\n  }\n',
+    replace: "",
+    propertyFile: "src/router/vendor-event.property.ts",
+  },
+  {
+    id: "W490",
+    invariant: "triggerMatchingInvariants::aTriggeredPayloadStaysWithinItsCap",
+    path: "src/router/vendor-event.ts",
+    find: "  const payload = renderedPayload(event.payload);\n",
+    replace: "  const payload = JSON.stringify(event.payload);\n",
+    propertyFile: "src/router/vendor-event.property.ts",
+  },
+  {
+    id: "W492",
+    invariant:
+      "routerBindings::aWatchedObjectsEventReachesEveryWatcher (the fan-out stops at a failure)",
+    path: "src/router/deliver.ts",
+    find: "      console.warn(`watched pull request delivery to ${conversationId} failed: ${String(error)}`);\n",
+    replace:
+      "      console.warn(`watched pull request delivery to ${conversationId} failed: ${String(error)}`);\n      break;\n",
+  },
+  {
+    id: "W493",
+    invariant:
+      "routerBindings::aWatchedObjectsEventReachesEveryWatcher (an event with a binding skips the watchers)",
+    path: "src/router/deliver.ts",
+    find: "  if (watchers.length) return fanOutToWatchers(env, event, route, watchers);\n",
+    replace:
+      '  if (watchers.length && route.kind === "drop") return fanOutToWatchers(env, event, route, watchers);\n',
+  },
+  {
+    id: "W494",
+    invariant: "routerBindings::anEndedWorkflowKeepsNoWatch",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await (watch ? db.batch([unbind, dropWatch(db, watch)]) : unbind);\n",
+    replace: "  await unbind;\n",
+  },
+  {
+    id: "W495",
+    invariant: "routerBindings::oneActiveWatcherPerPullRequestAndDefinition",
+    path: "src/triggers/consumer.ts",
+    find: "        definition: firing.definition,\n",
+    replace: "        definition: `${firing.definition}:${firingKey(firing)}`,\n",
+  },
+  {
+    id: "W496",
+    invariant:
+      "triggerFirings::aFiringOnAnActiveDefinitionReachesItsWorkflowOnce (the active workflow drops the firing)",
+    path: "src/workflow/inbound/firing.ts",
+    find: "  if (active) return promptActiveWorkflow(workflow, { delivered, event, active });\n",
+    replace: '  if (active) return { kind: "duplicate" };\n',
+  },
+  {
+    id: "W497",
+    invariant: "triggerFirings::aFiringNeverLandsOnAnEndingWorkflow",
+    path: "src/workflow/inbound/firing.ts",
+    find: '  if (active?.status === "ending") return { kind: "ending", workflow_id: active.workflow_id };\n',
+    replace: "",
+  },
+  {
+    id: "W498",
+    invariant:
+      "routerBindings::aClosedPullRequestEndsItsWatchers (the watcher reads a close as a message)",
+    path: "src/workflow/inbound/apply.ts",
+    find: '  if (event.kind === "pr_event" && pull?.action === "closed") {\n',
+    replace: "  if (false) {\n",
+  },
+  {
+    id: "W499",
+    invariant:
+      "routerBindings::aClosedPullRequestEndsItsWatchers (ingress hands over the firings before the delivery returns)",
+    path: "../ingress/src/routes/github.ts",
+    find: '  const conversational =\n    "ignore" in normalized ? { ignored: normalized.ignore } : await rpc.deliver(normalized.event);\n  const passed = githubVendorEvent(eventName, payload, { deliveryId, ownLogins });\n  const vendorEvent =\n    "drop" in passed ? { dropped: passed.drop } : await rpc.deliverVendorEvent(passed.event);\n',
+    replace:
+      '  const passed = githubVendorEvent(eventName, payload, { deliveryId, ownLogins });\n  const [conversational, vendorEvent] = await Promise.all([\n    "ignore" in normalized ? { ignored: normalized.ignore } : rpc.deliver(normalized.event),\n    "drop" in passed ? { dropped: passed.drop } : rpc.deliverVendorEvent(passed.event),\n  ]);\n',
+    propertyFile: "../ingress/src/routes/github.property.ts",
   },
 ];
 

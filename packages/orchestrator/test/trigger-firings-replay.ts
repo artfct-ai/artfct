@@ -1,29 +1,54 @@
 import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
+import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
+import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import type { InboundEvent } from "@artfct-ai/contracts/inbound";
+import type { VendorEvent } from "@artfct-ai/contracts/types";
 import { setSystemTime } from "bun:test";
 import { loadWorkflowDefinition } from "../src/config/workflow-definition";
 import { createDb, type Database } from "../src/db/client";
 import { conversationIdOf, conversationRecorded } from "../src/db/conversations";
 import { recordedFiringThread } from "../src/db/firing-threads";
+import { fireMatchingTriggers } from "../src/router/vendor-event";
 import { firingKey } from "../src/triggers/firing-key";
 import { consumeFiringMessage } from "../src/triggers/firing-queue";
 import { scheduledFirings } from "../src/triggers/schedule";
 import type { ConversationFiring, FiringAnswer, TriggerFiring } from "../src/triggers/types";
+import { handleEvent } from "../src/workflow/inbound/events";
 import { fireWorkflow } from "../src/workflow/inbound/firing";
+import { resumeWorkflowEnd } from "../src/workflow/lifecycle";
 import { Deferred } from "./deferred";
 import { FakeRuntime } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfSet, itfText, itfVariant } from "./itf";
-import { openMemoryDb } from "./memory-db";
+import { openMemoryDb, storeRowsOf, type MemoryDb } from "./memory-db";
 import { quintTraces } from "./quint-traces";
-import { runStartStep } from "./restart";
+import { runStartStep, startRestartedInstance } from "./restart";
 import { sqliteD1 } from "./sqlite-d1";
 import { TEST_CONFIG, TEST_DEFINITION_NAME } from "./test-config";
 import { testEnv } from "./test-env";
 
 /** The setup modules of the trigger firings spec. */
-export const SPEC_SETUPS = ["twoMinutes"] as const;
+export const SPEC_SETUPS = ["twoMinutes", "pullRequestEvents", "aMinuteAndAChannelEvent"] as const;
 
 /** The name of one setup module of the spec. */
 export type SpecSetup = (typeof SPEC_SETUPS)[number];
+
+/**
+ * The scheduled firings and the channel event firings of each setup, in that order. The firings
+ * after them are pull request firings.
+ */
+const SETUP_FIRINGS: Record<SpecSetup, { scheduled: number; channelEvents: number }> = {
+  twoMinutes: { scheduled: 2, channelEvents: 0 },
+  pullRequestEvents: { scheduled: 0, channelEvents: 0 },
+  aMinuteAndAChannelEvent: { scheduled: 1, channelEvents: 1 },
+};
+
+/** The one pull request every pull request firing names. */
+const PULL_REQUEST = { repo: "acme/app", number: 12 };
+
+const PULL_REQUEST_EVENT = "github.pull_request.synchronize";
+
+const CHANNEL_EVENT = "github.release.published";
 
 /** The most steps a generated trace takes after its initial state. */
 const TRACE_STEPS = 40;
@@ -42,21 +67,33 @@ const LATE_MS = 90_000;
 /** The thread of the start line the chat posts `line`th, counted from 0. */
 const FIRST_LINE_SECONDS = 1_800_000_000;
 
-/** The test workflow definition with a trigger that fires every minute. */
+/** The test workflow definition with a trigger every minute, one on a pull request event, and one on a channel event. */
 const DEFINITION = loadWorkflowDefinition(
   TEST_DEFINITION_NAME,
   [
     TEST_CONFIG.workflowDefinitions[0]!.text,
     "triggers:",
     `  - { schedule: "* * * * *", channel: ${CHANNEL}, prompt: Upgrade the dependencies. }`,
+    `  - { event: ${PULL_REQUEST_EVENT}, prompt: Review the change. }`,
+    `  - { event: ${CHANNEL_EVENT}, channel: ${CHANNEL}, prompt: Write the release notes. }`,
   ].join("\n"),
 );
+
+/** The conversation of the pull request and the definition. */
+const PULL_REQUEST_PLACE = {
+  source: "pull_request",
+  ...PULL_REQUEST,
+  definition: DEFINITION.name,
+} as const;
 
 /** One attempt in the queue, as the spec sees it. */
 type MessageView = { firing: number; attempt: number; delay: number; acked: boolean };
 
 /** One queue delivery, as the spec sees it, with its phase written as the spec's variant. */
 type DeliveryView = { message: number; phase: string };
+
+/** A firing's prompt that reached a workflow of the pull request's conversation. */
+type PromptView = { firing: number; workflow: number };
 
 /** The queue, the chat, D1 and the conversations, as the spec sees them. */
 export type FiringsView = {
@@ -67,6 +104,10 @@ export type FiringsView = {
   recordedConversations: number[];
   startedConversations: number[];
   failureLines: [number, number][];
+  pullWorkflows: string[];
+  pullSeen: number[];
+  pullPrompts: PromptView[];
+  failureComments: number;
 };
 
 /** What a spec action picked. */
@@ -178,6 +219,13 @@ function specView(world: unknown): FiringsView {
       thread,
       itfInt(count),
     ]),
+    pullWorkflows: itfList(itfField(world, "pullWorkflows")).map(variantText),
+    pullSeen: itfIntSet(itfField(world, "pullSeen")),
+    pullPrompts: itfList(itfField(world, "pullPrompts")).map((prompt) => ({
+      firing: itfInt(itfField(prompt, "firing")),
+      workflow: itfInt(itfField(prompt, "workflow")),
+    })),
+    failureComments: itfInt(itfField(world, "failureComments")),
   };
 }
 
@@ -188,12 +236,18 @@ function asRecord(value: unknown): object {
   return value;
 }
 
+/** Where a delivery calls its conversation, written as the spec's variant. */
+type PlaceText = `InThread(${number})` | "OnThePullRequest";
+
+/** What a failure line post or a failure comment returns. Each caller reads its own field. */
+type FailureLineAnswer = { ts: string; id: number };
+
 /** A call the consumer of one delivery waits on until the spec answers it. */
 type HeldCall =
   | { kind: "post"; answer: Deferred<{ ts: string }> }
   | {
       kind: "fire";
-      thread: number;
+      place: PlaceText;
       conversationId: string;
       firing: ConversationFiring;
       answer: Deferred<FiringAnswer>;
@@ -201,7 +255,7 @@ type HeldCall =
       tell: Deferred<void> | null;
     }
   | { kind: "send"; firing: TriggerFiring; delaySeconds: number; answer: Deferred<void> }
-  | { kind: "failureLine"; thread: number; answer: Deferred<{ ts: string }> };
+  | { kind: "failureLine"; place: PlaceText; answer: Deferred<FailureLineAnswer> };
 
 /** One run of the real consumer on one queue message. */
 type ReplayDelivery = {
@@ -212,14 +266,37 @@ type ReplayDelivery = {
   retried: boolean;
   sent: boolean;
   taken: boolean;
-  failureLineThread: number | null;
+  failureLinePlace: PlaceText | null;
 };
 
 /** One attempt in the fake queue. */
 type QueuedMessage = { body: TriggerFiring; delay: number; acked: boolean };
 
-/** One conversation, by its id, and the agent tells it holds until the spec answers them. */
-type ReplayConversation = { runtime: FakeRuntime; tells: Deferred<void>[] };
+/** A prompt the conversation queued for its agent: the firing it names and its workflow. */
+type ToldPrompt = { firing: number; workflowId: string };
+
+/**
+ * One conversation, by its id: its runtime and store, the agent tells it holds until the spec
+ * answers them, the prompts it queued, and the end posts it holds.
+ */
+type ReplayConversation = {
+  runtime: FakeRuntime;
+  store: MemoryDb;
+  tells: Deferred<void>[];
+  prompts: ToldPrompt[];
+  endPosts: Deferred<void>[];
+};
+
+/** A code host whose pull request comments wait for the spec. */
+class DeliveryCodeHost extends FakeCodeHost {
+  constructor(private readonly comment: () => Promise<{ id: number }>) {
+    super();
+  }
+
+  override commentOnPull(): Promise<{ id: number }> {
+    return this.comment();
+  }
+}
 
 /** The calls the chat of one delivery hands to the replay. */
 type DeliveryChatCalls = {
@@ -248,6 +325,8 @@ class DeliveryChat extends FakeChat {
  * answers it.
  */
 export class TriggerFiringsReplay {
+  constructor(private readonly setup: SpecSetup) {}
+
   private readonly d1 = sqliteD1();
   private readonly db: Database = createDb(this.d1);
   private readonly messages: QueuedMessage[] = [];
@@ -255,6 +334,8 @@ export class TriggerFiringsReplay {
   private readonly startLines: number[] = [];
   private readonly failureLineCalls = new Map<number, number>();
   private readonly conversations = new Map<string, ReplayConversation>();
+  private failureComments = 0;
+  private closes = 0;
 
   /** Take one spec action. */
   async take(step: TraceStep): Promise<void> {
@@ -262,6 +343,12 @@ export class TriggerFiringsReplay {
     switch (step.action) {
       case "theScheduledRunQueues":
         this.runScheduledMinute(required(picks.firing, "firing"), required(picks.late, "late"));
+        return;
+      case "aChannelEventFires":
+        await this.fireVendorEvent(vendorEventOf(required(picks.firing, "firing"), CHANNEL_EVENT));
+        return;
+      case "aPullRequestEventFires":
+        await this.fireThePullRequestEvent(required(picks.firing, "firing"));
         return;
       case "theQueueDelivers":
         await this.deliver(required(picks.id, "id"));
@@ -283,6 +370,15 @@ export class TriggerFiringsReplay {
         return;
       case "theConversationRestarts":
         await this.restartTheConversation(required(picks.delivery, "delivery"));
+        return;
+      case "thePullRequestConversationRestarts":
+        await this.restartThePullRequestConversation();
+        return;
+      case "theWatcherEndStarts":
+        await this.closeThePullRequest();
+        return;
+      case "theWatcherEndFinishes":
+        await this.finishTheWatcherEnd();
         return;
       case "theNextAttemptIsSent":
         await this.answerTheSend(
@@ -316,8 +412,8 @@ export class TriggerFiringsReplay {
       (left, right) => left - right,
     );
     const records: [number, number][] = [];
-    for (const firing of firings) {
-      const recorded = await recordedFiringThread(this.db, firingBody(firing));
+    for (const firing of firings.filter((fired) => !this.isPullFiring(fired))) {
+      const recorded = await recordedFiringThread(this.db, this.firingBody(firing));
       if (recorded) records.push([firing, threadOf(recorded.thread)]);
     }
     const recordedConversations: number[] = [];
@@ -345,7 +441,51 @@ export class TriggerFiringsReplay {
       failureLines: [...this.failureLineCalls.entries()].toSorted(
         ([left], [right]) => left - right,
       ),
+      ...(await this.pullRequestView(firings.filter((fired) => this.isPullFiring(fired)))),
+      failureComments: this.failureComments,
     };
+  }
+
+  /** The pull request's conversation as the spec sees it, from its store and its told prompts. */
+  private async pullRequestView(
+    firings: number[],
+  ): Promise<Pick<FiringsView, "pullWorkflows" | "pullSeen" | "pullPrompts">> {
+    const conversation = this.conversations.get(await conversationIdOf(PULL_REQUEST_PLACE));
+    if (!conversation) return { pullWorkflows: [], pullSeen: [], pullPrompts: [] };
+    const workflowIds = [...new Set(conversation.prompts.map(({ workflowId }) => workflowId))];
+    const rows = storeRowsOf(conversation.store).workflows as {
+      workflow_id: string;
+      status: string;
+    }[];
+    if (rows.length !== workflowIds.length) {
+      throw new Error(
+        `the conversation holds ${rows.length} workflows but prompted ${workflowIds.length}`,
+      );
+    }
+    return {
+      pullWorkflows: workflowIds.map((workflowId) =>
+        workflowStatusText(rows.find((row) => row.workflow_id === workflowId)!.status),
+      ),
+      pullSeen: firings.filter((firing) =>
+        conversation.runtime.store.eventSeen(firingKey(pullFiringBody(firing))),
+      ),
+      pullPrompts: conversation.prompts.map(({ firing, workflowId }) => ({
+        firing,
+        workflow: workflowIds.indexOf(workflowId),
+      })),
+    };
+  }
+
+  private isPullFiring(firing: number): boolean {
+    const { scheduled, channelEvents } = SETUP_FIRINGS[this.setup];
+    return firing >= scheduled + channelEvents;
+  }
+
+  /** The queue body of a firing's first attempt, as the scheduled run or the router queues it. */
+  private firingBody(firing: number): TriggerFiring {
+    if (this.isPullFiring(firing)) return pullFiringBody(firing);
+    if (firing >= SETUP_FIRINGS[this.setup].scheduled) return channelEventFiringBody(firing);
+    return scheduledFiringBody(firing);
   }
 
   /** Put the real clock back. */
@@ -361,6 +501,81 @@ export class TriggerFiringsReplay {
     }
   }
 
+  /** The router fires the vendor event of a pull request firing, with the firing in its payload. */
+  private fireThePullRequestEvent(firing: number): Promise<void> {
+    return this.fireVendorEvent({
+      ...vendorEventOf(firing, PULL_REQUEST_EVENT),
+      enrichment: { kind: "pull_request", ...PULL_REQUEST },
+    });
+  }
+
+  private async fireVendorEvent(event: VendorEvent): Promise<void> {
+    await fireMatchingTriggers(
+      {
+        definitions: [DEFINITION],
+        resolveActor: async () => ({ email: "octocat@acme.test", display_name: "octocat" }),
+        sendFirings: async (firings) => {
+          for (const body of firings) this.messages.push({ body, delay: 0, acked: false });
+        },
+      },
+      event,
+    );
+  }
+
+  /** The pull request merges. Its conversation's real handler starts the watcher's end and arms the alarm that goes on with it. */
+  private async closeThePullRequest(): Promise<void> {
+    const conversation = this.conversationFor(await conversationIdOf(PULL_REQUEST_PLACE));
+    this.closes += 1;
+    const merged: InboundEvent = {
+      id: `merged-${this.closes}`,
+      kind: "pr_event",
+      actor: null,
+      bindings: [{ source: "code_pull", ...PULL_REQUEST }],
+      links: [],
+      text: "",
+      pull: { action: "closed", ...PULL_REQUEST, merged: true },
+    };
+    await handleEvent(conversation.runtime, merged);
+  }
+
+  /** The alarm that goes on with the end fires, its held end post returns, and the end finishes. */
+  private async finishTheWatcherEnd(): Promise<void> {
+    const { runtime, endPosts } = this.conversationFor(await conversationIdOf(PULL_REQUEST_PLACE));
+    const [alarm, ...others] = runtime.alarmsFor("resumeWorkflowEnd");
+    if (!alarm || others.length > 0) throw new Error("the workflow end does not have one alarm");
+    await runtime.cancelAlarm(alarm.id);
+    const postsBefore = endPosts.length;
+    let settled = false;
+    const ending = resumeWorkflowEnd(runtime).finally(() => {
+      settled = true;
+    });
+    await waitFor(
+      () => settled || endPosts.length > postsBefore,
+      "the workflow end neither finished nor posted",
+    );
+    if (settled) throw new Error("the workflow end finished without its post");
+    endPosts.at(-1)!.resolve();
+    await ending;
+    await this.quiet();
+  }
+
+  /** The pull request's conversation restarts. Its handlers are lost. */
+  private async restartThePullRequestConversation(): Promise<void> {
+    const conversationId = await conversationIdOf(PULL_REQUEST_PLACE);
+    const conversation = this.conversationFor(conversationId);
+    const restarted = conversation.runtime.restarted();
+    holdConversationCalls(restarted, conversation);
+    conversation.runtime = restarted;
+    await startRestartedInstance(restarted);
+    for (const delivery of this.deliveries) {
+      const call = delivery.held;
+      if (call?.kind !== "fire" || call.conversationId !== conversationId || !call.tell) continue;
+      delivery.held = null;
+      call.answer.reject(new Error("the conversation restarted"));
+    }
+    await this.quiet();
+  }
+
   private async deliver(id: number): Promise<void> {
     const message = this.messages[id];
     if (!message) throw new Error(`the replay has no message ${id}`);
@@ -372,7 +587,7 @@ export class TriggerFiringsReplay {
       retried: false,
       sent: false,
       taken: false,
-      failureLineThread: null,
+      failureLinePlace: null,
     };
     this.deliveries.push(delivery);
     const consumer = {
@@ -382,20 +597,29 @@ export class TriggerFiringsReplay {
           this.hold(delivery, { kind: "post", answer: new Deferred<{ ts: string }>() }).promise,
         reply: (replyThread) => {
           const thread = threadOf(replyThread);
-          delivery.failureLineThread = thread;
+          delivery.failureLinePlace = `InThread(${thread})`;
           this.failureLineCalls.set(thread, (this.failureLineCalls.get(thread) ?? 0) + 1);
           return this.hold(delivery, {
             kind: "failureLine",
-            thread,
-            answer: new Deferred<{ ts: string }>(),
+            place: `InThread(${thread})`,
+            answer: new Deferred<FailureLineAnswer>(),
           }).promise;
         },
+      }),
+      code: new DeliveryCodeHost(() => {
+        delivery.failureLinePlace = "OnThePullRequest";
+        this.failureComments += 1;
+        return this.hold(delivery, {
+          kind: "failureLine",
+          place: "OnThePullRequest",
+          answer: new Deferred<FailureLineAnswer>(),
+        }).promise;
       }),
       definitions: [DEFINITION],
       fire: (conversationId: string, firing: ConversationFiring) =>
         this.hold(delivery, {
           kind: "fire",
-          thread: threadOf(firing.thread),
+          place: placeTextOf(firing),
           conversationId,
           firing,
           answer: new Deferred<FiringAnswer>(),
@@ -489,7 +713,8 @@ export class TriggerFiringsReplay {
   ): Promise<void> {
     const answer = await handler;
     delivery.held = null;
-    delivery.taken = answer.kind !== "active_workflow";
+    delivery.taken =
+      answer.kind === "started" || answer.kind === "prompted" || answer.kind === "duplicate";
     call.answer.resolve(answer);
     await this.quiet();
   }
@@ -505,7 +730,7 @@ export class TriggerFiringsReplay {
     const { delivery, call } = this.heldCall(index, "fire");
     const conversation = this.conversationFor(call.conversationId);
     const restarted = conversation.runtime.restarted();
-    holdTells(restarted, conversation.tells);
+    holdConversationCalls(restarted, conversation);
     conversation.runtime = restarted;
     await runStartStep(restarted);
     delivery.held = null;
@@ -529,7 +754,7 @@ export class TriggerFiringsReplay {
   private async answerTheFailureLine(index: number, posted: boolean): Promise<void> {
     const { delivery, call } = this.heldCall(index, "failureLine");
     delivery.held = null;
-    if (posted) call.answer.resolve({ ts: "1.0" });
+    if (posted) call.answer.resolve({ ts: "1.0", id: 1 });
     else call.answer.reject(new Error("the chat refused the failure line"));
     await this.quiet();
   }
@@ -554,9 +779,17 @@ export class TriggerFiringsReplay {
   private conversationFor(conversationId: string): ReplayConversation {
     const known = this.conversations.get(conversationId);
     if (known) return known;
-    const runtime = new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: this.d1 }, "uncreated");
-    const conversation: ReplayConversation = { runtime, tells: [] };
-    holdTells(runtime, conversation.tells);
+    const store = openMemoryDb();
+    const runtime = new FakeRuntime(store, { ...testEnv(), DB: this.d1 }, "uncreated");
+    runtime.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
+    const conversation: ReplayConversation = {
+      runtime,
+      store,
+      tells: [],
+      prompts: [],
+      endPosts: [],
+    };
+    holdConversationCalls(runtime, conversation);
     this.conversations.set(conversationId, conversation);
     return conversation;
   }
@@ -564,7 +797,7 @@ export class TriggerFiringsReplay {
   /** True when the thread's conversation saw its firing, created its workflow and told its agent once. */
   private startedIn(conversation: ReplayConversation, thread: number): boolean {
     const { store, notes } = conversation.runtime;
-    const seen = store.eventSeen(firingKey(firingBody(this.startLines[thread]!)));
+    const seen = store.eventSeen(firingKey(this.firingBody(this.startLines[thread]!)));
     const created = store.workflowRow() !== null;
     if (seen !== created || notes.length !== (created ? 1 : 0)) {
       throw new Error(
@@ -582,14 +815,42 @@ export class TriggerFiringsReplay {
   }
 }
 
-/** Make each agent tell of the conversation wait until the spec answers the conversation's call. */
-function holdTells(runtime: FakeRuntime, tells: Deferred<void>[]): void {
+/**
+ * Make each agent tell of the conversation wait until the spec answers the conversation's call,
+ * and record the pull request firing it prompts. Make the post of each done end wait until the
+ * spec finishes that end.
+ */
+function holdConversationCalls(runtime: FakeRuntime, conversation: ReplayConversation): void {
   runtime.tellAgent = async (text, wake, from) => {
+    const workflowId = runtime.store.activeWorkflow()?.workflow_id;
+    const firing = /\{"firing":(\d+)\}/.exec(text)?.[1];
+    if (workflowId && firing !== undefined) {
+      conversation.prompts.push({ firing: Number(firing), workflowId });
+    }
     await FakeRuntime.prototype.tellAgent.call(runtime, text, wake, from);
     const tell = new Deferred<void>();
-    tells.push(tell);
+    conversation.tells.push(tell);
     await tell.promise;
   };
+  runtime.post = async (event, to, options) => {
+    if (event.type === "done") {
+      const post = new Deferred<void>();
+      conversation.endPosts.push(post);
+      await post.promise;
+    }
+    return FakeRuntime.prototype.post.call(runtime, event, to, options);
+  };
+}
+
+function workflowStatusText(status: string): string {
+  switch (status) {
+    case "ending":
+      return "WorkflowEnding";
+    case "ended":
+      return "WorkflowEnded";
+    default:
+      return "WorkflowRunning";
+  }
 }
 
 function phaseText(delivery: ReplayDelivery): string {
@@ -601,11 +862,11 @@ function phaseText(delivery: ReplayDelivery): string {
     case "post":
       return "PostOut";
     case "fire":
-      return call.tell ? `Answering(${call.thread})` : `CallOut(${call.thread})`;
+      return call.tell ? `Answering(${call.place})` : `CallOut(${call.place})`;
     case "send":
       return "SendOut";
     case "failureLine":
-      return `FailureLineOut(${call.thread})`;
+      return `FailureLineOut(${call.place})`;
     default: {
       const unreachable: never = call;
       throw new Error(`unhandled held call ${JSON.stringify(unreachable)}`);
@@ -617,24 +878,83 @@ function endingText(delivery: ReplayDelivery): string {
   if (delivery.retried) return "Redelivered";
   if (delivery.sent) return "NextAttemptSent";
   if (delivery.taken) return "Taken";
-  if (delivery.failureLineThread === null) return "GaveUp(NoThread)";
-  return `GaveUp(InThread(${delivery.failureLineThread}))`;
+  if (delivery.failureLinePlace === null) return "GaveUp(NoPlace)";
+  return `GaveUp(At(${delivery.failureLinePlace}))`;
 }
 
-function firingBody(firing: number): TriggerFiring {
+function scheduledFiringBody(firing: number): TriggerFiring {
   return {
     cause: {
       kind: "schedule",
       minute: new Date(FIRST_MINUTE_MS + firing * MINUTE_MS).toISOString(),
     },
+    reports: { kind: "channel", channel: CHANNEL },
     definition: DEFINITION.name,
     position: 0,
     attempt: 1,
   };
 }
 
+function pullFiringBody(firing: number): TriggerFiring {
+  return {
+    cause: vendorEventCauseOf(firing, PULL_REQUEST_EVENT),
+    reports: { kind: "pull_request", ...PULL_REQUEST },
+    definition: DEFINITION.name,
+    position: 1,
+    attempt: 1,
+  };
+}
+
+function channelEventFiringBody(firing: number): TriggerFiring {
+  return {
+    cause: vendorEventCauseOf(firing, CHANNEL_EVENT),
+    reports: { kind: "channel", channel: CHANNEL },
+    definition: DEFINITION.name,
+    position: 2,
+    attempt: 1,
+  };
+}
+
+function vendorEventCauseOf(firing: number, event: string): TriggerFiring["cause"] {
+  return {
+    kind: "vendor_event",
+    delivery_id: deliveryIdOf(firing),
+    event,
+    payload: JSON.stringify({ firing }),
+  };
+}
+
+/** The vendor event of one firing, by a person, with the firing in its payload. */
+function vendorEventOf(firing: number, name: string): VendorEvent {
+  return {
+    delivery_id: deliveryIdOf(firing),
+    name,
+    payload: { firing },
+    causer: { source: "code", user: { login: "octocat", repo: PULL_REQUEST.repo, app: false } },
+    about_app: false,
+  };
+}
+
+function deliveryIdOf(firing: number): string {
+  return `d-${firing}`;
+}
+
 function firingOf(body: TriggerFiring): number {
-  return (Date.parse(body.cause.minute) - FIRST_MINUTE_MS) / MINUTE_MS;
+  const { cause } = body;
+  switch (cause.kind) {
+    case "schedule":
+      return (Date.parse(cause.minute) - FIRST_MINUTE_MS) / MINUTE_MS;
+    case "vendor_event":
+      return Number(cause.delivery_id.slice("d-".length));
+    default: {
+      const unreachable: never = cause;
+      throw new Error(`unhandled firing cause ${String(unreachable)}`);
+    }
+  }
+}
+
+function placeTextOf({ origin }: ConversationFiring): PlaceText {
+  return origin.source === "chat" ? `InThread(${threadOf(origin.thread)})` : "OnThePullRequest";
 }
 
 function threadTs(thread: number): string {

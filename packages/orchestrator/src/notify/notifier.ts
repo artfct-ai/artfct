@@ -1,4 +1,5 @@
 import type { Chat, SessionStatus } from "@artfct-ai/adapters/chat/types";
+import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type {
   AgentActivityContent,
@@ -17,6 +18,7 @@ export const FEED_POST_ATTEMPTS = 3;
 
 type TrackerTarget = Extract<ReplyTarget, { source: "tracker" }>;
 type DocumentsTarget = Extract<ReplyTarget, { source: "documents" }>;
+type CodeTarget = Extract<ReplyTarget, { source: "code" }>;
 
 /** A chat thread as a reply target. */
 export type ChatTarget = Extract<ReplyTarget, { source: "chat" }>;
@@ -61,6 +63,7 @@ export type ChannelClients = {
   tracker: () => Promise<Tracker | null>;
   chat: Chat | null;
   documents: () => Promise<Documents | null>;
+  code: () => CodeHost | null;
 };
 
 /** Construction options. `now` is a seam for the progress throttle in tests. */
@@ -74,6 +77,7 @@ export class Notifier {
   private tracker: () => Promise<Tracker | null>;
   private chat: Chat | null;
   private documents: () => Promise<Documents | null>;
+  private code: () => CodeHost | null;
   private lastChatProgress = new Map<string, number>();
   private now: () => number;
 
@@ -85,6 +89,7 @@ export class Notifier {
     this.tracker = clients.tracker;
     this.chat = clients.chat;
     this.documents = clients.documents;
+    this.code = clients.code;
     this.now = options.now ?? Date.now;
   }
 
@@ -104,7 +109,7 @@ export class Notifier {
         case "documents":
           return await this.toDocuments(target, event);
         case "code":
-          return;
+          return await this.toCode(target, event);
       }
     } catch (error) {
       this.outbox({ channel: target.source, kind: DELIVERY_ERROR, target, payload: String(error) });
@@ -366,6 +371,15 @@ export class Notifier {
     if (!text) return;
     this.outbox({ channel: "documents", kind: event.type, target, payload: { text } });
     await (await this.documents())?.comment(target.page_id, text);
+  }
+
+  /** A pull request gets each post as a comment, except progress. */
+  private async toCode(target: CodeTarget, event: TaskEvent): Promise<void> {
+    if (event.type === "progress") return;
+    const text = plainText(event);
+    if (!text) return;
+    this.outbox({ channel: "code", kind: event.type, target, payload: { text } });
+    await this.code()?.commentOnPull(target.repo, target.pull, text);
   }
 
   /** At most one progress message per thread per minute. */

@@ -65,6 +65,36 @@ export type WorkflowSummary = {
   reason: string | null;
 };
 
+/** A value JSON can hold. A vendor's webhook payload is one. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+/** What an adapter adds for one vendor event: the pull request a firing on it reports on and watches. */
+type VendorEventEnrichment = { kind: "pull_request"; repo: string; number: number };
+
+/**
+ * A verified delivery from a vendor that is not a conversational event. `name` is the vendor's own
+ * event type, such as `github.pull_request.opened`. Access is checked on the causer.
+ */
+export type VendorEvent = {
+  /** The vendor's id for the delivery. A redelivery carries the same id. */
+  delivery_id: string;
+  name: string;
+  payload: JsonValue;
+  causer: IdentityQuery;
+  /** True when the event is about the app itself, such as the app joining a channel. */
+  about_app: boolean;
+  enrichment?: VendorEventEnrichment;
+};
+
+/** What happened to a vendor event: the firings it queued, or why it fired none. */
+export type VendorEventDelivery = { firings: number } | { dropped: string };
+
 /** A user as reported by an external system. */
 export type ExternalUser = { id: string; email?: string | null; name?: string | null };
 
@@ -125,6 +155,8 @@ export interface OrchestratorRpc {
   status(workflowId: string): Promise<WorkflowSummary | null>;
   /** The debug dump of one conversation's Durable Object. */
   debug(conversationId: string): Promise<unknown>;
+  /** Queue one firing per trigger the vendor event matches, for a causer who passes access. */
+  deliverVendorEvent(event: VendorEvent): Promise<VendorEventDelivery>;
   bindings(): Promise<BindingRecord[]>;
   /** A fresh Linear authorize link for an app-actor install. The state inside it works once. */
   linearInstallUrl(input: { redirect_uri: string }): Promise<LinearInstallLink>;

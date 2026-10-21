@@ -7,6 +7,8 @@ import type {
   LinearInstallLink,
   LinearInstallResult,
   OrchestratorRpc,
+  VendorEvent,
+  VendorEventDelivery,
   WorkflowSummary,
 } from "@artfct-ai/contracts/types";
 import type { Actor } from "@artfct-ai/contracts/inbound";
@@ -20,7 +22,11 @@ import type { Env } from "./env";
 import { completeLinearInstall, linearInstallUrl } from "./oauth/install";
 import { deliver } from "./router/deliver";
 import { resolveActor } from "./router/identity";
-import { consumeFiringBatch, runScheduledMinute } from "./triggers/firing-queue";
+import {
+  consumeFiringBatch,
+  deliverVendorEvent,
+  runScheduledMinute,
+} from "./triggers/firing-queue";
 import type { TriggerFiring } from "./triggers/types";
 import { Conversation } from "./conversation";
 
@@ -35,6 +41,10 @@ export { Conversation };
 export default class Orchestrator extends WorkerEntrypoint<Env> implements OrchestratorRpc {
   deliver(event: InboundEvent): Promise<Delivery> {
     return deliver(this.env, event);
+  }
+
+  deliverVendorEvent(event: VendorEvent): Promise<VendorEventDelivery> {
+    return deliverVendorEvent(this.env, event);
   }
 
   resolveActor(query: IdentityQuery): Promise<Actor | null> {

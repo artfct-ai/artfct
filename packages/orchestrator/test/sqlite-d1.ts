@@ -43,6 +43,8 @@ export function sqliteParams(params: unknown[]): SqliteParam[] {
 export function sqliteD1(): Env["DB"] {
   const sqlite = migratedD1Database();
   const statementOf = (sql: string, params: SqliteParam[]) => ({
+    sql,
+    params,
     run: async () => ({
       success: true,
       results: [],
@@ -52,11 +54,22 @@ export function sqliteD1(): Env["DB"] {
     raw: async () => sqlite.query(sql).values(...params),
     first: async () => sqlite.query(sql).get(...params),
   });
+  type Statement = ReturnType<typeof statementOf>;
   const binding: object = {
     prepare: (sql: string) => ({
       bind: (...params: unknown[]) => statementOf(sql, sqliteParams(params)),
       ...statementOf(sql, []),
     }),
+    batch: async (statements: Statement[]) => {
+      const runAll = sqlite.transaction(() =>
+        statements.map((statement) => ({
+          success: true,
+          results: sqlite.query(statement.sql).all(...statement.params),
+          meta: {},
+        })),
+      );
+      return runAll();
+    },
   };
   return binding as Env["DB"];
 }

@@ -6,13 +6,19 @@
     "oneRunningWorkflowHasAJobOnAnIssue",
     "aBaseMoveOnlyHandsTheEventOn",
     "theRouterRowMatchesTheWorkflowEnd",
-    "aRecordedPullRequestIsBoundToItsWorkflow"
+    "aRecordedPullRequestIsBoundToItsWorkflow",
+    "aWatchedObjectsEventReachesEveryWatcher",
+    "anEndedWorkflowKeepsNoWatch",
+    "oneActiveWatcherPerPullRequestAndDefinition",
+    "aClosedPullRequestEndsItsWatchers"
   ],
   "mainMinutes": {
     "chatThread": 1.0,
     "issueAndThread": 2.0,
     "sessionWithPullRequest": 1.2,
-    "baseMoveFanOut": 2.0
+    "baseMoveFanOut": 2.0,
+    "watchedPullRequest": 2.0,
+    "ownedAndWatchedPullRequest": 1.5
   },
   "witnesses": {
     "chatThread": [
@@ -51,32 +57,101 @@
       "thePullRequestIsBound",
       "aBaseMoveFansOutToTwoConversations",
       "aBaseMoveGoesOnPastAFailedCall"
+    ],
+    "watchedPullRequest": [
+      "twoDefinitionsWatchOnePullRequest",
+      "aMergeEndsTwoWatchers",
+      "aCloseThenReopenStartsANewReview",
+      "aLateWatchWriteFoundTheEnd"
+    ],
+    "ownedAndWatchedPullRequest": [
+      "thePullRequestIsBound",
+      "aCommentReachesTheOwnerAndTheWatcher",
+      "aBindingLedAnEventAway"
     ]
   },
   "maxSteps": {
     "baseMoveFanOut": 200,
     "chatThread": 60,
     "issueAndThread": 100,
-    "sessionWithPullRequest": 60
+    "sessionWithPullRequest": 60,
+    "watchedPullRequest": 100,
+    "ownedAndWatchedPullRequest": 100
   },
   "tlc": {
     "ignoredVariables": ["stepWitnesses"],
     "bounds": {
       "chatThread": {
-        "pr": { "eventsArrived": 3, "workflowsCreated": 2, "operationsStarted": 3 },
-        "nightly": { "eventsArrived": 4, "workflowsCreated": 3, "operationsStarted": 4 }
+        "pr": {
+          "eventsArrived": 3,
+          "workflowsCreated": 2,
+          "operationsStarted": 3
+        },
+        "nightly": {
+          "eventsArrived": 4,
+          "workflowsCreated": 3,
+          "operationsStarted": 4
+        }
       },
       "issueAndThread": {
-        "pr": { "eventsArrived": 2, "workflowsCreated": 2, "operationsStarted": 3 },
-        "nightly": { "eventsArrived": 3, "workflowsCreated": 3, "operationsStarted": 4 }
+        "pr": {
+          "eventsArrived": 2,
+          "workflowsCreated": 2,
+          "operationsStarted": 3
+        },
+        "nightly": {
+          "eventsArrived": 3,
+          "workflowsCreated": 3,
+          "operationsStarted": 4
+        }
       },
       "sessionWithPullRequest": {
-        "pr": { "eventsArrived": 3, "workflowsCreated": 2, "operationsStarted": 2 },
-        "nightly": { "eventsArrived": 4, "workflowsCreated": 3, "operationsStarted": 3 }
+        "pr": {
+          "eventsArrived": 3,
+          "workflowsCreated": 2,
+          "operationsStarted": 2
+        },
+        "nightly": {
+          "eventsArrived": 4,
+          "workflowsCreated": 3,
+          "operationsStarted": 3
+        }
       },
       "baseMoveFanOut": {
-        "pr": { "eventsArrived": 3, "workflowsCreated": 2, "operationsStarted": 3 },
-        "nightly": { "eventsArrived": 4, "workflowsCreated": 2, "operationsStarted": 4 }
+        "pr": {
+          "eventsArrived": 3,
+          "workflowsCreated": 2,
+          "operationsStarted": 3
+        },
+        "nightly": {
+          "eventsArrived": 4,
+          "workflowsCreated": 2,
+          "operationsStarted": 4
+        }
+      },
+      "watchedPullRequest": {
+        "pr": {
+          "eventsArrived": 2,
+          "workflowsCreated": 2,
+          "operationsStarted": 3
+        },
+        "nightly": {
+          "eventsArrived": 3,
+          "workflowsCreated": 3,
+          "operationsStarted": 5
+        }
+      },
+      "ownedAndWatchedPullRequest": {
+        "pr": {
+          "eventsArrived": 3,
+          "workflowsCreated": 2,
+          "operationsStarted": 3
+        },
+        "nightly": {
+          "eventsArrived": 4,
+          "workflowsCreated": 3,
+          "operationsStarted": 4
+        }
       }
     }
   }

@@ -24,7 +24,7 @@ const ROOT_PAGE_PATH = ["documents", "root_page"];
  * A rule that fires a workflow of its definition on each UTC minute its five-field cron
  * expression matches. Its start line goes in `channel`, and `prompt` is the agent's first message.
  */
-const WorkflowTrigger = z.strictObject({
+const ScheduleTrigger = z.strictObject({
   schedule: z
     .string()
     .trim()
@@ -35,6 +35,39 @@ const WorkflowTrigger = z.strictObject({
   channel: z.string().trim().min(1),
   prompt: z.string().trim().min(1),
 });
+
+/** A payload path of a vendor event, its keys joined by dots, such as `pull_request.base.ref`. */
+const FilterPath = z
+  .string()
+  .trim()
+  .regex(/^[^.]+(\.[^.]+)*$/, "filters: a payload path needs a key between every two dots");
+
+/** A value a trigger filter accepts at its path. */
+const FilterValue = z.union([z.string(), z.number(), z.boolean()]);
+
+/**
+ * A rule that fires a workflow of its definition on each vendor event it matches: the event's name
+ * equals `event` and every path of `filters` holds one of its values. A pull request event reports
+ * on its pull request, and any other event reports in `channel`, which config load checks.
+ */
+const EventTrigger = z.strictObject({
+  event: z
+    .string()
+    .trim()
+    .regex(/^[a-z]+\.\S+$/, "event: name a vendor event, such as github.pull_request.opened"),
+  filters: z.record(FilterPath, z.array(FilterValue).min(1)).default({}),
+  channel: z.string().trim().min(1).optional(),
+  prompt: z.string().trim().min(1),
+});
+
+/** A trigger that fires on the minutes of its cron expression. */
+export type ScheduleTrigger = z.infer<typeof ScheduleTrigger>;
+
+/** A trigger that fires on the vendor events it matches. */
+export type EventTrigger = z.infer<typeof EventTrigger>;
+
+/** One trigger of a workflow definition: a schedule, or a vendor event. */
+const WorkflowTrigger = z.union([ScheduleTrigger, EventTrigger]);
 
 /** One trigger of a workflow definition. */
 export type WorkflowTrigger = z.infer<typeof WorkflowTrigger>;

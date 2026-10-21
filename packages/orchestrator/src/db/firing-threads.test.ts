@@ -10,6 +10,7 @@ import {
 
 const FIRING: TriggerFiring = {
   cause: { kind: "schedule", minute: "2026-10-19T09:00:00.000Z" },
+  reports: { kind: "channel", channel: "C0123456" },
   definition: "dependency-upgrades",
   position: 0,
   attempt: 1,

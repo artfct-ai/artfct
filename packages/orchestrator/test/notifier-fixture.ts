@@ -1,6 +1,7 @@
 import type { SessionOptions, SessionStatus } from "@artfct-ai/adapters/chat/types";
 import { FakeChat, type ChatMethod } from "@artfct-ai/adapters/test/fake-chat";
 import type { Chat } from "@artfct-ai/adapters/chat/types";
+import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import { Notifier, type NotifierOptions, type OutboxEntry } from "../src/notify/notifier";
@@ -56,6 +57,7 @@ export type TestChannels = {
   tracker?: Tracker | null;
   chat?: Chat | null;
   documents?: Documents | null;
+  code?: CodeHost | null;
 };
 
 /** A notifier over the named clients, writing every outbox entry into `outbox`. */
@@ -64,9 +66,9 @@ export function testNotifier(
   clients: TestChannels = {},
   options: NotifierOptions = {},
 ): Notifier {
-  const { tracker = null, chat = null, documents = null } = clients;
+  const { tracker = null, chat = null, documents = null, code = null } = clients;
   return new Notifier(
-    { tracker: async () => tracker, chat, documents: async () => documents },
+    { tracker: async () => tracker, chat, documents: async () => documents, code: () => code },
     (entry) => outbox.push(entry),
     options,
   );

@@ -202,7 +202,12 @@ export class Conversation extends Agent<Env> implements WorkflowRuntime, Convers
     this.transcript = new TranscriptStore(db);
     this.chatClient = this.services.chat(this.env, this.config().adapters.chat.provider);
     this.notifier = new Notifier(
-      { tracker: () => this.tracker(), chat: this.chatClient, documents: () => this.documents() },
+      {
+        tracker: () => this.tracker(),
+        chat: this.chatClient,
+        documents: () => this.documents(),
+        code: () => this.code(),
+      },
       (entry) => this.store.writeOutbox(entry),
     );
     await armLostCallsAlarm(this);

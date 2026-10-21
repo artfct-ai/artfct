@@ -51,6 +51,9 @@ export async function postLinearWebhook(
   });
 }
 
+/** The GitHub route's reply: the conversational delivery, then the vendor event's. */
+export type GithubWebhookReply = { conversational: WebhookReply; vendor_event: WebhookReply };
+
 /**
  * Posts a GitHub webhook of type `eventName` signed with `x-hub-signature-256`. Pass the same
  * `deliveryId` twice to redeliver one.
@@ -59,16 +62,17 @@ export async function postGithubWebhook(
   eventName: string,
   payload: unknown,
   deliveryId = crypto.randomUUID(),
-): Promise<WebhookReply> {
+): Promise<GithubWebhookReply> {
   const body = JSON.stringify(payload);
   const signature = `sha256=${await hmacSha256Hex(GITHUB_WEBHOOK_SECRET, body)}`;
-  return postWebhook("/webhooks/github", body, {
+  const reply = await postWebhook("/webhooks/github", body, {
     "x-hub-signature-256": signature,
     "x-github-event": eventName,
     "x-github-delivery": deliveryId,
     "x-github-hook-installation-target-type": "integration",
     "user-agent": "GitHub-Hookshot/smoke",
   });
+  return reply as GithubWebhookReply;
 }
 
 /** Posts a Slack `event_callback` envelope around `event`, signed like Slack signs it. */

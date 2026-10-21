@@ -64,12 +64,14 @@ describe("scheduledFirings", () => {
     expect(scheduledFirings(definitions, MONDAY_NINE + 59_000)).toEqual([
       {
         cause: { kind: "schedule", minute: "2026-10-19T09:00:00.000Z" },
+        reports: { kind: "channel", channel: "C1" },
         definition: "dependency-upgrades",
         position: 0,
         attempt: 1,
       },
       {
         cause: { kind: "schedule", minute: "2026-10-19T09:00:00.000Z" },
+        reports: { kind: "channel", channel: "C1" },
         definition: "weekly-report",
         position: 0,
         attempt: 1,
@@ -86,5 +88,21 @@ describe("scheduledFirings", () => {
 
   it("fires nothing on a minute that no expression matches", () => {
     expect(scheduledFirings(definitions, MONDAY_NINE + 60_000)).toEqual([]);
+  });
+
+  it("skips an event trigger", () => {
+    const withEvent = loadWorkflowDefinition(
+      "release-notes",
+      [
+        "description: Write release notes.",
+        "stages:",
+        "  - { name: implement, artifact: pull, branch: true, author: { produce: { execution: harness, skill: implement } } }",
+        "triggers:",
+        "  - { event: github.release.published, channel: C1, prompt: Write the notes. }",
+        '  - { schedule: "0 9 * * 1-5", channel: C1, prompt: Write the notes. }',
+      ].join("\n"),
+    );
+    const firings = scheduledFirings([withEvent], MONDAY_NINE);
+    expect(firings.map(({ position }) => position)).toEqual([1]);
   });
 });

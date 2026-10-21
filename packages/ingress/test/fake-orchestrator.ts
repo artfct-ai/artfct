@@ -7,12 +7,18 @@ import type {
   LinearInstallLink,
   LinearInstallResult,
   OrchestratorRpc,
+  VendorEvent,
+  VendorEventDelivery,
   WorkflowSummary,
 } from "@artfct-ai/contracts/types";
 
 /** What a route delivered and asked. Tests read these instead of watching calls. */
 export type FakeOrchestrator = OrchestratorRpc & {
   deliveries: InboundEvent[];
+  /** Every vendor event a route handed over, in order. */
+  vendorEvents: VendorEvent[];
+  /** When each `deliver` returned and each `deliverVendorEvent` was called, in order. */
+  timeline: Array<"deliver returned" | "deliverVendorEvent">;
   queries: IdentityQuery[];
   statusIds: string[];
   debugIds: string[];
@@ -29,8 +35,12 @@ export type FakeOrchestratorOptions = {
   appUserId?: string;
   /** What `deliver` answers. */
   delivery?: Delivery;
+  /** What `deliverVendorEvent` answers. */
+  vendorEventDelivery?: VendorEventDelivery;
   /** When set, `deliver` throws this instead of answering. */
   deliverError?: Error;
+  /** The microtask ticks `deliver` waits before it answers. */
+  deliverTicks?: number;
   /** The workspace `trackerWorkspace` answers. Null stands for a deployment without an install. */
   workspace?: string | null;
   /** What `linearInstall` answers. */
@@ -81,6 +91,8 @@ export function fakeOrchestrator(options: FakeOrchestratorOptions = {}): FakeOrc
   const authorized = options.authorized ?? true;
   const fake: FakeOrchestrator = {
     deliveries: [],
+    vendorEvents: [],
+    timeline: [],
     queries: [],
     statusIds: [],
     debugIds: [],
@@ -90,7 +102,14 @@ export function fakeOrchestrator(options: FakeOrchestratorOptions = {}): FakeOrc
     async deliver(event) {
       if (options.deliverError) throw options.deliverError;
       fake.deliveries.push(event);
+      for (let tick = 0; tick < (options.deliverTicks ?? 0); tick++) await Promise.resolve();
+      fake.timeline.push("deliver returned");
       return options.delivery ?? DEFAULT_DELIVERY;
+    },
+    async deliverVendorEvent(event) {
+      fake.vendorEvents.push(event);
+      fake.timeline.push("deliverVendorEvent");
+      return options.vendorEventDelivery ?? { firings: 0 };
     },
     async resolveActor(query) {
       fake.queries.push(query);

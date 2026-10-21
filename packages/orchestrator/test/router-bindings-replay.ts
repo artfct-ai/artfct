@@ -1,3 +1,5 @@
+import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
@@ -7,15 +9,21 @@ import { eq } from "drizzle-orm";
 import { planTools } from "../src/agent/tools/plan";
 import { startTools, validateInputNotInWork } from "../src/agent/tools/start/start";
 import type { ArtifactTarget } from "../src/artifact/types";
-import { conversationIdOf } from "../src/db/conversations";
+import { loadWorkflowDefinition } from "../src/config/workflow-definition";
+import { createDb } from "../src/db/client";
+import { conversationIdOf, type PullRequestPlace } from "../src/db/conversations";
 import type { Env } from "../src/env";
 import { deliver } from "../src/router/deliver";
+import { consumeFiring, type FiringConsumer } from "../src/triggers/consumer";
+import type { TriggerFiring } from "../src/triggers/types";
 import { recordArtifact } from "../src/workflow/artifact";
 import { applyVerbalCommand } from "../src/workflow/inbound/controls";
 import { deliverToConversation } from "../src/workflow/inbound/events";
+import { fireWorkflow } from "../src/workflow/inbound/firing";
 import {
   completeWorkflow,
   failWorkflow,
+  resumeWorkflowEnd,
   writeRouterWorkflowStatus,
   type JobInput,
 } from "../src/workflow/lifecycle";
@@ -27,6 +35,7 @@ import { openMemoryDb, type MemoryDb } from "./memory-db";
 import { quintTraces } from "./quint-traces";
 import { runStartStep } from "./restart";
 import { migratedD1Database, sqliteParams } from "./sqlite-d1";
+import { TEST_CONFIG } from "./test-config";
 import { testEnv } from "./test-env";
 
 /** The setup modules of the router bindings spec. */
@@ -35,6 +44,8 @@ export const SPEC_SETUPS = [
   "issueAndThread",
   "sessionWithPullRequest",
   "baseMoveFanOut",
+  "watchedPullRequest",
+  "ownedAndWatchedPullRequest",
 ] as const;
 
 /** The name of one setup module of the spec. */
@@ -43,9 +54,15 @@ export type SpecSetup = (typeof SPEC_SETUPS)[number];
 /** The most steps a generated trace takes after its initial state. */
 const TRACE_STEPS = 25;
 
-const PLACES = ["Thread", "IssuePlace", "LooseSession"] as const;
+const PLACES = [
+  "Thread",
+  "IssuePlace",
+  "LooseSession",
+  "PullRequestPlace(0)",
+  "PullRequestPlace(1)",
+] as const;
 
-/** A place, as the spec names it. */
+/** A place, as the spec names it. A pull request's place carries its definition's index. */
 export type PlaceName = (typeof PLACES)[number];
 
 const KEYS = ["Issue", "Pull", "SecondPull"] as const;
@@ -66,7 +83,7 @@ const SURFACES = [
 
 type SurfaceName = (typeof SURFACES)[number];
 
-const EVENT_KINDS = ["Start", "Reply", "BaseMoved"] as const;
+const EVENT_KINDS = ["Start", "Reply", "BaseMoved", "Closed"] as const;
 
 type EventKindName = (typeof EVENT_KINDS)[number];
 
@@ -103,6 +120,7 @@ export type RouterView = {
   rows: Record<number, RowStatusName>;
   recorded: PlaceName[];
   opened: PlaceName[];
+  watches: number[];
   workflows: Record<number, WorkflowView>;
   calls: Record<string, string>;
 };
@@ -116,6 +134,7 @@ type SpecPicks = {
   workflow: number | null;
   operation: number | null;
   pull: PullKeyName | null;
+  definition: number | null;
   landed: boolean | null;
 };
 
@@ -145,10 +164,11 @@ function traceSteps(trace: unknown): TraceStep[] {
         surface: pickedTag(picks, "surface", SURFACES),
         kind: pickedTag(picks, "kind", EVENT_KINDS),
         delivery: pickedInt(picks, "delivery"),
-        place: pickedTag(picks, "place", PLACES),
+        place: pickedPlace(picks),
         workflow: pickedInt(picks, "workflow"),
         operation: pickedInt(picks, "operation"),
         pull: pickedTag(picks, "pull", PULL_KEYS),
+        definition: pickedInt(picks, "definition"),
         landed: pickedBool(picks, "landed"),
       },
       view: specView(itfField(state, worldName)),
@@ -180,8 +200,19 @@ function pickedTag<Name extends string>(
   return value === null ? null : tagOf(value, names);
 }
 
+function pickedPlace(picks: unknown): PlaceName | null {
+  const value = pickedValue(picks, "place");
+  return value === null ? null : placeNameOf(value);
+}
+
 function tagOf<Name extends string>(value: unknown, names: readonly Name[]): Name {
   return itfOneOf(itfVariant(value)!.tag, names);
+}
+
+function placeNameOf(value: unknown): PlaceName {
+  const { tag, value: definition } = itfVariant(value)!;
+  const name = tag === "PullRequestPlace" ? `${tag}(${itfInt(definition)})` : tag;
+  return itfOneOf(name, PLACES);
 }
 
 function specView(world: unknown): RouterView {
@@ -193,14 +224,11 @@ function specView(world: unknown): RouterView {
   for (const [workflow, status] of entries(itfField(world, "rows"))) {
     rows[itfInt(workflow)] = tagOf(status, ROW_STATUSES);
   }
-  const places = (field: string) =>
-    itfSet(itfField(world, field))
-      .map((place) => tagOf(place, PLACES))
-      .toSorted();
+  const places = (field: string) => itfSet(itfField(world, field)).map(placeNameOf).toSorted();
   const flows: RouterView["workflows"] = {};
   for (const [workflow, flow] of entries(itfField(world, "workflows"))) {
     flows[itfInt(workflow)] = {
-      conversation: tagOf(itfField(flow, "conversation"), PLACES),
+      conversation: placeNameOf(itfField(flow, "conversation")),
       status: tagOf(itfField(flow, "status"), WORKFLOW_STATUSES),
       hasIssueJob: itfBool(itfField(flow, "hasIssueJob")),
       recordedPulls: itfSet(itfField(flow, "recordedPulls"))
@@ -223,6 +251,9 @@ function specView(world: unknown): RouterView {
     rows,
     recorded: places("recorded"),
     opened: places("opened"),
+    watches: itfSet(itfField(world, "watches"))
+      .map((definition) => itfInt(definition))
+      .toSorted((left, right) => left - right),
     workflows: flows,
     calls,
   };
@@ -255,11 +286,13 @@ function deliveryCall(delivery: unknown): string {
     case "CheckingConversation":
       return `FindConversation(${SURFACE_PLACES[surface]})`;
     case "Handling":
-      return `HandleEvent(${tagOf(phase.value, PLACES)})`;
+      return `HandleEvent(${placeNameOf(phase.value)})`;
     case "ReadingPulls":
       return FIND_PULL_CONVERSATIONS;
+    case "ReadingWatchers":
+      return FIND_WATCHERS;
     case "FanningOut":
-      return `HandleEvent(${tagOf(itfField(phase.value, "conversation"), PLACES)})`;
+      return `HandleEvent(${placeNameOf(itfField(phase.value, "conversation"))})`;
     default:
       throw new Error(`the trace has the delivery phase ${phase.tag}`);
   }
@@ -269,6 +302,7 @@ function operationCall(workflow: number, phase: unknown): string {
   const named = itfVariant(phase)!;
   switch (named.tag) {
     case "PlanWritesRow":
+    case "FireWritesRow":
     case "RestartWritesRow":
     case "EndWritesStatus":
       return `WriteWorkflowRow(${workflow})`;
@@ -464,11 +498,48 @@ function pullTarget(pull: PullKeyName): ArtifactTarget {
 
 const PERSON: Actor = { email: "dev@acme.test", display_name: "Dev" };
 
-const PLACE_OF: Record<PlaceName, ConversationPlace> = {
+/** The event the watch definitions' triggers fire on. */
+const PULL_REQUEST_EVENT = "github.pull_request.synchronize";
+
+/** The definitions whose triggers fire on the pull request, by the index the spec gives each. */
+const WATCH_DEFINITIONS = ["review", "audit"].map((name) =>
+  loadWorkflowDefinition(
+    name,
+    [
+      TEST_CONFIG.workflowDefinitions[0]!.text,
+      "triggers:",
+      `  - { event: ${PULL_REQUEST_EVENT}, prompt: Review the change. }`,
+    ].join("\n"),
+  ),
+);
+
+const WATCHER_PLACES = ["PullRequestPlace(0)", "PullRequestPlace(1)"] as const;
+
+function watcherPlace(definition: number): PlaceName {
+  return WATCHER_PLACES[definition]!;
+}
+
+function isWatcherPlace(place: PlaceName): boolean {
+  return WATCHER_PLACES.some((watcher) => watcher === place);
+}
+
+const PLACE_OF = {
   Thread: { source: "chat_thread", channel: "C1", thread: "1.0" },
   IssuePlace: { source: "tracker_issue", issue_id: ISSUE.id },
   LooseSession: { source: "tracker_session", session_id: "sess-loose" },
-};
+  "PullRequestPlace(0)": {
+    source: "pull_request",
+    repo: REPO,
+    number: PULL_NUMBERS.Pull,
+    definition: WATCH_DEFINITIONS[0]!.name,
+  },
+  "PullRequestPlace(1)": {
+    source: "pull_request",
+    repo: REPO,
+    number: PULL_NUMBERS.Pull,
+    definition: WATCH_DEFINITIONS[1]!.name,
+  },
+} satisfies Record<PlaceName, ConversationPlace | PullRequestPlace>;
 
 /** The spec place of each conversation row, by source and external id as the router stores them. */
 const RECORDED_PLACES: Record<string, PlaceName> = {
@@ -481,6 +552,8 @@ const CONVERSATION_IDS: Record<PlaceName, string> = {
   Thread: await conversationIdOf(PLACE_OF.Thread),
   IssuePlace: await conversationIdOf(PLACE_OF.IssuePlace),
   LooseSession: await conversationIdOf(PLACE_OF.LooseSession),
+  "PullRequestPlace(0)": await conversationIdOf(PLACE_OF["PullRequestPlace(0)"]),
+  "PullRequestPlace(1)": await conversationIdOf(PLACE_OF["PullRequestPlace(1)"]),
 };
 
 /** The spec key of each binding, by source and external id as the router stores them. */
@@ -535,6 +608,8 @@ export class RouterBindingsReplay {
   private nextDelivery = 0;
   private nextOperation = 0;
   private nextEvent = 0;
+  private nextFiring = 0;
+  private nextMerged = true;
   private nextEndedStatus: number;
 
   constructor(firstEndedStatus = 0) {
@@ -564,17 +639,24 @@ export class RouterBindingsReplay {
         await this.arrive(required(picks.surface, "surface"), required(picks.kind, "kind"));
         return;
       case "deliveryResumes":
-        return this.gate.land(`d${required(picks.delivery, "delivery")}`);
+        await this.gate.land(`d${required(picks.delivery, "delivery")}`);
+        await this.startArmedEnds();
+        return;
       case "fanOutCallFails":
         return this.gate.fail(
           `d${required(picks.delivery, "delivery")}`,
           new Error("Durable Object reset"),
         );
       case "routerInvocationEnds":
-        return this.endRouterInvocation(
+        await this.endRouterInvocation(
           `d${required(picks.delivery, "delivery")}`,
           required(picks.landed, "landed"),
         );
+        await this.startArmedEnds();
+        return;
+      case "aPullRequestFiringLands":
+        await this.fire(required(picks.definition, "definition"));
+        return;
       case "conversationPlansAWorkflow":
         await this.plan(required(picks.place, "place"));
         return;
@@ -619,6 +701,11 @@ export class RouterBindingsReplay {
         ? "Ended"
         : "Live";
     }
+    const watches = this.sqlite
+      .query("select definition from watches")
+      .all()
+      .map((row) => watchDefinitionIndex(textOf(row, "definition")))
+      .toSorted((left, right) => left - right);
     const recorded = this.sqlite
       .query("select source, external_id from conversations")
       .all()
@@ -639,6 +726,7 @@ export class RouterBindingsReplay {
       rows,
       recorded,
       opened: opened.toSorted(),
+      watches,
       workflows: flows,
       calls: this.gate.calls(),
     };
@@ -686,7 +774,7 @@ export class RouterBindingsReplay {
     this.nextEvent += 1;
     const event: InboundEvent = {
       id: `evt-${this.nextEvent}`,
-      ...eventKindOf(surface, kind),
+      ...this.eventKindOf(surface, kind),
       ...SURFACE_EVENTS[surface],
       links: [],
       text: "also add a test",
@@ -708,6 +796,41 @@ export class RouterBindingsReplay {
         call,
       );
     });
+  }
+
+  /**
+   * A firing of a watch definition's trigger on the pull request goes through the firing queue's
+   * consumer to its conversation. Answers the name of its operation.
+   */
+  async fire(definition: number): Promise<string> {
+    this.nextFiring += 1;
+    const firing: TriggerFiring = {
+      cause: {
+        kind: "vendor_event",
+        delivery_id: `delivery-${this.nextFiring}`,
+        event: PULL_REQUEST_EVENT,
+        payload: "{}",
+      },
+      reports: { kind: "pull_request", repo: REPO, number: PULL_NUMBERS.Pull },
+      definition: WATCH_DEFINITIONS[definition]!.name,
+      position: 0,
+      attempt: 1,
+    };
+    const consumer: FiringConsumer = {
+      db: createDb(this.env.DB),
+      chat: null,
+      code: null,
+      definitions: WATCH_DEFINITIONS,
+      fire: (conversationId, conversationFiring) =>
+        fireWorkflow(this.conversationOf(placeOfConversation(conversationId)).runtime, {
+          conversationId,
+          firing: conversationFiring,
+        }),
+      sendAttempt: async () => {
+        throw new Error("the firing failed its attempt, which the spec does not model");
+      },
+    };
+    return this.startOperation(watcherPlace(definition), () => consumeFiring(consumer, firing));
   }
 
   /** The active workflow of a conversation starts work on the router's tables. Answers the name of its operation. */
@@ -782,6 +905,19 @@ export class RouterBindingsReplay {
     return this.delivered.get(delivery);
   }
 
+  /**
+   * Each conversation whose end a close left to its alarm: the alarm fires, and the end goes on as
+   * a workflow operation.
+   */
+  private async startArmedEnds(): Promise<void> {
+    for (const [place, { runtime }] of this.conversations) {
+      for (const alarm of runtime.alarmsFor("resumeWorkflowEnd")) {
+        await runtime.cancelAlarm(alarm.id);
+        await this.startOperation(place, () => resumeWorkflowEnd(runtime));
+      }
+    }
+  }
+
   private async startOperation(place: PlaceName, run: () => Promise<unknown>): Promise<string> {
     const operation = `o${this.nextOperation}`;
     this.nextOperation += 1;
@@ -841,10 +977,41 @@ export class RouterBindingsReplay {
     await recordArtifact(runtime, author, pullTarget(pull));
   }
 
+  /** What an event of a kind carries. A close alternates between a merge and a close without one. */
+  private eventKindOf(
+    surface: SurfaceName,
+    kind: EventKindName,
+  ): Pick<InboundEvent, "kind" | "actor" | "pull"> {
+    switch (kind) {
+      case "Start":
+        return { kind: "start", actor: PERSON };
+      case "Reply":
+        return surface === "PullSurface"
+          ? { kind: "ci_event", actor: null }
+          : { kind: "prompt", actor: PERSON };
+      case "BaseMoved":
+        return { kind: "pr_event", actor: null };
+      case "Closed": {
+        const merged = this.nextMerged;
+        this.nextMerged = !merged;
+        return {
+          kind: "pr_event",
+          actor: null,
+          pull: { action: "closed", repo: REPO, number: PULL_NUMBERS.Pull, merged },
+        };
+      }
+      default: {
+        const unreachable: never = kind;
+        throw new Error(`unhandled event kind ${String(unreachable)}`);
+      }
+    }
+  }
+
   /**
    * The Durable Object of a conversation. It exists, unopened, from the first call on it. Each
    * workflow its plan creates gets the issue as its subject and room for two jobs, in the same
-   * synchronous block.
+   * synchronous block. A pull request's conversation runs the watch definitions, and its screen
+   * admits every payload.
    */
   private conversationOf(place: PlaceName): ConversationObject {
     const known = this.conversations.get(place);
@@ -852,13 +1019,21 @@ export class RouterBindingsReplay {
     const db = openMemoryDb();
     const runtime = new FakeRuntime(db, this.env, "uncreated");
     runtime.trackerInstance = new FakeTracker({ issues: [ISSUE] });
+    const object = { db, runtime };
+    this.conversations.set(place, object);
+    if (isWatcherPlace(place)) {
+      runtime.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
+      runtime.workflowDefinitionsOverride = [
+        ...runtime.workflowDefinitions(),
+        ...WATCH_DEFINITIONS,
+      ];
+      return object;
+    }
     const createWorkflow = runtime.store.createWorkflow.bind(runtime.store);
     runtime.store.createWorkflow = (created) => {
       createWorkflow({ ...created, subject: { kind: "issue", issue_id: ISSUE.id } });
       patchStagePlan(runtime, { job_slots: 2 });
     };
-    const object = { db, runtime };
-    this.conversations.set(place, object);
     return object;
   }
 
@@ -873,10 +1048,7 @@ export class RouterBindingsReplay {
     const statementOf = (sql: string, params: unknown[]): GatedStatement => {
       const execute = <Result>(run: () => Result) => {
         const named = this.statementCall(sql, params);
-        return this.gate.hold(named, () => {
-          const result = run();
-          return named === FIND_PULL_CONVERSATIONS ? inSpecOrder(result) : result;
-        });
+        return this.gate.hold(named, () => inSpecOrderFor(named, run()));
       };
       return {
         sql,
@@ -900,8 +1072,17 @@ export class RouterBindingsReplay {
       prepare: (sql: string) => ({
         bind: (...params: unknown[]) => statementOf(sql, params),
       }),
-      batch: () => {
-        throw new Error("the router sent a batch, which the spec does not model");
+      batch: (statements: GatedStatement[]) => {
+        const [first] = statements;
+        if (!first) throw new Error("the replay got an empty batch");
+        return this.gate.hold(this.statementCall(first.sql, first.params), () =>
+          this.sqlite.transaction(() =>
+            statements.map(({ sql, params }) => {
+              const changes = this.sqlite.query(sql).run(...sqliteParams(params)).changes;
+              return { success: true, results: [], meta: { changes } };
+            }),
+          )(),
+        );
       },
     };
     return binding as Env["DB"];
@@ -914,6 +1095,7 @@ export class RouterBindingsReplay {
       .map((workflowId) => this.specIdOf(workflowId));
     if (sql.startsWith('select distinct "workflows"."conversation_id"'))
       return FIND_PULL_CONVERSATIONS;
+    if (sql.startsWith('select "definition" from "watches"')) return FIND_WATCHERS;
     if (sql.startsWith('select "workflows"."conversation_id" from "bindings"'))
       return `FindBoundConversation(${keyIn(params, BINDING_KEYS)})`;
     if (sql.startsWith('select "workflow_id" from "bindings"'))
@@ -939,42 +1121,40 @@ function required<Value>(value: Value | null, name: string): Value {
   return value;
 }
 
-function eventKindOf(
-  surface: SurfaceName,
-  kind: EventKindName,
-): Pick<InboundEvent, "kind" | "actor"> {
-  switch (kind) {
-    case "Start":
-      return { kind: "start", actor: PERSON };
-    case "Reply":
-      return surface === "PullSurface"
-        ? { kind: "ci_event", actor: null }
-        : { kind: "prompt", actor: PERSON };
-    case "BaseMoved":
-      return { kind: "pr_event", actor: null };
-    default: {
-      const unreachable: never = kind;
-      throw new Error(`unhandled event kind ${String(unreachable)}`);
-    }
-  }
-}
-
 const FIND_PULL_CONVERSATIONS = "FindPullConversations";
 
-/** The order the spec hands a base move to conversations in. */
-function inSpecOrder<Result>(result: Result): Result {
-  if (Array.isArray(result)) return result.toSorted(bySpecRank) as Result;
-  const results = itfList(itfField(result, "results")).toSorted(bySpecRank);
+const FIND_WATCHERS = "FindWatchers";
+
+/**
+ * The rows of a read in the order the spec hands the event to conversations: a base move's by
+ * place, and the watchers by definition.
+ */
+function inSpecOrderFor<Result>(named: string, result: Result): Result {
+  if (named === FIND_PULL_CONVERSATIONS) return inSpecOrder(result, conversationRank);
+  if (named === FIND_WATCHERS) return inSpecOrder(result, watchDefinitionIndex);
+  return result;
+}
+
+function inSpecOrder<Result>(result: Result, rankOf: (value: string) => number): Result {
+  const byRank = (left: unknown, right: unknown) =>
+    rankOf(firstColumn(left)) - rankOf(firstColumn(right));
+  if (Array.isArray(result)) return result.toSorted(byRank) as Result;
+  const results = itfList(itfField(result, "results")).toSorted(byRank);
   return { ...result, results };
 }
 
-function bySpecRank(left: unknown, right: unknown): number {
-  return specRankOf(left) - specRankOf(right);
+function firstColumn(row: unknown): string {
+  return itfText(Array.isArray(row) ? row[0] : Object.values(asRecord(row))[0]);
 }
 
-function specRankOf(row: unknown): number {
-  const conversationId = Array.isArray(row) ? row[0] : Object.values(asRecord(row))[0];
-  return PLACES.indexOf(placeOfConversation(itfText(conversationId)));
+function conversationRank(conversationId: string): number {
+  return PLACES.indexOf(placeOfConversation(conversationId));
+}
+
+function watchDefinitionIndex(definition: string): number {
+  const index = WATCH_DEFINITIONS.findIndex((declared) => declared.name === definition);
+  if (index === -1) throw new Error(`the replay does not know the definition ${definition}`);
+  return index;
 }
 
 function placeOfConversation(conversationId: string): PlaceName {

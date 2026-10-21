@@ -59,9 +59,6 @@ export function ownGithubLogins(appLogin: string | undefined): string[] {
   return [bare, `${bare}[bot]`];
 }
 
-/** Shared ignore reason for branches the orchestrator did not create. */
-export const NOT_ORCHESTRATOR_BRANCH: CodeInbound = { ignore: "not an orchestrator branch" };
-
 /** Shared ignore reason for PRs whose head branch lives in another repository. */
 const FORK_PULL_REQUEST: CodeInbound = { ignore: "pull request from a fork" };
 
@@ -70,11 +67,12 @@ export function isOrchestratorBranch(branch: string): boolean {
   return branch.startsWith(ORCHESTRATOR_BRANCH_PREFIX);
 }
 
-/** Why a PR is not one of ours, or null when it is. */
+/**
+ * Why an event on a PR is not delivered: its head branch lives in a fork. Null for a PR of this
+ * repository, whoever opened it, so a workflow that watches it hears it.
+ */
 export function pullRequestRejection(repo: GithubRepo, pr: GithubPullRequest): CodeInbound | null {
-  if (!isOrchestratorBranch(pr.head.ref)) return NOT_ORCHESTRATOR_BRANCH;
-  if (pr.head.repo?.full_name !== repo.full_name) return FORK_PULL_REQUEST;
-  return null;
+  return pr.head.repo?.full_name === repo.full_name ? null : FORK_PULL_REQUEST;
 }
 
 /** Bindings for a PR: its number and its head branch. */

@@ -5,6 +5,8 @@ import { applyVerbalCommand, stopAuthor, type StopOutcome } from "./controls";
 import { authorInSession, runningAuthorInSession } from "./job-session";
 import { instructTask } from "../task/harness/prompt-queue";
 import { applyArtifactEvent } from "../refiner/feedback";
+import { startWorkflowEndByAlarm } from "../lifecycle";
+import { jobsForEvent } from "./lookup";
 import type { Applied, WorkflowRuntime } from "../types";
 
 /**
@@ -28,7 +30,8 @@ export async function applyEvent(
     case "feedback":
     case "pr_event":
     case "ci_event":
-      return applyArtifactEvent(workflow, event);
+      if (!isOnWatchedPull(workflow, event)) return applyArtifactEvent(workflow, event);
+      return applyWatchedPullEvent(workflow, event);
     default: {
       const unreachable: never = event.kind;
       throw new Error(`unhandled event kind ${String(unreachable)}`);
@@ -159,4 +162,41 @@ export async function stopSessionAuthor(
 
 function personName(event: InboundEvent): string {
   return event.actor?.display_name ?? event.actor?.email ?? "someone";
+}
+
+/** True when the event is about the pull request a firing opened the conversation on. */
+function isOnWatchedPull(workflow: WorkflowRuntime, event: InboundEvent): boolean {
+  const origin = workflow.store.conversation()?.origin;
+  if (origin?.source !== "code") return false;
+  return event.bindings.some(
+    (binding) =>
+      binding.source === "code_pull" &&
+      binding.repo === origin.repo &&
+      binding.number === origin.pull,
+  );
+}
+
+/**
+ * An event on the watched pull request. A close starts the end of the watcher's workflow, as done
+ * when the pull request merged and as cancelled when it did not, and the alarm goes on with it. So
+ * the router's call returns once the end started. An event that a job's artifact owns goes to that
+ * job. Any other event goes to the agent as a message.
+ */
+async function applyWatchedPullEvent(
+  workflow: WorkflowRuntime,
+  event: InboundEvent,
+): Promise<Applied | "handled"> {
+  const pull = event.pull;
+  if (event.kind === "pr_event" && pull?.action === "closed") {
+    const merged = "merged" in pull && pull.merged === true;
+    await startWorkflowEndByAlarm(workflow, {
+      ends_as: merged ? "done" : "cancelled",
+      reason: merged ? "The pull request merged." : "The pull request closed without a merge.",
+      answering: [],
+      posted: false,
+    });
+    return "handled";
+  }
+  if (jobsForEvent(workflow, event).length) return applyArtifactEvent(workflow, event);
+  return { notes: [], wake: "message" };
 }

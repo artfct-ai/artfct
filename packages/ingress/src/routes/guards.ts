@@ -1,10 +1,11 @@
+import type { JsonValue } from "@artfct-ai/contracts/types";
 import type { Context } from "hono";
 import type { HonoEnv } from "../env";
 
 /** Parse a JSON body. Null when the text is not JSON. */
-export function parseJsonBody(body: string): unknown {
+export function parseJsonBody(body: string): JsonValue {
   try {
-    return JSON.parse(body);
+    return JSON.parse(body) as JsonValue;
   } catch {
     return null;
   }

@@ -29,7 +29,7 @@ function stepName(step: TraceStep): string {
 async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> {
   const [initial, ...steps] = trace;
   if (!initial) throw new Error(`${setup} produced an empty trace`);
-  const replay = new TriggerFiringsReplay();
+  const replay = new TriggerFiringsReplay(setup);
   try {
     const taken = ["init"];
     const divergence = (step: TraceStep) =>

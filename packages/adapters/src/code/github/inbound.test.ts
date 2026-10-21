@@ -66,19 +66,23 @@ describe("github pull_request", () => {
     });
   });
 
-  describe("a pull request no task owns", () => {
-    it("ignores a branch outside the orchestrator prefix", async () => {
+  describe("a pull request on a branch the orchestrator does not own", () => {
+    it("maps it, so a workflow that watches the pull request hears it", async () => {
       const feature = { ...pr, head: { ...pr.head, ref: "feature/x" } };
-      expectIgnored(
-        await normalizeGithubWebhook("pull_request", { action: "opened", pull_request: feature }),
+      const { event } = expectEvent(
+        await normalizeGithubWebhook("pull_request", {
+          action: "closed",
+          pull_request: { ...feature, merged: true },
+          sender: sam,
+        }),
       );
+      expect(event.pull).toMatchObject({ action: "closed", merged: true, number: 7 });
     });
 
-    it("ignores a branch under the retired ao prefix", async () => {
-      const retired = { ...pr, head: { ...pr.head, ref: "ao/wf_abcdefghij-1-fix" } };
+    it("ignores one from a fork", async () => {
       expect(
-        await normalizeGithubWebhook("pull_request", { action: "opened", pull_request: retired }),
-      ).toEqual({ ignore: "not an orchestrator branch" });
+        await normalizeGithubWebhook("pull_request", { action: "opened", pull_request: forkPr }),
+      ).toEqual({ ignore: "pull request from a fork" });
     });
   });
 
@@ -179,7 +183,7 @@ describe("github checks", () => {
             pull_requests: [{ number: 7 }],
           },
         }),
-      ).toEqual({ ignore: "not an orchestrator branch" });
+      ).toEqual({ ignore: "check without a branch" });
     });
   });
 

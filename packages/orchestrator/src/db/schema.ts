@@ -42,6 +42,21 @@ export const workflows = sqliteTable("workflows", {
 });
 
 /**
+ * One row per pull request and workflow definition whose conversation has an active workflow fired
+ * on that pull request. The router fans the pull request's events out to each row's conversation,
+ * whose id derives from the key.
+ */
+export const watches = sqliteTable(
+  "watches",
+  {
+    source: text().$type<"code_pull">().notNull(),
+    external_id: text().notNull(),
+    definition: text().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.source, table.external_id, table.definition] })],
+);
+
+/**
  * The start line of each firing that reports in a channel, keyed by the firing key. Every attempt
  * and duplicate of the firing reads it, so they all reach one thread. The scheduled run deletes a
  * row once the firing queue can no longer hold the firing.

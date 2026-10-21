@@ -286,9 +286,48 @@ describe("workflow triggers", () => {
     );
   });
 
-  it("reject an event trigger", () => {
+  it("keep an event, its filters, its channel and its prompt", () => {
+    const definition = definitionWithTriggers(
+      "  - { event: github.release.published, filters: { release.prerelease: [false] }, channel: C1, prompt: Write the notes. }",
+    );
+    expect(definition.triggers).toEqual([
+      {
+        event: "github.release.published",
+        filters: { "release.prerelease": [false] },
+        channel: "C1",
+        prompt: "Write the notes.",
+      },
+    ]);
+  });
+
+  it("give an event trigger without filters an empty set of filters", () => {
+    const definition = definitionWithTriggers(
+      "  - { event: github.pull_request.opened, prompt: Review it. }",
+    );
+    expect(definition.triggers).toEqual([
+      { event: "github.pull_request.opened", filters: {}, prompt: "Review it." },
+    ]);
+  });
+
+  it("reject an event that does not name its vendor", () => {
+    expect(() => definitionWithTriggers("  - { event: opened, channel: C1, prompt: Go. }")).toThrow(
+      /event: name a vendor event/,
+    );
+  });
+
+  it("reject a filter path with an empty key", () => {
     expect(() =>
-      definitionWithTriggers("  - { event: github.pull_request.opened, prompt: Review it. }"),
+      definitionWithTriggers(
+        "  - { event: github.push, filters: { ref..name: [main] }, channel: C1, prompt: Go. }",
+      ),
+    ).toThrow(/a payload path needs a key/);
+  });
+
+  it("reject a filter without a value", () => {
+    expect(() =>
+      definitionWithTriggers(
+        "  - { event: github.push, filters: { ref: [] }, channel: C1, prompt: Go. }",
+      ),
     ).toThrow();
   });
 });

@@ -1858,16 +1858,24 @@ module workflowLifecycle {
 
   /// A trigger's firing reaches the conversation of its start line's thread before the workflow
   /// ends. Without a workflow, it creates one with the trigger's workflow definition, starts its
-  /// idle clock and tells the agent the trigger's prompt. A conversation with an active workflow
-  /// refuses it and changes nothing, and the firing queue tries the firing again. A firing's
-  /// conversation is on a chat thread, so a tracker origin does not take one.
+  /// idle clock and tells the agent the trigger's prompt. An active workflow of the trigger's
+  /// definition whose end has not started gets the prompt and wakes like it does for a person's
+  /// message. An ending workflow or one of another definition refuses it and changes nothing, and
+  /// the firing queue tries the firing again. A firing's conversation is on a chat thread, so a
+  /// tracker origin does not take one.
   action aTriggerFiresTheWorkflow: bool = all {
     not(TRACKER_ORIGIN),
     workflow.status != Ended,
     nondet definition = DEFINITIONS.oneOf()
     val creates = workflow.status == NoWorkflow
+    val prompts = and {
+      not(creates),
+      not(workflowEnding(workflow)),
+      workflow.definition == Planned(definition),
+    }
     val fired = { ...workflow, definition: Planned(definition), status: Running, idleArmed: true }
-    move({ flow: if (creates) fired else workflow, told: creates }, FiringStep({ definition: definition }))
+    val flow = if (creates) fired else if (prompts) messageWakes(workflow) else workflow
+    move({ flow: flow, told: creates or prompts }, FiringStep({ definition: definition }))
   }
 
   /// True for a firing that created the workflow.

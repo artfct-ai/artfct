@@ -6,6 +6,7 @@ import { resolveStage, type ResolvedStage } from "../config/stage";
 import { noteMessage } from "../agent/transcript/envelope";
 import { bindWorkflow as bindInDb, deleteBindings } from "../db/bindings";
 import { createDb } from "../db/client";
+import { dropWatch, keepWatch, type Watch } from "../db/watches";
 import { writeWorkflowRow } from "../db/workflows";
 import { TAG_TO_START_AGAIN } from "../notify/messages";
 import { dropBoardFlush, flushBoards } from "./board/board";
@@ -20,6 +21,7 @@ import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
 import {
   isTaskFinished,
+  isWorkflowFinished,
   jobSlotsOf,
   type WorkflowEnd,
   type WorkflowLifecycle,
@@ -606,7 +608,20 @@ export async function armWorkflowEndAlarm(workflow: WorkflowRuntime): Promise<vo
   await workflow.scheduleAlarmOnce("resumeWorkflowEnd", {});
 }
 
-/** Alarm: go on with the workflow end that an instance restart cut off. */
+/**
+ * Start the end of the active workflow and leave the rest of it to the alarm that goes on with an
+ * end, so the caller returns before the end's calls. A workflow whose end started already keeps it.
+ */
+export async function startWorkflowEndByAlarm(
+  workflow: WorkflowRuntime,
+  end: WorkflowEnd,
+): Promise<void> {
+  if (!workflow.store.workflowRow() || workflow.store.workflowFinished()) return;
+  workflow.store.startWorkflowEnd(end);
+  await armWorkflowEndAlarm(workflow);
+}
+
+/** Alarm: go on with a workflow end that an instance restart cut off, or that a caller left to it. */
 export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void> {
   const end = workflow.store.workflowEnd();
   if (end && workflowEnding(workflow)) await goOnWithWorkflowEnd(workflow, end);
@@ -686,17 +701,41 @@ export async function writeRouterWorkflowStatus(workflow: WorkflowRuntime): Prom
   const active = workflow.store.activeWorkflow();
   if (!active) return;
   const db = createDb(workflow.env.DB);
-  await writeWorkflowRow(db, {
+  const status = workflow.store.workflowStatus();
+  const conversation = workflow.store.requireConversation();
+  const write = writeWorkflowRow(db, {
     workflow_id: active.workflow_id,
-    conversation_id: workflow.store.requireConversation().conversation_id,
-    status: workflow.store.workflowStatus(),
+    conversation_id: conversation.conversation_id,
+    status,
   });
+  const watch = watchOf(workflow);
+  if (!watch || isWorkflowFinished(status)) {
+    await write;
+    return;
+  }
+  await db.batch([write, keepWatch(db, watch, active.workflow_id)]);
 }
 
-/** The workflow ended, whichever way, so every binding it holds goes. The conversation stays. */
+/**
+ * The watch of the conversation's workflow: the pull request a firing opened the conversation on,
+ * with the workflow's definition. Null for a conversation of any other place.
+ */
+function watchOf(workflow: WorkflowRuntime): Watch | null {
+  const { origin } = workflow.store.requireConversation();
+  if (origin?.source !== "code") return null;
+  const { definition } = workflow.store.requireWorkflowRow();
+  return { repo: origin.repo, number: origin.pull, definition };
+}
+
+/**
+ * The workflow ended, whichever way, so every binding it holds goes, and its watch with them. The
+ * conversation stays.
+ */
 async function unbindWorkflow(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await deleteBindings(db, workflow.store.requireWorkflowRow().workflow_id);
+  const unbind = deleteBindings(db, workflow.store.requireWorkflowRow().workflow_id);
+  const watch = watchOf(workflow);
+  await (watch ? db.batch([unbind, dropWatch(db, watch)]) : unbind);
 }
 
 /** What the agent says when the humans have been silent for `orchestrator.idle_hours`. */

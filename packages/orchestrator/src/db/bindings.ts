@@ -3,12 +3,13 @@ import { and, eq, exists, notInArray, sql } from "drizzle-orm";
 import { FINISHED_WORKFLOW_STATUSES } from "../workflow/store/state";
 import { nowIso, type Database } from "./client";
 import { bindings, workflows } from "./schema";
+import { workflowRowLive } from "./workflows";
 
 /** One row of the bindings table. */
 type BindingRow = typeof bindings.$inferSelect;
 
-/** The text key a binding is stored under. */
-function externalId(binding: Binding): string {
+/** The text key a binding is stored under. A watch and a pull request's conversation use it too. */
+export function bindingExternalId(binding: Binding): string {
   switch (binding.source) {
     case "code_pull":
       return `${binding.repo}#${binding.number}`;
@@ -32,7 +33,10 @@ function repoOf(binding: Binding): string | null {
 
 /** The condition that a binding row is `binding`. */
 function bindingKeyIs(binding: Binding) {
-  return and(eq(bindings.source, binding.source), eq(bindings.external_id, externalId(binding)));
+  return and(
+    eq(bindings.source, binding.source),
+    eq(bindings.external_id, bindingExternalId(binding)),
+  );
 }
 
 /** The workflow bound to one object, or null. */
@@ -48,26 +52,18 @@ export async function findBinding(db: Database, binding: Binding): Promise<strin
 /** A binding claim: point it at `workflowId` if it still points at `previous`. */
 type Claim = { previous: string | null; workflowId: string };
 
-/** The condition that a workflow's row exists and has not finished. */
-function workflowLive(workflowId: string) {
-  return and(
-    eq(workflows.workflow_id, workflowId),
-    notInArray(workflows.status, FINISHED_WORKFLOW_STATUSES),
-  );
-}
-
 /** The binding row that points `binding` at a workflow, selected only while the workflow is live. */
 function liveBindingRow(db: Database, binding: Binding, workflowId: string) {
   return db
     .select({
       source: sql<BindingSource>`${binding.source}`.as("source"),
-      external_id: sql<string>`${externalId(binding)}`.as("external_id"),
+      external_id: sql<string>`${bindingExternalId(binding)}`.as("external_id"),
       repo: sql<string | null>`${repoOf(binding)}`.as("repo"),
       workflow_id: workflows.workflow_id,
       created_at: sql<string>`${nowIso()}`.as("created_at"),
     })
     .from(workflows)
-    .where(workflowLive(workflowId));
+    .where(workflowRowLive(workflowId));
 }
 
 /**
@@ -86,7 +82,7 @@ export async function claimBinding(db: Database, binding: Binding, claim: Claim)
   const liveClaimer = db
     .select({ workflow_id: workflows.workflow_id })
     .from(workflows)
-    .where(workflowLive(claim.workflowId));
+    .where(workflowRowLive(claim.workflowId));
   const moved = await db
     .update(bindings)
     .set({ workflow_id: claim.workflowId, created_at: nowIso() })
@@ -120,8 +116,8 @@ export async function bindWorkflow(
 }
 
 /** Drop every binding of one workflow. Its objects stop routing to its conversation. */
-export async function deleteBindings(db: Database, workflowId: string): Promise<void> {
-  await db.delete(bindings).where(eq(bindings.workflow_id, workflowId));
+export function deleteBindings(db: Database, workflowId: string) {
+  return db.delete(bindings).where(eq(bindings.workflow_id, workflowId));
 }
 
 /** The condition that the workflow a binding row names has a row that has not finished. */
