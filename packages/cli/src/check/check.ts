@@ -3,6 +3,7 @@ import { checkAccess } from "./access";
 import { checkCloudflareCredential } from "./cloudflare";
 import { checkDeploymentConfig } from "./deployment-config";
 import { checkDocumentsCredential } from "./documents-credential";
+import { checkGithubEventSubscription } from "./github-event-subscription";
 import { checkSandboxImage } from "./sandbox-image";
 import { describeError } from "../describe-error";
 import { checkSkills } from "./skills";
@@ -21,10 +22,11 @@ async function runCheck(
 
 /**
  * Run every preflight check on a deployment repo. A check that throws is reported as failed.
- * Without `runWrangler`, the Cloudflare credential check is skipped.
+ * Without `runWrangler`, the Cloudflare credential check is skipped. Without `runGh`, the GitHub
+ * event subscription check is skipped.
  */
 export function runChecks(environment: CheckEnvironment): Promise<CheckReport[]> {
-  const { repoDir, runWrangler } = environment;
+  const { repoDir, runWrangler, runGh } = environment;
   const configDir = join(repoDir, "orchestrator");
   return Promise.all([
     runCheck("Cloudflare credential", () =>
@@ -37,6 +39,13 @@ export function runChecks(environment: CheckEnvironment): Promise<CheckReport[]>
     runCheck("access", () => checkAccess(configDir)),
     runCheck("skills", () => checkSkills(configDir)),
     runCheck("sandbox image", () => checkSandboxImage(repoDir)),
+    runCheck("GitHub event subscription", () =>
+      checkGithubEventSubscription({
+        configDir,
+        ingressConfigPath: join(repoDir, "ingress/wrangler.jsonc"),
+        runGh,
+      }),
+    ),
   ]);
 }
 

@@ -1,10 +1,11 @@
+import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { Actor } from "@artfct-ai/contracts/inbound";
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Identity, resolveActor, resolveCodeActor } from "./identity";
+import { Identity, resolveActor, resolveCodeActor, resolveVendorEventCauser } from "./identity";
 
 function team(members: string[]) {
   return { id: "team-1", members };
@@ -510,6 +511,49 @@ describe("resolveActor with a given client", () => {
           { tracker, documents: new FakeDocuments({ failing: true }) },
         ),
       ).toBeNull();
+    });
+  });
+});
+
+describe("resolveVendorEventCauser", () => {
+  describe("a chat causer the chat can look up", () => {
+    let chat: FakeChat;
+    let actor: Actor | null;
+
+    beforeEach(async () => {
+      const dev = { id: "U1", email: "Dev@Acme.test", name: "Dev", member_of_team: "T1" };
+      chat = new FakeChat({ users: { U1: dev } });
+      actor = await resolveVendorEventCauser(env, { source: "chat", user_id: "U1" }, { chat });
+    });
+
+    it("asks the chat for the user", () => {
+      expect(chat.calls).toEqual([{ method: "user", args: ["U1"] }]);
+    });
+
+    it("resolves the user with the email in lowercase", () => {
+      expect(actor).toEqual({ email: "dev@acme.test", display_name: "Dev" });
+    });
+  });
+
+  describe("a chat causer without a chat credential", () => {
+    it("resolves the id alone", async () => {
+      const actor = await resolveVendorEventCauser(
+        env,
+        { source: "chat", user_id: "U1" },
+        { chat: null },
+      );
+      expect(actor).toEqual({ email: null, display_name: null });
+    });
+  });
+
+  describe("a code host causer", () => {
+    it("resolves it as any code host user", async () => {
+      const actor = await resolveVendorEventCauser(
+        env,
+        { source: "code", user: { login: "sam", repo: "acme/app", app: false } },
+        { code: new FakeCodeHost() },
+      );
+      expect(actor?.display_name).toBe("sam");
     });
   });
 });

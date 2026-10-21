@@ -54,7 +54,8 @@ Bot events:
 
 ## Use
 
-- Invite the app to a channel. It posts a greeting when it joins.
+- Invite the app to a channel. It posts a greeting when it joins, unless a trigger fires on `slack.member_joined_channel` with the filter `artfct.about_app: [true]`. Then the trigger's workflow starts under a start line in that channel.
+- A trigger on another Slack event fires only when the app receives that event. Add the event to the bot events above. A trigger never fires on a mention, a message or a reaction, and never on an event from a Slack Connect channel.
 - Mention the app to start a workflow. The thread of the mention belongs to that workflow.
 - Reply in the thread to give feedback. A reply that opens by tagging somebody else is not for the app.
 - React with :white_check_mark: to any message in the thread as a short reply.

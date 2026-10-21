@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, it } from "bun:test";
 import fc from "fast-check";
 import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
 import { recordingUserActor } from "../../../test/fake-actors";
@@ -8,7 +8,7 @@ import {
   mapperOutcome,
 } from "../../../test/inbound-invariants";
 import { anyCaseEmail, anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
-import { appJoinedChannel, slackInbound } from "./inbound";
+import { slackInbound } from "./inbound";
 import type { ExternalUser } from "@artfct-ai/contracts/types";
 import type { ChatInboundContext, ChatLookup } from "../types";
 
@@ -72,10 +72,6 @@ const realPayloads: Record<string, unknown> = {
   },
 };
 
-function isChannelOrNull(value: unknown): boolean {
-  return value === null || typeof value === "string";
-}
-
 async function checkPayload(
   payload: unknown,
   withBot: boolean,
@@ -89,8 +85,6 @@ async function checkPayload(
   };
   inboundMapperNeverThrows(await mapperOutcome(() => slackInbound(payload, context)));
   actorEmailIsLowercase(asked);
-  const joined = await mapperOutcome(() => appJoinedChannel(payload));
-  expect(joined.kind === "returned" && isChannelOrNull(joined.value)).toBe(true);
 }
 
 describe("slack inbound mapper invariants", () => {

@@ -1,11 +1,23 @@
+import type { Chat } from "@artfct-ai/adapters/chat/types";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { Actor } from "@artfct-ai/contracts/inbound";
-import type { ChatUser, CodeUser, ExternalUser, IdentityQuery } from "@artfct-ai/contracts/types";
+import type {
+  ChatUser,
+  CodeUser,
+  ExternalUser,
+  IdentityQuery,
+  VendorEventCauser,
+} from "@artfct-ai/contracts/types";
 import type { Access } from "../config/config";
 import { registeredConfig } from "../config/register-config";
-import { codeHost, documents as documentsHost, tracker as installedTracker } from "../clients";
+import {
+  chat as chatClient,
+  codeHost,
+  documents as documentsHost,
+  tracker as installedTracker,
+} from "../clients";
 import type { Env } from "../env";
 
 /** The vendor clients identity asks. Null stands for a vendor that is not connected. */
@@ -13,6 +25,7 @@ export type IdentityClients = {
   tracker?: Tracker | null;
   code?: CodeHost | null;
   documents?: Documents | null;
+  chat?: Chat | null;
 };
 
 /**
@@ -49,6 +62,26 @@ export async function resolveActor(
       throw new Error(`unhandled identity source ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+/**
+ * Resolve the causer of a vendor event to an authorized actor. A chat causer is known by id, so the
+ * chat looks the user up first, with the email in lowercase. A user it cannot look up keeps the id
+ * alone.
+ */
+export async function resolveVendorEventCauser(
+  env: Env,
+  causer: VendorEventCauser,
+  clients: IdentityClients = {},
+): Promise<Actor | null> {
+  if (causer.source !== "chat") return resolveActor(env, causer, clients);
+  const provider = registeredConfig().config.adapters.chat.provider;
+  const chat = clients.chat === undefined ? chatClient(env, provider) : clients.chat;
+  const found = chat ? await chat.user(causer.user_id).catch(() => null) : null;
+  const user: ChatUser = found
+    ? { ...found, email: found.email?.toLowerCase() ?? null }
+    : { id: causer.user_id, email: null, member_of_team: null };
+  return resolveActor(env, { source: "chat", user }, clients);
 }
 
 /**

@@ -2520,9 +2520,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "ingressSecretInvariants::ingressSecretsReachNoOutput (a failed callback logs the bot token)",
     path: "../ingress/src/routes/slack.ts",
-    find: "    console.error(`slack ${callback.event_id}: ${String(error)}`);\n",
+    find: "    console.error(`slack ${eventId}: ${String(error)}`);\n",
     replace:
-      "    console.error(`slack ${callback.event_id}: ${String(error)} ${ctx.env.SLACK_BOT_TOKEN}`);\n",
+      "    console.error(`slack ${eventId}: ${String(error)} ${ctx.env.SLACK_BOT_TOKEN}`);\n",
     propertyFile: "../ingress/src/routes/secrets.property.ts",
   },
   {
@@ -2589,6 +2589,114 @@ export const MUTANTS: Mutant[] = [
     find: "  return context.resolveActor({ id: author.id, email: email?.toLowerCase() ?? null });\n",
     replace: "  return context.resolveActor({ id: author.id, email });\n",
     propertyFile: "../adapters/src/documents/notion/inbound.property.ts",
+  },
+  {
+    id: "W500",
+    invariant:
+      "triggerMatchingInvariants::aJoinedChannelIsGreetedUnlessATriggerFires (greets though a firing was queued)",
+    path: "src/router/vendor-event.ts",
+    find: "  if (channel !== null && !fired) await router.greet(channel);\n",
+    replace: "  if (channel !== null) await router.greet(channel);\n",
+    propertyFile: "src/router/greeting.property.ts",
+  },
+  {
+    id: "W501",
+    invariant:
+      "triggerMatchingInvariants::aJoinedChannelIsGreetedUnlessATriggerFires (skips the greeting when access failed)",
+    path: "src/router/vendor-event.ts",
+    find: '  const fired = "firings" in delivery && delivery.firings > 0;\n',
+    replace:
+      '  const fired = "firings" in delivery || !delivery.dropped.startsWith("no trigger");\n',
+    propertyFile: "src/router/greeting.property.ts",
+  },
+  {
+    id: "W502",
+    invariant:
+      "triggerMatchingInvariants::aJoinedChannelIsGreetedUnlessATriggerFires (a person joining reads as the app)",
+    path: "../adapters/src/chat/slack/vendor-event.ts",
+    find: "      about_app: appUserId !== undefined && event.user === appUserId,\n",
+    replace: "      about_app: appUserId !== undefined,\n",
+    propertyFile: "src/router/greeting.property.ts",
+  },
+  {
+    id: "W503",
+    invariant: "inboundInvariants::aConversationalEventNeverFires (Slack)",
+    path: "../adapters/src/chat/slack/vendor-event.ts",
+    find: '  if (isSlackConversationalEvent(name)) return { drop: "conversational" };\n',
+    replace: "",
+    propertyFile: "../adapters/src/chat/slack/vendor-event.property.ts",
+  },
+  {
+    id: "W504",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (Slack Connect channel)",
+    path: "../adapters/src/chat/slack/vendor-event.ts",
+    find: '  if (parsed.data.is_ext_shared_channel) return { drop: "Slack Connect channel" };\n',
+    replace: "",
+    propertyFile: "../adapters/src/chat/slack/vendor-event.property.ts",
+  },
+  {
+    id: "W505",
+    invariant: "inboundInvariants::anIgnoredVendorEventNeverFires (the app's own Slack event)",
+    path: "../adapters/src/chat/slack/vendor-event.ts",
+    find: '  if (causer === appUserId) return { drop: "caused by the app" };\n',
+    replace: "",
+    propertyFile: "../adapters/src/chat/slack/vendor-event.property.ts",
+  },
+  {
+    id: "W520",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (the whole trigger name)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "      const githubEvent = githubEventOfVendorEventName(trigger.event);\n",
+    replace:
+      '      const githubEvent = trigger.event.startsWith("github.") ? trigger.event : null;\n',
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
+  },
+  {
+    id: "W521",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (the first missing event only)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "    problems: unreceived.map(\n",
+    replace: "    problems: unreceived.slice(0, 1).map(\n",
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
+  },
+  {
+    id: "W522",
+    invariant: "cliSecretInvariants::cliNeverShowsASecret (subscription check's gh failure)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "GitHub App ${appLogin}. ${result.stderr.trim()}`.trim(),\n",
+    replace:
+      'GitHub App ${appLogin}. ${result.stderr.trim()} ${process.env.GH_TOKEN ?? ""}`.trim(),\n',
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W523",
+    invariant: "cliSecretInvariants::cliSendsNoSecret (subscription check's gh arguments)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: '  const command = ["api", `apps/${encodeURIComponent(appLogin)}`];\n',
+    replace:
+      '  const command = ["api", `apps/${encodeURIComponent(appLogin)}`, "-H", `authorization: token ${process.env.GH_TOKEN ?? ""}`];\n',
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W524",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (a GitHub error skips)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: '  if (result.exitCode !== 0) {\n    return {\n      outcome: "failed",\n      problems: [\n',
+    replace:
+      '  if (result.exitCode !== 0) {\n    return {\n      outcome: "skipped",\n      detail: "the GitHub CLI failed",\n      problems: [\n',
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
+  },
+  {
+    id: "W525",
+    invariant:
+      "cliCheckInvariants::theCheckReportsEveryTriggerTheAppDoesNotReceive (events every App receives)",
+    path: "../cli/src/check/github-event-subscription.ts",
+    find: "  const received = new Set([...appEvents, ...EVENTS_EVERY_APP_RECEIVES]);\n",
+    replace: "  const received = new Set(appEvents);\n",
+    propertyFile: "../cli/src/check/github-event-subscription.property.ts",
   },
   {
     id: "W440",

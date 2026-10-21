@@ -44,7 +44,8 @@ export type IgnoredVendorEventCause =
   | "caused_by_the_app"
   | "another_workspace"
   | "fork"
-  | "no_causer";
+  | "no_causer"
+  | "shared_channel";
 
 const MESSAGE_KINDS = new Set(["start", "prompt", "feedback"]);
 
@@ -79,7 +80,8 @@ export function aConversationalEventNeverFires(outcome: NamedEventOutcome): void
 
 /**
  * A pass-through drops an event the app caused, an event of another workspace, a fork's pull
- * request, and an event without a causer. Another App's event passes.
+ * request, an event without a causer, and an event from a shared chat channel. Another App's event
+ * passes.
  */
 export function anIgnoredVendorEventNeverFires(
   cause: IgnoredVendorEventCause,

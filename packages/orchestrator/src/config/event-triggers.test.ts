@@ -72,6 +72,13 @@ describe("eventTriggersProblem", () => {
     expect(eventTriggersProblem(definition, ADAPTERS)).toContain("needs a channel to report in");
   });
 
+  it("accepts a member joining a channel without a channel, since the event names one", () => {
+    const definition = definitionWithTrigger(
+      "{ event: slack.member_joined_channel, filters: { artfct.about_app: [true] }, prompt: Go. }",
+    );
+    expect(eventTriggersProblem(definition, ADAPTERS)).toBeNull();
+  });
+
   it("names the definition file and the trigger's position", () => {
     const definition = definitionWithTrigger("{ event: slack.message, channel: C1, prompt: Go. }");
     expect(eventTriggersProblem(definition, ADAPTERS)).toStartWith(

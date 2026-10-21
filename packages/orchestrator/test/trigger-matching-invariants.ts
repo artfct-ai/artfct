@@ -70,6 +70,36 @@ export function aTriggeredPayloadStaysWithinItsCap(run: VendorEventRun): void {
   }
 }
 
+/**
+ * What the router did with one Slack join. `appJoined` is the channel the app was added to, or
+ * null when a person joined.
+ */
+export type JoinOutcome = {
+  appJoined: string | null;
+  firings: readonly TriggerFiring[];
+  greeted: readonly string[];
+};
+
+/**
+ * A channel the app is added to gets the greeting once, unless a trigger fires for the join. Then
+ * it gets no greeting. A person joining never gets the greeting.
+ */
+export function aJoinedChannelIsGreetedUnlessATriggerFires(outcome: JoinOutcome): void {
+  const name = "aJoinedChannelIsGreetedUnlessATriggerFires";
+  const greeted = JSON.stringify(outcome.greeted);
+  if (outcome.appJoined === null) {
+    if (outcome.greeted.length) violated(name, `a person joined, and the app greeted ${greeted}`);
+    return;
+  }
+  if (outcome.firings.length) {
+    if (outcome.greeted.length) violated(name, `a trigger fired, and the app greeted ${greeted}`);
+    return;
+  }
+  if (greeted !== JSON.stringify([outcome.appJoined])) {
+    violated(name, `no trigger fired in ${outcome.appJoined}, and the app greeted ${greeted}`);
+  }
+}
+
 function anyTriggerAccepts(run: VendorEventRun): boolean {
   return run.definitions.some(({ triggers }) =>
     triggers.some((trigger) => "event" in trigger && triggerAccepts(trigger, run.event)),

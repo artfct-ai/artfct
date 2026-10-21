@@ -74,8 +74,21 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-/** What an adapter adds for one vendor event: the pull request a firing on it reports on and watches. */
-type VendorEventEnrichment = { kind: "pull_request"; repo: string; number: number };
+/**
+ * What an adapter adds for one vendor event: the pull request a firing on it reports on and
+ * watches, or the channel a firing on it reports in.
+ */
+type VendorEventEnrichment =
+  | { kind: "pull_request"; repo: string; number: number }
+  | { kind: "channel"; channel: string };
+
+/**
+ * Who caused a vendor event. A chat user is known by id alone, and the router looks the user up
+ * only after a trigger matches.
+ */
+export type VendorEventCauser =
+  | Exclude<IdentityQuery, { source: "chat" }>
+  | { source: "chat"; user_id: string };
 
 /**
  * A verified delivery from a vendor that is not a conversational event. `name` is the vendor's own
@@ -86,7 +99,7 @@ export type VendorEvent = {
   delivery_id: string;
   name: string;
   payload: JsonValue;
-  causer: IdentityQuery;
+  causer: VendorEventCauser;
   /** True when the event is about the app itself, such as the app joining a channel. */
   about_app: boolean;
   enrichment?: VendorEventEnrichment;
