@@ -58,6 +58,52 @@ export const ALLOWED_WORDS: AllowedWord[] = [
   { word: "release", paths: "everywhere", reason: "Releasing a chat thread, and model releases." },
   { word: "version", paths: "everywhere", reason: "Package, model, and API versions." },
   { word: "phase", paths: "everywhere", reason: "phase is its own glossary term." },
+  {
+    word: "run",
+    paths: "everywhere",
+    reason: "Running code, check runs, refiner runs, and the scheduled run of a minute.",
+  },
+  {
+    word: "timer",
+    paths: [
+      "packages/adapters/src/gateway/models-in-order.ts",
+      "packages/bridge/src/server-connection.ts",
+      "packages/orchestrator/src/agent/model/request-timeout.ts",
+      "packages/orchestrator/src/agent/turn/deadline.ts",
+      "packages/orchestrator/src/router/chat-ack.ts",
+      "packages/orchestrator/src/sandbox/provider.ts",
+      "packages/orchestrator/src/workflow/store/schema.ts",
+      "packages/orchestrator/src/workflow/task/harness/timers.ts",
+      "template/orchestrator/skills/design-functionality-review/SKILL.md",
+    ],
+    reason: "JavaScript timers and the generation timers of a task.",
+  },
+  {
+    word: "hook",
+    paths: [
+      "packages/adapters/src/harness/claude-code/harness.ts",
+      "packages/adapters/src/harness/opencode/harness.ts",
+      "packages/cli/src/connect/code/github/manifest.ts",
+    ],
+    reason: "Harness hooks and the code host's webhook.",
+  },
+  {
+    word: "tick",
+    paths: [
+      "packages/orchestrator/src/workflow/feed/feed.ts",
+      "packages/orchestrator/src/workflow/task/harness/prompt-queue.ts",
+      "template/orchestrator/writing-rules.md",
+    ],
+    reason: "The session feed's tick, and an example in the writing rules.",
+  },
+  {
+    word: "automation",
+    paths: [
+      "packages/orchestrator/src/agent/tools/artifact.ts",
+      "packages/orchestrator/src/agent/tools/task.ts",
+    ],
+    reason: "The code that routes rulings and CI prompts without the agent.",
+  },
   { word: "checklist", paths: "everywhere", reason: "checklist is its own glossary term." },
   {
     word: "history",

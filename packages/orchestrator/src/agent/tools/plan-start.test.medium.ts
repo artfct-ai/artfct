@@ -174,6 +174,7 @@ describe("set_plan on a workflow that has not started", () => {
         name: "incident",
         description: "Fix an incident.",
         documents: {},
+        triggers: [],
         stages: [implement],
       });
       const { set_plan } = planTools(workflow);

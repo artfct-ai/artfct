@@ -15,6 +15,13 @@ CREATE TABLE `conversations` (
 	PRIMARY KEY(`source`, `external_id`)
 );
 --> statement-breakpoint
+CREATE TABLE `firing_threads` (
+	`firing_key` text PRIMARY KEY NOT NULL,
+	`channel` text NOT NULL,
+	`thread` text NOT NULL,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `linear_installs` (
 	`organization_id` text PRIMARY KEY NOT NULL,
 	`organization_name` text NOT NULL,

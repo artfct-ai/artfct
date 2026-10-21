@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9eff1741-f538-4c4f-9e07-5db0d87de0c4",
+  "id": "49cff1d4-a30b-4def-8f27-01001236d65a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "bindings": {
@@ -101,6 +101,44 @@
           "name": "conversations_source_external_id_pk"
         }
       },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "firing_threads": {
+      "name": "firing_threads",
+      "columns": {
+        "firing_key": {
+          "name": "firing_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread": {
+          "name": "thread",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

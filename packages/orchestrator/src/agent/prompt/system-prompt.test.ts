@@ -276,6 +276,7 @@ describe("systemPrompt", () => {
           name: "incident",
           description: "Fix an incident.",
           documents: {},
+          triggers: [],
           stages: [design, breakdown],
         });
         const prompt = systemPrompt(workflow, { ...PERSON_WROTE, inputArtifact: "page" });

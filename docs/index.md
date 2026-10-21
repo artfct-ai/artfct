@@ -60,11 +60,12 @@ npx artfct init
 
 1. It copies the template that ships inside the `artfct` package into the directory. It refuses to run when a template file or directory already exists, and it names each one.
 2. It runs `wrangler d1 create artfct --binding DB --update-config --config orchestrator/wrangler.jsonc` through `npx`. Wrangler creates the database and writes its id into the config. Wrangler starts its login flow when it has no credential.
+3. It runs `wrangler queues create trigger-firings`. The orchestrator queues each trigger firing there.
 
 `init` does not install the dependencies, and it does not commit, push, or deploy. A failure prints the step, its cause, and how to recover.
 
 - A failed template copy changed nothing. Remove the entries it names, or run `init` in an empty directory.
-- A failed database step left the copied template in place. Fix the cause, then run the wrangler command above by hand.
+- A failed database or queue step left the copied template in place. Fix the cause, then run that step's wrangler command above by hand, and each later one.
 
 Then install the dependencies and commit everything, the lockfile included. Each deploy installs the versions the lockfile pins.
 

@@ -1,5 +1,6 @@
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { scheduleProblem } from "../triggers/schedule";
 import { SkillRef } from "./skill-frontmatter";
 import { Stage } from "./stage";
 
@@ -19,6 +20,25 @@ const WorkflowDocuments = z.strictObject({
 
 const ROOT_PAGE_PATH = ["documents", "root_page"];
 
+/**
+ * A rule that fires a workflow of its definition on each UTC minute its five-field cron
+ * expression matches. Its start line goes in `channel`, and `prompt` is the agent's first message.
+ */
+const WorkflowTrigger = z.strictObject({
+  schedule: z
+    .string()
+    .trim()
+    .superRefine((expression, context) => {
+      const problem = scheduleProblem(expression);
+      if (problem) context.addIssue({ code: "custom", message: `schedule: ${problem}` });
+    }),
+  channel: z.string().trim().min(1),
+  prompt: z.string().trim().min(1),
+});
+
+/** One trigger of a workflow definition. */
+export type WorkflowTrigger = z.infer<typeof WorkflowTrigger>;
+
 /** The keys of a workflow definition file. An unknown key fails. */
 const WorkflowDefinitionFile = z
   .strictObject({
@@ -27,6 +47,8 @@ const WorkflowDefinitionFile = z
     documents: WorkflowDocuments.prefault({}),
     /** The stages in order. A task reads the one its job runs. */
     stages: z.array(Stage).min(1),
+    /** The rules that fire a workflow of this definition without a person's request. */
+    triggers: z.array(WorkflowTrigger).default([]),
   })
   .superRefine((file, context) => {
     const { root_page } = file.documents;

@@ -1,7 +1,7 @@
 {
   "invariants": [
     "jobStartsOnlyIntoAFreeSlot",
-    "aWorkflowExistsOnlyFromAPlan",
+    "aWorkflowExistsOnlyFromAPlanOrAFiring",
     "workflowKeepsItsDefinition",
     "oneActiveWorkflowPerConversation",
     "oneLiveJobPerInputArtifact",
@@ -181,6 +181,7 @@
       "anUndeclaredPlanLands",
       "theWorkflowWaitsForItsStages",
       "aPlanLandsOnAStartedWorkflow",
+      "aPlanLandsOnATriggeredWorkflow",
       "aPlanNamesAnotherDefinitionWhileAWorkflowIsActive",
       "aJobStartsIntoTheLastSlot",
       "twoJobsShareAnInput",
@@ -971,7 +972,12 @@
     "pullsTheHostMoves": 40
   },
   "tlc": {
-    "ignoredVariables": ["lastStepReached", "lastStepToldTheAgent", "lastStepAnswered"],
+    "ignoredVariables": [
+      "lastStepReached",
+      "lastStepToldTheAgent",
+      "lastStepAnswered",
+      "firedTheWorkflow"
+    ],
     "bounds": {
       "pagesWithAReviewer": {
         "pr": {

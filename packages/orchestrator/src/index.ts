@@ -20,6 +20,8 @@ import type { Env } from "./env";
 import { completeLinearInstall, linearInstallUrl } from "./oauth/install";
 import { deliver } from "./router/deliver";
 import { resolveActor } from "./router/identity";
+import { consumeFiringBatch, runScheduledMinute } from "./triggers/firing-queue";
+import type { TriggerFiring } from "./triggers/types";
 import { Conversation } from "./conversation";
 
 export { Sandbox, Sandbox as SandboxLarge } from "./sandbox/durable-object";
@@ -64,6 +66,16 @@ export default class Orchestrator extends WorkerEntrypoint<Env> implements Orche
 
   linearInstall(input: LinearInstallInput): Promise<LinearInstallResult> {
     return completeLinearInstall(this.env, createDb(this.env.DB), input);
+  }
+
+  /** The every-minute cron: queue the firings of the schedule triggers that match its minute. */
+  override async scheduled(controller: ScheduledController): Promise<void> {
+    await runScheduledMinute(this.env, controller.scheduledTime);
+  }
+
+  /** The firing queue's consumer: one attempt of a firing per message. */
+  override async queue(batch: MessageBatch<TriggerFiring>): Promise<void> {
+    await consumeFiringBatch(this.env, batch);
   }
 
   /**

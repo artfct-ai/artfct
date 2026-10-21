@@ -42,6 +42,18 @@ export const workflows = sqliteTable("workflows", {
 });
 
 /**
+ * The start line of each firing that reports in a channel, keyed by the firing key. Every attempt
+ * and duplicate of the firing reads it, so they all reach one thread. The scheduled run deletes a
+ * row once the firing queue can no longer hold the firing.
+ */
+export const firingThreads = sqliteTable("firing_threads", {
+  firing_key: text().primaryKey(),
+  channel: text().notNull(),
+  thread: text().notNull(),
+  created_at: text().notNull(),
+});
+
+/**
  * The Linear OAuth app install. One deployment serves one workspace, so the table holds at
  * most one row. The app-actor token is refreshed in place.
  */

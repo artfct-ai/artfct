@@ -34,6 +34,12 @@
       "max_instances": 100,
     },
   ],
+  // Every minute, the scheduled run fires the schedule triggers whose cron expression matches it.
+  "triggers": { "crons": ["* * * * *"] },
+  "queues": {
+    "producers": [{ "binding": "TRIGGER_FIRINGS", "queue": "trigger-firings" }],
+    "consumers": [{ "queue": "trigger-firings" }],
+  },
   "d1_databases": [
     {
       "binding": "DB",

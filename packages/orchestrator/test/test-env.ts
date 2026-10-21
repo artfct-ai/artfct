@@ -42,5 +42,6 @@ export function testEnv(): Env {
     SandboxLarge: missingBinding("SandboxLarge") as Env["SandboxLarge"],
     TEST_MIGRATIONS: [],
     QUINT_TRACES: missingBinding("QUINT_TRACES") as Env["QUINT_TRACES"],
+    TRIGGER_FIRINGS: missingBinding("TRIGGER_FIRINGS") as Env["TRIGGER_FIRINGS"],
   };
 }

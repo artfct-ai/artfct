@@ -250,6 +250,49 @@ describe("loadWorkflowDefinition", () => {
   });
 });
 
+function definitionWithTriggers(triggers: string) {
+  return loadWorkflowDefinition("dependency-upgrades", `${MINIMAL_YAML}triggers:\n${triggers}`);
+}
+
+describe("workflow triggers", () => {
+  it("are empty when the definition does not list one", () => {
+    expect(loadWorkflowDefinition("development", MINIMAL_YAML).triggers).toEqual([]);
+  });
+
+  it("keep a schedule, its channel and its prompt", () => {
+    const definition = definitionWithTriggers(
+      '  - { schedule: "0 9 * * 1-5", channel: C0123456, prompt: Upgrade the dependencies. }',
+    );
+    expect(definition.triggers).toEqual([
+      { schedule: "0 9 * * 1-5", channel: "C0123456", prompt: "Upgrade the dependencies." },
+    ]);
+  });
+
+  it("reject a cron expression that does not parse", () => {
+    expect(() =>
+      definitionWithTriggers('  - { schedule: "61 9 * * *", channel: C1, prompt: Upgrade. }'),
+    ).toThrow(/schedule: .*minute/);
+  });
+
+  it("reject a schedule without a channel", () => {
+    expect(() => definitionWithTriggers('  - { schedule: "0 9 * * *", prompt: Upgrade. }')).toThrow(
+      /channel/,
+    );
+  });
+
+  it("reject a trigger without a prompt", () => {
+    expect(() => definitionWithTriggers('  - { schedule: "0 9 * * *", channel: C1 }')).toThrow(
+      /prompt/,
+    );
+  });
+
+  it("reject an event trigger", () => {
+    expect(() =>
+      definitionWithTriggers("  - { event: github.pull_request.opened, prompt: Review it. }"),
+    ).toThrow();
+  });
+});
+
 describe("the template workflow definition", () => {
   it("parses", () => {
     const text = readFileSync(

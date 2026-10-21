@@ -62,8 +62,9 @@ export class FakeChat implements Chat {
     return { ts: this.nextTs() };
   }
 
-  async postChannelMessage(channel: string, text: string): Promise<void> {
+  async postChannelMessage(channel: string, text: string): Promise<{ ts: string }> {
     this.log.record("postChannelMessage", channel, text);
+    return { ts: this.nextTs() };
   }
 
   async updateMessage(channel: string, ts: string, text: string): Promise<void> {

@@ -11,6 +11,8 @@ const COPY_STEP = "Copy the template into the deployment repo";
 const DATABASE_STEP = "Create the D1 database and write its id into the orchestrator config";
 const CREATE_DATABASE =
   "d1 create artfct --binding DB --update-config --config orchestrator/wrangler.jsonc";
+const QUEUE_STEP = "Create the queue that carries trigger firings";
+const CREATE_QUEUE = "queues create trigger-firings";
 
 const PACKAGED_TEMPLATE = packagedTemplate();
 const repoDirs: string[] = [];
@@ -99,16 +101,16 @@ describe("runInit", () => {
       expect(ignored.stdout).toBe("");
     });
 
-    it("creates the database with wrangler and nothing else", async () => {
+    it("creates the database and the queue with wrangler and nothing else", async () => {
       const run = environment(emptyRepo());
       await runInit(run.init);
-      expect(run.wranglerCalls).toEqual([CREATE_DATABASE]);
+      expect(run.wranglerCalls).toEqual([CREATE_DATABASE, CREATE_QUEUE]);
     });
 
     it("announces each step before it runs", async () => {
       const run = environment(emptyRepo());
       await runInit(run.init);
-      expect(run.steps).toEqual([COPY_STEP, DATABASE_STEP]);
+      expect(run.steps).toEqual([COPY_STEP, DATABASE_STEP, QUEUE_STEP]);
     });
 
     it("installs nothing", async () => {
@@ -165,6 +167,19 @@ describe("runInit", () => {
       writeFileSync(join(repoDir, ".gitignore"), "dist\n");
       expect(await runInit(environment(repoDir).init)).toMatchObject({
         problem: "The deployment repo already has .gitignore.",
+      });
+    });
+  });
+
+  describe("when wrangler fails to create the queue", () => {
+    it("reports the command to run by hand", async () => {
+      const run = environment(emptyRepo());
+      run.init.runWrangler = async (args) => (args[0] === "queues" ? 1 : 0);
+      expect(await runInit(run.init)).toEqual({
+        outcome: "failed",
+        step: QUEUE_STEP,
+        problem: "wrangler queues create exited with 1.",
+        recovery: `Fix the problem, then create the queue by hand:\nwrangler ${CREATE_QUEUE}`,
       });
     });
   });

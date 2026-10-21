@@ -270,10 +270,12 @@ module workflowLifecycleTypes {
   /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
   /// `EndPostReturnStep` is the return of the post of a workflow end, and `UnbindReturnStep` the
   /// return of the unbind of its code host bindings.
-  /// `TaskEndAlarmStep` is the task end alarm of the job's finished task.
+  /// `TaskEndAlarmStep` is the task end alarm of the job's finished task. `FiringStep` is a
+  /// trigger's firing with the workflow definition of its trigger.
   type StepKind =
     | OtherStep
     | PlanStep({ definition: int, subject: Subject })
+    | FiringStep({ definition: int })
     | JobStartStep({ routerWriteFails: bool })
     | IssueStartStep({ issue: int, routerWriteFails: bool })
     | OutputStep(Subject)
@@ -321,7 +323,7 @@ module workflowLifecycleTypes {
   /// it. Each step writes it again, so the state does not keep the workflow before the step.
   type KeptRules = {
     jobStartsOnlyIntoAFreeSlot: bool,
-    onlyAPlanStartsTheWorkflow: bool,
+    onlyAPlanOrAFiringStartsTheWorkflow: bool,
     anUndeclaredPlanChangesNothing: bool,
     workflowKeepsItsDefinition: bool,
     oneActiveWorkflowPerConversation: bool,
@@ -587,6 +589,10 @@ module workflowLifecycle {
   /// What `complete_job` told the agent in the last step. Only the replay reads it, so model
   /// checking leaves it out of the state.
   var lastStepAnswered: CompletionAnswer
+
+  /// True once a trigger's firing created the workflow. Only witnesses read it, so model checking
+  /// leaves it out of the state.
+  var firedTheWorkflow: bool
 
   pure def isFinished(status: TaskStatus): bool =
     status == TaskDone or status == TaskCancelled or status == TaskFailed
@@ -1765,6 +1771,7 @@ module workflowLifecycle {
       lastStepReached' = witnessesReachedBy(step),
       lastStepToldTheAgent' = after.told,
       lastStepAnswered' = answered,
+      firedTheWorkflow' = (firedTheWorkflow or createsByFiring(step)),
     }
   }
 
@@ -1797,6 +1804,7 @@ module workflowLifecycle {
       lastStepReached' = witnessesReachedBy(step),
       lastStepToldTheAgent' = false,
       lastStepAnswered' = NotAnswered,
+      firedTheWorkflow' = false,
     }
   }
 
@@ -1846,6 +1854,26 @@ module workflowLifecycle {
       issueMoves: if (movesTheIssue) workflow.issueMoves + 1 else workflow.issueMoves,
     }
     move(untold(if (refused) workflow else planned), PlanStep({ definition: definition, subject: subjectLink }))
+  }
+
+  /// A trigger's firing reaches the conversation of its start line's thread before the workflow
+  /// ends. Without a workflow, it creates one with the trigger's workflow definition, starts its
+  /// idle clock and tells the agent the trigger's prompt. A conversation with an active workflow
+  /// refuses it and changes nothing, and the firing queue tries the firing again. A firing's
+  /// conversation is on a chat thread, so a tracker origin does not take one.
+  action aTriggerFiresTheWorkflow: bool = all {
+    not(TRACKER_ORIGIN),
+    workflow.status != Ended,
+    nondet definition = DEFINITIONS.oneOf()
+    val creates = workflow.status == NoWorkflow
+    val fired = { ...workflow, definition: Planned(definition), status: Running, idleArmed: true }
+    move({ flow: if (creates) fired else workflow, told: creates }, FiringStep({ definition: definition }))
+  }
+
+  /// True for a firing that created the workflow.
+  pure def createsByFiring(step: Transition): bool = match step.kind {
+    | FiringStep(_) => step.before.status == NoWorkflow and step.after.status != NoWorkflow
+    | _ => false
   }
 
   /// The subject a plan keeps: the workflow's, or before a plan creates the workflow, the one its
@@ -2823,6 +2851,7 @@ module workflowLifecycle {
 
   action step: bool = any {
     theAgentPlansOrStartsAJob,
+    aTriggerFiresTheWorkflow,
     agentStartsJobOnAnIssueWithAClosedPull,
     theAgentCompletesAJobWithAnArtifact,
     aTaskEndsItsTurn,
@@ -2949,13 +2978,14 @@ module workflowLifecycle {
   }
 
   /// A step that gives the workflow its definition is a plan that names a workflow definition of
-  /// the deployment.
-  pure def onlyAPlanStarts(step: Transition): bool =
+  /// the deployment, or a firing of a trigger of that definition.
+  pure def onlyAPlanOrAFiringStarts(step: Transition): bool =
     (step.before.definition == Unplanned and step.after.definition != Unplanned) implies
       DEFINITIONS.exists(definition => and {
         step.after.definition == Planned(definition),
         match step.kind {
           | PlanStep(plan) => plan.definition == definition
+          | FiringStep(firing) => firing.definition == definition
           | _ => false
         },
       })
@@ -3307,7 +3337,7 @@ module workflowLifecycle {
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
-    onlyAPlanStartsTheWorkflow: onlyAPlanStarts(step),
+    onlyAPlanOrAFiringStartsTheWorkflow: onlyAPlanOrAFiringStarts(step),
     anUndeclaredPlanChangesNothing: ignoresAnUndeclaredPlan(step),
     workflowKeepsItsDefinition: keepsTheDefinition(step),
     oneActiveWorkflowPerConversation: refusesAnotherDefinitionWhileActive(step),
@@ -3691,12 +3721,12 @@ module workflowLifecycle {
   /// A job start leaves at most the plan's number of job slots of jobs active.
   val jobStartsOnlyIntoAFreeSlot: bool = lastStepKept.jobStartsOnlyIntoAFreeSlot
 
-  /// A workflow exists only from a plan that names a workflow definition of the deployment. Until
-  /// then the conversation has no workflow and no definition, a job does not start, the idle clock
-  /// is not armed, and no tracker issue moved. A plan with an undeclared definition does not change
-  /// the conversation.
-  val aWorkflowExistsOnlyFromAPlan: bool = and {
-    lastStepKept.onlyAPlanStartsTheWorkflow,
+  /// A workflow exists only from a plan that names a workflow definition of the deployment, or from
+  /// a trigger's firing. Until then the conversation has no workflow and no definition, a job does
+  /// not start, the idle clock is not armed, and no tracker issue moved. A plan with an undeclared
+  /// definition does not change the conversation.
+  val aWorkflowExistsOnlyFromAPlanOrAFiring: bool = and {
+    lastStepKept.onlyAPlanOrAFiringStartsTheWorkflow,
     lastStepKept.anUndeclaredPlanChangesNothing,
     (workflow.status == NoWorkflow) iff (workflow.definition == Unplanned),
     workflow.status == NoWorkflow implies and {
@@ -3891,18 +3921,23 @@ module workflowLifecycle {
   /// The jobs the workflow started, a counter that model checking bounds.
   val jobsStarted: int = workflow.jobs.length()
 
-  /// Witness for `aWorkflowExistsOnlyFromAPlan`: a plan creates the workflow.
+  /// Witness for `aWorkflowExistsOnlyFromAPlanOrAFiring`: a plan creates the workflow.
   val aPlanStartsTheWorkflow: bool = lastStepReached.aPlanStartsTheWorkflow
 
   /// Witness for `workflowKeepsItsDefinition`: a plan lands on a started workflow.
   val aPlanLandsOnAStartedWorkflow: bool = lastStepReached.aPlanLandsOnAStartedWorkflow
+
+  /// Witness for `workflowKeepsItsDefinition`: a plan names another workflow definition of the
+  /// deployment on a workflow a trigger's firing created.
+  val aPlanLandsOnATriggeredWorkflow: bool =
+    firedTheWorkflow and lastStepReached.aPlanNamesAnotherDefinitionWhileAWorkflowIsActive
 
   /// Witness for `oneActiveWorkflowPerConversation`: a plan names another workflow definition of
   /// the deployment while a workflow is active.
   val aPlanNamesAnotherDefinitionWhileAWorkflowIsActive: bool =
     lastStepReached.aPlanNamesAnotherDefinitionWhileAWorkflowIsActive
 
-  /// Witness for `aWorkflowExistsOnlyFromAPlan`: a plan names a workflow definition the deployment
+  /// Witness for `aWorkflowExistsOnlyFromAPlanOrAFiring`: a plan names a workflow definition the deployment
   /// does not hold.
   val anUndeclaredPlanLands: bool = lastStepReached.anUndeclaredPlanLands
 
@@ -4280,7 +4315,7 @@ module workflowLifecycle {
   /// A person writes the cancel word in the session of the subject issue, and its author gets it.
   val aCancelWordReachesTheSubjectsAuthor: bool = lastStepReached.aCancelWordReachesTheSubjectsAuthor
 
-  /// Witness for `aWorkflowExistsOnlyFromAPlan`: the workflow moved a tracker issue.
+  /// Witness for `aWorkflowExistsOnlyFromAPlanOrAFiring`: the workflow moved a tracker issue.
   val theWorkflowMovedAnIssue: bool = workflow.issueMoves > 0
 
   /// Witness for `aPersonsMessageWakesTheWorkflow`: a person's message lands on a workflow that

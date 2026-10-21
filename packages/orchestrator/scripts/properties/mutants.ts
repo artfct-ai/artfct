@@ -137,7 +137,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W15",
-    invariant: "workflowLifecycle::aWorkflowExistsOnlyFromAPlan",
+    invariant: "workflowLifecycle::aWorkflowExistsOnlyFromAPlanOrAFiring",
     path: "src/agent/tools/start/start.ts",
     find: "        const notStarted = validateWorkflowStarted(workflow);",
     replace: "        const notStarted: string | null = null;",
@@ -2601,11 +2601,119 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W441",
     invariant:
-      "workflowLifecycle::aWorkflowExistsOnlyFromAPlan (the first event creates the workflow)",
+      "workflowLifecycle::aWorkflowExistsOnlyFromAPlanOrAFiring (the first event creates the workflow)",
     path: "src/workflow/inbound/events.ts",
     find: "  workflow.log(null, `opened from ${event.kind}`);\n",
     replace:
       '  workflow.store.createWorkflow({ workflow_id: conversationId, definition: workflow.workflowDefinitions()[0]!.name, name: "opened", reason: "opened", repo: null, subject: null });\n  workflow.log(null, `opened from ${event.kind}`);\n',
+  },
+  {
+    id: "W460",
+    invariant: "triggerFirings::aFiringStartsAtMostOneWorkflow (the handler ignores the seen key)",
+    path: "src/workflow/inbound/firing.ts",
+    find: '  if (workflow.store.eventSeen(key)) return { kind: "duplicate" };\n',
+    replace: "",
+  },
+  {
+    id: "W461",
+    invariant:
+      "triggerFirings::aFiringStartsAtMostOneWorkflow (the seen key is recorded after an await)",
+    path: "src/workflow/inbound/firing.ts",
+    find: '  workflow.store.markEventSeen(key);\n  if (!workflow.store.conversation()) {\n    workflow.store.openConversation({\n      conversation_id: conversationId,\n      origin,\n    });\n  }\n  workflow.store.createWorkflow({\n    workflow_id: workflowId,\n    definition: definition.name,\n    name,\n    reason: `Fired by ${firedBy}`,\n    repo: null,\n    request_text: trigger.prompt,\n    request_links: [],\n    subject: null,\n  });\n  await workflow.tellAgent(\n    firingMessage({\n      trigger: firedBy,\n      prompt: trigger.prompt,\n      notes: [\n        `Workflow "${name}" started from workflow definition ${definition.name}.`,\n        `Call set_plan with definition ${definition.name} and the stages to run.`,\n      ],\n      stages: stageLines(workflow.config(), definition),\n    }),\n    "message",\n  );\n',
+    replace:
+      '  if (!workflow.store.conversation()) {\n    workflow.store.openConversation({\n      conversation_id: conversationId,\n      origin,\n    });\n  }\n  workflow.store.createWorkflow({\n    workflow_id: workflowId,\n    definition: definition.name,\n    name,\n    reason: `Fired by ${firedBy}`,\n    repo: null,\n    request_text: trigger.prompt,\n    request_links: [],\n    subject: null,\n  });\n  await workflow.tellAgent(\n    firingMessage({\n      trigger: firedBy,\n      prompt: trigger.prompt,\n      notes: [\n        `Workflow "${name}" started from workflow definition ${definition.name}.`,\n        `Call set_plan with definition ${definition.name} and the stages to run.`,\n      ],\n      stages: stageLines(workflow.config(), definition),\n    }),\n    "message",\n  );\n  workflow.store.markEventSeen(key);\n',
+  },
+  {
+    id: "W462",
+    invariant:
+      "triggerFirings::aFiringStartsAtMostOneWorkflow (the firing key uses the run's clock)",
+    path: "src/triggers/schedule.ts",
+    find: "  const minute = scheduledMinute(scheduledTime);\n",
+    replace: "  const minute = scheduledMinute(Date.now());\n",
+  },
+  {
+    id: "W463",
+    invariant:
+      "triggerFirings::aFiringStartsAtMostOneWorkflow (the record race loser calls its own thread)",
+    path: "src/triggers/consumer.ts",
+    find: "  return keepFiringThread(consumer.db, firing, { channel: trigger.channel, thread: posted.ts });\n",
+    replace:
+      "  const thread = { channel: trigger.channel, thread: posted.ts };\n  await keepFiringThread(consumer.db, firing, thread);\n  return thread;\n",
+  },
+  {
+    id: "W464",
+    invariant: "triggerFirings::aRetriedFiringKeepsItsThread",
+    path: "src/triggers/consumer.ts",
+    find: "  const recorded = await recordedFiringThread(consumer.db, firing);\n",
+    replace:
+      "  const recorded = firing.attempt > 1 ? null : await recordedFiringThread(consumer.db, firing);\n",
+  },
+  {
+    id: "W465",
+    invariant:
+      "triggerFirings::aFailedFiringIsTriedUntilItsAttemptsRunOut (no retry after the first failure)",
+    path: "src/triggers/consumer.ts",
+    find: "const RETRY_DELAYS_SECONDS = [30, 120] as const;",
+    replace: "const RETRY_DELAYS_SECONDS = [undefined, 120] as const;",
+  },
+  {
+    id: "W466",
+    invariant:
+      "triggerFirings::aFailedFiringIsTriedUntilItsAttemptsRunOut (a retry past the third attempt)",
+    path: "src/triggers/consumer.ts",
+    find: "const RETRY_DELAYS_SECONDS = [30, 120] as const;",
+    replace: "const RETRY_DELAYS_SECONDS = [30, 120, 120] as const;",
+  },
+  {
+    id: "W467",
+    invariant:
+      "triggerFirings::aFailedFiringIsTriedUntilItsAttemptsRunOut (the second retry waits 30 seconds)",
+    path: "src/triggers/consumer.ts",
+    find: "const RETRY_DELAYS_SECONDS = [30, 120] as const;",
+    replace: "const RETRY_DELAYS_SECONDS = [30, 30] as const;",
+  },
+  {
+    id: "W468",
+    invariant:
+      "triggerFirings::aFailedFiringIsTriedUntilItsAttemptsRunOut (a failure line on every failure)",
+    path: "src/triggers/consumer.ts",
+    find: "  if (delay !== undefined) {\n",
+    replace:
+      "  if (outcome.thread) await postFailureLine(consumer, firing, outcome.thread);\n  if (delay !== undefined) {\n",
+  },
+  {
+    id: "W469",
+    invariant:
+      "triggerFirings::aFailedFiringIsTriedUntilItsAttemptsRunOut (the last failure posts no failure line)",
+    path: "src/triggers/consumer.ts",
+    find: "  if (outcome.thread) await postFailureLine(consumer, firing, outcome.thread);\n",
+    replace: "",
+  },
+  {
+    id: "W470",
+    invariant: "scheduleInvariants::scheduleFiresOnItsMinutes (the match uses the run's clock)",
+    path: "src/triggers/schedule.ts",
+    find: "      if (!scheduleMatches(trigger.schedule, minute)) return [];\n",
+    replace:
+      "      if (!scheduleMatches(trigger.schedule, scheduledMinute(Date.now()))) return [];\n",
+    propertyFile: "src/triggers/schedule.property.ts",
+  },
+  {
+    id: "W471",
+    invariant: "scheduleInvariants::scheduleFiresOnItsMinutes (a time zone other than UTC)",
+    path: "src/triggers/schedule.ts",
+    find: 'const FIVE_UTC_FIELDS = { mode: "5-part", timezone: "UTC" } as const;',
+    replace: 'const FIVE_UTC_FIELDS = { mode: "5-part", timezone: "America/New_York" } as const;',
+    propertyFile: "src/triggers/schedule.property.ts",
+  },
+  {
+    id: "W472",
+    invariant:
+      "workflowLifecycle::workflowKeepsItsDefinition (a later plan replaces a triggered workflow's definition)",
+    path: "src/agent/tools/plan.ts",
+    find: "  const oneActive = validateOneActiveWorkflow(active, definition.name);\n  if (oneActive) return oneActive;\n",
+    replace:
+      '  const oneActive = validateOneActiveWorkflow(active, definition.name);\n  if (oneActive && active?.reason.startsWith("Fired by"))\n    workflow.store.updateWorkflow({ definition: definition.name });\n  else if (oneActive) return oneActive;\n',
   },
 ];
 

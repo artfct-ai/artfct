@@ -19,15 +19,15 @@ const SYSTEM_NOTES_LABEL = "What the system already did:";
  * model and tests can read it. The rest is for the real model.
  */
 export function eventMessage(event: InboundEvent, context: EnvelopeContext): string {
-  const header = [
-    `kind=${context.first ? "request" : event.kind}`,
-    `job=${context.job?.job_id ?? "none"}`,
-    `task=${context.job?.task_id ?? "none"}`,
-    `artifact=${context.artifact?.kind ?? "none"}`,
-    `status=${context.artifact?.status ?? "none"}`,
-    `pull_action=${pullAction(event)}`,
-  ].join(" ");
-  const lines = [`[event ${header}]`, fromLine(event)];
+  const header = headerLine({
+    kind: context.first ? "request" : event.kind,
+    job: context.job?.job_id ?? "none",
+    task: context.job?.task_id ?? "none",
+    artifact: context.artifact?.kind ?? "none",
+    status: context.artifact?.status ?? "none",
+    pull_action: pullAction(event),
+  });
+  const lines = [header, fromLine(event)];
   if (event.title) lines.push(`Title: ${event.title}`);
   if (event.text.trim()) lines.push("", event.text.trim());
   if (event.links.length) lines.push("", LINKS_LABEL, ...event.links.map((link) => `- ${link}`));
@@ -36,6 +36,44 @@ export function eventMessage(event: InboundEvent, context: EnvelopeContext): str
     lines.push("", SYSTEM_NOTES_LABEL, ...context.notes.map((note) => `- ${note}`));
   }
   return lines.join("\n");
+}
+
+/** What the first message of a workflow a trigger fired holds. */
+export type FiringMessage = {
+  /** The trigger that fired, such as `the schedule 0 9 * * 1-5 of workflow definition upgrades`. */
+  trigger: string;
+  prompt: string;
+  notes: string[];
+  /** The stages of the workflow's definition, one line each under their heading. */
+  stages: string[];
+};
+
+/** The first message of a workflow a trigger fired. It reads as a request with the trigger's prompt. */
+export function firingMessage({ trigger, prompt, notes, stages }: FiringMessage): string {
+  const header = headerLine({
+    kind: "request",
+    job: "none",
+    task: "none",
+    artifact: "none",
+    status: "none",
+    pull_action: "none",
+  });
+  return [
+    header,
+    `From: ${trigger}, not a person`,
+    "",
+    prompt.trim(),
+    "",
+    SYSTEM_NOTES_LABEL,
+    ...notes.map((note) => `- ${note}`),
+    "",
+    ...stages,
+  ].join("\n");
+}
+
+function headerLine(fields: Record<string, string>): string {
+  const pairs = Object.entries(fields).map(([key, value]) => `${key}=${value}`);
+  return `[event ${pairs.join(" ")}]`;
 }
 
 /** A message from the system itself: harness progress, timers, executed controls. */
