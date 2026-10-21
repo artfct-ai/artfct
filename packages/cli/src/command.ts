@@ -13,8 +13,8 @@ export const ARTFCT_USAGE = `Usage: artfct <command>
 
 Commands:
   check [--offline]         Check the deployment repo in the current directory before a deploy.
-                            --offline skips the Cloudflare credential, so CI can run the other
-                            checks as tests.
+                            --offline skips the Cloudflare credential and the GitHub App's
+                            events, so CI can run the other checks as tests.
   init                      Scaffold a deployment repo in the current directory and create its
                             D1 database.
   connect code [--org <o>]  Create and install a GitHub App and write its credentials into the

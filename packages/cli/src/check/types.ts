@@ -13,5 +13,12 @@ export type CheckReport = CheckOutcome & { check: string };
 /** Run a wrangler command in the deployment repo. */
 export type RunWrangler = (args: string[]) => Promise<ProcessResult>;
 
-/** Everything the checks reach outside the process. `runWrangler` is null under `--offline`. */
-export type CheckEnvironment = { repoDir: string; runWrangler: RunWrangler | null };
+/** Run a GitHub CLI command. The GitHub CLI holds the person's GitHub login, so the check never reads it. */
+export type RunGh = (args: string[]) => Promise<ProcessResult>;
+
+/** Everything the checks reach outside the process. `runWrangler` and `runGh` are null under `--offline`. */
+export type CheckEnvironment = {
+  repoDir: string;
+  runWrangler: RunWrangler | null;
+  runGh: RunGh | null;
+};
