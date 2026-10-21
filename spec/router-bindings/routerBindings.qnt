@@ -456,6 +456,27 @@ module routerBindings {
     | _ => NoPlace
   }
 
+  /// The start step of the conversation's restarted instance has its row write out. Every event
+  /// and alarm of the conversation waits until the start step returns.
+  pure def startStepOut(state: World, place: Place): bool =
+    state.operations.keys().exists(id => {
+      val operation = state.operations.get(id)
+      and {
+        conversationOf(state, operation.workflow) == place,
+        match operation.phase {
+          | RestartWritesRow(_) => true
+          | _ => false
+        },
+      }
+    })
+
+  /// The call a delivery waits on goes to a conversation whose start step is out, so it cannot
+  /// land yet.
+  pure def callWaitsOnAStartStep(state: World, delivery: Delivery): bool = match calledPlace(delivery.phase) {
+    | AtPlace(place) => startStepOut(state, place)
+    | NoPlace => false
+  }
+
   /// The delivery once the call it waits on returned or threw. A D1 call leaves it as it is.
   pure def afterCall(delivery: Delivery, returned: bool): Delivery = match calledPlace(delivery.phase) {
     | AtPlace(place) => {
@@ -668,7 +689,9 @@ module routerBindings {
 
   /// The call a delivery waits on lands, and the delivery runs to its next call or its end.
   action deliveryResumes: bool = {
-    nondet delivery = world.deliveries.keys().oneOf()
+    nondet delivery = world.deliveries.keys()
+      .filter(id => not(callWaitsOnAStartStep(world, world.deliveries.get(id))))
+      .oneOf()
     val final = afterCall(world.deliveries.get(delivery), true)
     val after = resumeDelivery(world, delivery)
     val ended = not(after.deliveries.keys().contains(delivery))
@@ -689,10 +712,11 @@ module routerBindings {
 
   /// The router's invocation ends while a delivery waits on its call, such as on a deploy or a
   /// cancel after the host hung up. The call landed or not. The delivery never resumes, and its
-  /// caller gets an error.
+  /// caller gets an error. A call that waits on a start step lands after it, which is the same as
+  /// the invocation ending once the start step returned.
   action routerInvocationEnds: bool = {
     nondet delivery = world.deliveries.keys().oneOf()
-    nondet landed = Set(true, false).oneOf()
+    nondet landed = (if (callWaitsOnAStartStep(world, world.deliveries.get(delivery))) Set(false) else Set(true, false)).oneOf()
     val phase = world.deliveries.get(delivery).phase
     val written = if (landed) resumeDelivery(world, delivery) else world
     val after = finishDelivery(written, delivery)
@@ -734,9 +758,12 @@ module routerBindings {
   }
 
   /// A running workflow ends: done, failed or cancelled. Its store moves it to ending, then it
-  /// writes its row, then it deletes its bindings, then its store ends it.
+  /// writes its row, then it deletes its bindings, then its store ends it. The event, tool call or
+  /// alarm that ends it waits for the start step of its conversation.
   action workflowEnds: bool = {
-    nondet workflow = world.workflows.keys().filter(workflow => isRunning(world, workflow)).oneOf()
+    nondet workflow = world.workflows.keys()
+      .filter(workflow => isRunning(world, workflow) and not(startStepOut(world, conversationOf(world, workflow))))
+      .oneOf()
     all {
       world.operations.keys().size() < MAX_OPERATIONS,
       advance(startEnd(world, workflow), ALL_KEPT, NO_STEP_WITNESSES),
@@ -900,7 +927,8 @@ module routerBindings {
 
   /// The Durable Object of a conversation restarts while one of its workflows has a call out. That
   /// call landed or not. The restart drops every call the conversation has out. The start step
-  /// writes the row of the active workflow with its status, and goes on with an end it stored.
+  /// writes the row of the active workflow with its status, and goes on with an end it stored. The
+  /// conversation does not take an event or run an alarm until that row write returns.
   action conversationRestarts: bool = {
     nondet operation = world.operations.keys().oneOf()
     nondet landed = Set(true, false).oneOf()
