@@ -27,7 +27,20 @@ export type ActivityCut = {
 export class SessionTracker extends FakeTracker {
   health: TrackerHealth = "up";
   readonly stored: StoredActivity[] = [];
+  /** Every activity post the tracker was asked for. */
+  activityCalls = 0;
   private nextCut: ActivityCut | null = null;
+  private narrationAttemptsToRefuse = 0;
+
+  /** Refuse the next `attempts` narration posts before storing them. Other posts land. */
+  refuseNarration(attempts: number): void {
+    this.narrationAttemptsToRefuse = attempts;
+  }
+
+  /** True while the tracker still refuses narration posts. */
+  refusesNarration(): boolean {
+    return this.narrationAttemptsToRefuse > 0;
+  }
 
   /** Cut the next activity post: it stores the activity or not, calls `cut`, and never returns. */
   cutNextActivity(cut: ActivityCut): void {
@@ -39,6 +52,12 @@ export class SessionTracker extends FakeTracker {
     content: AgentActivityContent,
     options: ActivityOptions = {},
   ): Promise<void> {
+    this.activityCalls += 1;
+    const isNarration = content.type === "thought" && !options.ephemeral;
+    if (isNarration && this.narrationAttemptsToRefuse > 0) {
+      this.narrationAttemptsToRefuse -= 1;
+      throw new Error("tracker refused the narration");
+    }
     const cut = this.nextCut?.types.includes(content.type) ? this.nextCut : null;
     if (cut) {
       this.nextCut = null;

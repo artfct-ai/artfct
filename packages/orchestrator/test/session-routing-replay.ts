@@ -10,6 +10,8 @@ import { flushBoards } from "../src/workflow/board/board";
 import { onIdle } from "../src/workflow/lifecycle";
 import {
   DONE_TEXT,
+  FEED_GIVES_UP_AFTER_MS,
+  NARRATION_INTERVAL_MS,
   postClosingReply,
   STOPPED_TEXT,
   type ClosingReplyAlarm,
@@ -213,8 +215,11 @@ export type SpecRouting = {
 /** The deliveries of one session message in flight, and whether it was marked seen. */
 export type SpecMessage = { inFlight: number; seen: boolean };
 
-/** A closing reply whose post an instance restart cut, and whether its alarm is still armed. */
-export type SpecCutClosingReply = SpecFeedPost & { armed: boolean };
+/**
+ * A closing reply whose post an instance restart or a tracker failure cut, whether its alarm is
+ * still armed, and whether its alarm gave up.
+ */
+export type SpecCutClosingReply = SpecFeedPost & { armed: boolean; gaveUp: boolean };
 
 /** The values the spec picked for one action. */
 export type SpecPicks = {
@@ -336,6 +341,7 @@ function specCutClosingReplies(value: unknown): SpecCutClosingReply[] {
       kind: itfOneOf(itfVariant(itfField(cut, "kind"))!.tag, FEED_KINDS),
       stored: itfInt(itfField(cut, "stored")),
       armed: itfBool(itfField(cut, "armed")),
+      gaveUp: itfField(cut, "gaveUp", true) === null ? false : itfBool(itfField(cut, "gaveUp")),
     }));
 }
 
@@ -553,7 +559,7 @@ type IdleClockGate = { arrived: () => void; landed: Promise<void> };
  */
 export class SessionRoutingReplay {
   private readonly sent: SentMessage[] = [];
-  private readonly cutReplies: FeedActivity[] = [];
+  private readonly cutReplies: ClosingReplyAlarm[] = [];
   private readonly gates: { next: IdleClockGate | null } = { next: null };
 
   private constructor(readonly world: WorkflowWorld) {}
@@ -609,13 +615,11 @@ export class SessionRoutingReplay {
       .filter((row) => row.channel === "feed" && !NOT_FEED_ACTIVITIES.includes(row.kind))
       .map((row) => feedActivityOf(row.payload));
     if (step.action === "authorTurnEnds") feed.push(...narratedAccounts(rows, narrationBefore));
-    if (isRestartMidPost(health) && step.action !== "closingReplyAlarmFires") {
-      this.cutReplies.push(
-        ...this.closingReplyAlarms()
-          .map((alarm) => alarm.payload.activity)
-          .filter((armed) => !this.cutReplies.some((cut) => cut.id === armed.id)),
-      );
-    }
+    this.cutReplies.push(
+      ...this.closingReplyAlarms()
+        .map((alarm) => alarm.payload)
+        .filter((armed) => !this.cutReplies.some((cut) => cut.activity.id === armed.activity.id)),
+    );
     return {
       posts: deliveries.map(({ event, targets }) => {
         const kind = POST_KIND_OF[event.type];
@@ -652,22 +656,16 @@ export class SessionRoutingReplay {
   }
 
   /**
-   * The closing replies whose post an instance restart cut, in the order of the cuts, then the
-   * alarm of any other closing reply that is still armed.
+   * The closing replies whose post an instance restart or a tracker failure cut, in the order of
+   * the cuts. A reply whose alarm is gone before the tracker stored it gave up.
    */
   cutClosingReplies(): SpecCutClosingReply[] {
-    const armed = this.closingReplyAlarms().map((alarm) => alarm.payload.activity);
-    const isArmed = (activity: FeedActivity) => armed.some((other) => other.id === activity.id);
-    const isCut = (activity: FeedActivity) => this.cutReplies.some((cut) => cut.id === activity.id);
-    return [
-      ...this.cutReplies.map((activity) => ({
-        ...this.feedPostOf(activity),
-        armed: isArmed(activity),
-      })),
-      ...armed
-        .filter((activity) => !isCut(activity))
-        .map((activity) => ({ ...this.feedPostOf(activity), armed: true })),
-    ];
+    const armed = this.closingReplyAlarms().map((alarm) => alarm.payload.activity.id);
+    return this.cutReplies.map(({ activity }) => {
+      const posted = this.feedPostOf(activity);
+      const isArmed = armed.includes(activity.id);
+      return { ...posted, armed: isArmed, gaveUp: !isArmed && posted.stored === 0 };
+    });
   }
 
   /** The workflow as the spec sees it. */
@@ -820,10 +818,9 @@ export class SessionRoutingReplay {
       case "chatThreadJoins":
         return chatThreadJoins();
       case "authorStreams":
-        return authorStreams(
-          this.unfinishedIndexOf(required(picks.id)),
-          required(picks.streamed) === "Message" ? "message" : "tool",
-        );
+        return required(picks.streamed) === "Message"
+          ? authorStreams(this.unfinishedIndexOf(required(picks.id)), "message")
+          : this.toolCallOnceNarrationIsDue(this.unfinishedIndexOf(required(picks.id)));
       case "authorReportsTodos":
         return authorReportsTodos(
           this.unfinishedIndexOf(required(picks.id)),
@@ -854,6 +851,15 @@ export class SessionRoutingReplay {
       case "closingReplyAlarmFires":
         return worldAction(`the alarm of cut closing reply ${picks.reply} fires`, (world) =>
           this.closingReplyAlarmFires(world, required(picks.reply)),
+        );
+      case "closingReplyGivesUp":
+        return worldAction(
+          `the alarm of cut closing reply ${picks.reply} fires an hour after its turn ended`,
+          (world) => {
+            world.advanceClock(FEED_GIVES_UP_AFTER_MS);
+            world.setTrackerHealth("fails_before_storing");
+            return this.closingReplyAlarmFires(world, required(picks.reply));
+          },
         );
       case "researcherReportsTodos":
         return researcherReportsTodos(
@@ -906,10 +912,27 @@ export class SessionRoutingReplay {
    * The alarm of a closing reply that a restart cut posts it. The platform drops a one-shot alarm
    * once its callback returns.
    */
+  /**
+   * The author calls a tool once its narration interval has passed, so the narration before it
+   * posts and does not wait. The spec does not model narration that waits.
+   */
+  private toolCallOnceNarrationIsDue(index: number): WorkflowAction {
+    const toolCall = authorStreams(index, "tool");
+    return {
+      run: (world) => {
+        world.advanceClock(NARRATION_INTERVAL_MS);
+        return toolCall.run(world);
+      },
+      toString: () => `${String(toolCall)} once narration is due`,
+    };
+  }
+
   private async closingReplyAlarmFires(world: WorkflowWorld, replyIndex: number): Promise<void> {
     const cut = this.cutReplies[replyIndex];
     if (!cut) throw new Error(`no closing reply ${replyIndex} was cut`);
-    const alarm = this.closingReplyAlarms().find((armed) => armed.payload.activity.id === cut.id);
+    const alarm = this.closingReplyAlarms().find(
+      (armed) => armed.payload.activity.id === cut.activity.id,
+    );
     if (!alarm) throw new Error(`the cut closing reply ${replyIndex} has no alarm armed`);
     await postClosingReply(world.workflow, alarm.payload);
     await world.workflow.cancelAlarm(alarm.id);
