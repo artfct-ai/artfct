@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9cb50937-0897-4f17-908e-45f2b4257689",
+  "id": "9eff1741-f538-4c4f-9e07-5db0d87de0c4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "bindings": {
@@ -60,6 +60,45 @@
             "external_id"
           ],
           "name": "bindings_source_external_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "conversations": {
+      "name": "conversations",
+      "columns": {
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "conversations_source_external_id_pk": {
+          "columns": [
+            "source",
+            "external_id"
+          ],
+          "name": "conversations_source_external_id_pk"
         }
       },
       "uniqueConstraints": {},
@@ -162,8 +201,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "workflow_predecessors": {
-      "name": "workflow_predecessors",
+    "workflows": {
+      "name": "workflows",
       "columns": {
         "workflow_id": {
           "name": "workflow_id",
@@ -172,27 +211,10 @@
           "notNull": true,
           "autoincrement": false
         },
-        "predecessor_id": {
-          "name": "predecessor_id",
+        "conversation_id": {
+          "name": "conversation_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "workflows": {
-      "name": "workflows",
-      "columns": {
-        "workflow_id": {
-          "name": "workflow_id",
-          "type": "text",
-          "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },

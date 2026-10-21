@@ -305,7 +305,7 @@ async function validateInputNotHeld(
 async function bindIssueForJob(workflow: WorkflowRuntime, issue: JobIssue): Promise<string | null> {
   const db = createDb(workflow.env.DB);
   const binding = { source: "tracker_issue" as const, external_id: issue.id };
-  const { conversation_id: workflowId } = workflow.store.requireConversation();
+  const { workflow_id: workflowId } = workflow.store.requireWorkflowRow();
   const boundTo = await findBinding(db, binding);
   if (boundTo === workflowId) return null;
   if (boundTo) {

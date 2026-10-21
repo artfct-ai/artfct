@@ -1,2 +1,2 @@
-export { Workflow } from "@artfct-ai/orchestrator/workflow";
+export { Conversation } from "@artfct-ai/orchestrator/conversation";
 export { Sandbox, Sandbox as SandboxLarge } from "@artfct-ai/orchestrator/sandbox";

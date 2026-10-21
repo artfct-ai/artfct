@@ -7,7 +7,7 @@ import type { Scenario } from "./scenario";
 let opened = 0;
 
 /**
- * `freshRuntime` for a medium test: the fake runtime over a real Workflow DO's storage, with
+ * `freshRuntime` for a medium test: the fake runtime over a real Conversation DO's storage, with
  * the test Worker's env. Every call opens a new DO.
  */
 export const freshDurableRuntime: Scenario<FakeRuntime> = (run) => durableRuntime("running", run);
@@ -17,7 +17,7 @@ async function durableRuntime(
   run: (workflow: FakeRuntime) => void | Promise<void>,
 ): Promise<void> {
   opened += 1;
-  const stub = env.Workflow.getByName(`fresh-runtime-${opened}`);
+  const stub = env.Conversation.getByName(`fresh-runtime-${opened}`);
   await runInDurableObject(stub, async (_instance, state) => {
     await run(new FakeRuntime(await openWorkflowDb(state.storage), env, opening));
   });

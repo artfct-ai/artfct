@@ -47,7 +47,7 @@ describe("the orchestrator entrypoint", () => {
     });
 
     it("creates no Durable Object", async () => {
-      expect(await listDurableObjectIds(env.Workflow)).toEqual([]);
+      expect(await listDurableObjectIds(env.Conversation)).toEqual([]);
     });
   });
 
@@ -60,8 +60,8 @@ describe("the orchestrator entrypoint", () => {
     });
 
     it("reaches the Durable Object of that workflow", async () => {
-      const ids = await listDurableObjectIds(env.Workflow);
-      expect(ids.map(String)).toEqual([String(env.Workflow.idFromName("wf_created"))]);
+      const ids = await listDurableObjectIds(env.Conversation);
+      expect(ids.map(String)).toEqual([String(env.Conversation.idFromName("wf_created"))]);
     });
 
     it("answers with the socket the Durable Object opened", () => {

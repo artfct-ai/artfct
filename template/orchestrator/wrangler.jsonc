@@ -11,13 +11,13 @@
   "preview_urls": false,
   "durable_objects": {
     "bindings": [
-      { "name": "Workflow", "class_name": "Workflow" },
+      { "name": "Conversation", "class_name": "Conversation" },
       { "name": "Sandbox", "class_name": "Sandbox" },
       { "name": "SandboxLarge", "class_name": "SandboxLarge" },
     ],
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["Workflow", "Sandbox"] },
+    { "tag": "v1", "new_sqlite_classes": ["Conversation", "Sandbox"] },
     { "tag": "v2", "new_sqlite_classes": ["SandboxLarge"] },
   ],
   "containers": [

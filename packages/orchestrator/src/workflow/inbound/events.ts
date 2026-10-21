@@ -1,17 +1,14 @@
-import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { RpcAck } from "@artfct-ai/contracts/types";
 import { eventMessage } from "../../agent/transcript/envelope";
 import { pullDetailOf } from "../../artifact/pull";
-import type { PostOptions } from "../../notify/notifier";
-import type { Recipients } from "../../notify/recipients";
-import { applyEvent, stopSessionAuthor, verbalCommandToRun } from "./apply";
+import { applyEvent, verbalCommandToRun } from "./apply";
 import { postReceipt } from "../feed/feed";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
 import { firstLine, type ChatMessageRef } from "../store/state";
-import { conversationStatusText } from "../status";
 import { jobForEvent } from "./lookup";
 import type { TrackerSession } from "./job-session";
-import type { Applied, EventRefusal, WorkflowRuntime } from "../types";
+import type { Applied, WorkflowRuntime } from "../types";
 
 const ACK: RpcAck = { ok: true };
 const DUPLICATE: RpcAck = { ok: true, duplicate: true };
@@ -31,71 +28,41 @@ function instructedSessionOf(
   return command && command.control !== "instruct" ? null : event.reply_to;
 }
 
-/** True when a person wrote to the workflow: a message in its chat thread or tracker session. */
+/** True when a person wrote to the conversation: a message in its chat thread or tracker session. */
 function isMessage(event: InboundEvent): boolean {
   return event.actor !== null && (event.kind === "prompt" || event.kind === "start");
 }
 
-/**
- * Why the conversation refuses an event the router hands it, or null when it takes it. It refuses
- * every event before it opens, and a person's message once its workflow's end started.
- */
-export function eventRefusalOf(
-  workflow: WorkflowRuntime,
-  event: InboundEvent,
-): EventRefusal | null {
-  if (!workflow.store.conversation()) return { refused: "not_created" };
-  if (!workflow.store.workflowFinished() || !isMessage(event)) return null;
-  return { refused: "ended", status: workflow.store.workflowStatus() };
-}
-
-/** The first event of a conversation and the ended workflow it follows, if any. */
-export type ConversationStart = {
-  conversationId: string;
-  event: InboundEvent;
-  endedWorkflowId: string | null;
-};
+/** An event the router routed to a conversation, with that conversation's id. */
+export type ConversationDelivery = { conversationId: string; event: InboundEvent };
 
 /**
- * Open the conversation from its first event and hand the event to the agent. It does not create
- * a workflow: only a plan that names a workflow definition does.
+ * Take an event the router routed here. The first event opens the conversation and goes to the
+ * agent. A person's event carries their words to the first turn, and a start without a person runs
+ * an unprompted first turn. It does not create a workflow: only a plan that names a workflow
+ * definition does.
  */
-export async function openConversation(
+export async function deliverToConversation(
   workflow: WorkflowRuntime,
-  { conversationId, event, endedWorkflowId }: ConversationStart,
+  { conversationId, event }: ConversationDelivery,
 ): Promise<RpcAck> {
   if (workflow.store.conversation()) return handleEvent(workflow, event);
   if (!workflow.store.markEventSeen(event.id)) return DUPLICATE;
-  const origin = event.reply_to ?? null;
   workflow.store.openConversation({
     conversation_id: conversationId,
-    origin,
+    origin: event.reply_to ?? null,
     request_title: event.title || firstLine(event.text),
     request_text: event.text,
     request_links: event.links,
   });
   workflow.log(null, `opened from ${event.kind}`);
   await acknowledge(workflow, event);
-  const notes = endedWorkflowId ? [earlierMessagesNote(endedWorkflowId, origin)] : [];
   await workflow.tellAgent(
-    eventMessage(event, { first: true, job: null, artifact: null, notes }),
+    eventMessage(event, { first: true, job: null, artifact: null, notes: [] }),
     "message",
-    { body: event.text.trim(), chat_message: chatMessageOf(event) },
+    event.actor ? { body: event.text.trim(), chat_message: chatMessageOf(event) } : undefined,
   );
-  return { ok: true, workflow_id: conversationId };
-}
-
-/** Tell the first turn where the ended workflow's messages are. */
-function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null): string {
-  const ended = `This workflow started because workflow ${endedWorkflowId} ended here. Its messages are not in your transcript.`;
-  switch (origin?.source) {
-    case "chat":
-      return `${ended} Read this thread with read_channel and thread_ts=${origin.thread} before you answer.`;
-    case "tracker":
-      return `${ended} Read the comments of tracker issue ${origin.issue_id} before you answer.`;
-    default:
-      return `${ended} Read the earlier messages of this conversation before you answer.`;
-  }
+  return ACK;
 }
 
 /**
@@ -109,7 +76,8 @@ function routesBeforeItIsSeen(workflow: WorkflowRuntime, event: InboundEvent): b
 /**
  * Every later event: dedupe, record what code must record, then tell the agent. Any other event
  * is marked seen in the same synchronous block as the first write of its effect, so a delivery
- * that a restart cuts off while it wakes the workflow lands when the host delivers it again.
+ * that a restart cuts off while it wakes the workflow lands when the host delivers it again. After
+ * a workflow's end, a person's message reaches the agent, which may start the next workflow.
  */
 export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent): Promise<RpcAck> {
   if (workflow.store.eventSeen(event.id)) return DUPLICATE;
@@ -119,18 +87,12 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   const task = job ? workflow.store.authorOrResearcherTaskOf(job.job_id) : null;
   workflow.log(task?.task_id ?? null, `event ${event.kind}${controlSuffix}`);
 
-  if (!workflow.store.workflowFinished()) {
-    if (isMessage(event)) await wakeWorkflow(workflow);
-    await acknowledge(workflow, event);
-    const instructed = instructedSessionOf(workflow, event);
-    if (instructed) await postReceipt(workflow, instructed);
-  }
+  if (isMessage(event)) await wakeWorkflow(workflow);
+  await acknowledge(workflow, event);
+  const instructed = instructedSessionOf(workflow, event);
+  if (instructed) await postReceipt(workflow, instructed);
   if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {
     return DUPLICATE;
-  }
-  if (workflow.store.workflowFinished()) {
-    await replyFinished(workflow, event);
-    return ACK;
   }
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
@@ -194,37 +156,4 @@ async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
   await armIdle(workflow);
   if (workflow.store.activeWorkflow()?.status === "waiting_input")
     await changeWorkflowStatus(workflow, "running");
-}
-
-/**
- * Answer a person who writes to a finished workflow, which stays finished. A stop still ends the
- * author's session feed.
- */
-async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
-  const status = workflow.store.workflowStatus();
-  if (event.kind === "stop") {
-    await stopSessionAuthor(workflow, event);
-    return;
-  }
-  if (!event.reply_to || !event.actor) {
-    workflow.log(null, `ignored ${event.kind}: the workflow is ${status}`);
-    return;
-  }
-  const options: PostOptions = { keepSession: true };
-  const to = { reply_to: event.reply_to };
-  if (event.kind === "status") return postStatus(workflow, to, options);
-  await workflow.post(
-    { type: "info", text: `This workflow is ${status}. Start a new request for more work.` },
-    to,
-    options,
-  );
-}
-
-/** Post the workflow status summary to its recipients, by default the workflow's audience. */
-async function postStatus(
-  workflow: WorkflowRuntime,
-  to?: Recipients,
-  options?: PostOptions,
-): Promise<void> {
-  await workflow.post({ type: "status", text: conversationStatusText(workflow) }, to, options);
 }

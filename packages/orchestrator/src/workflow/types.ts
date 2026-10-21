@@ -10,12 +10,7 @@ import type { WorkflowDefinition } from "../config/workflow-definition";
 import type { GatewayProvider } from "../config/gateway";
 import type { McpCapability } from "../config/adapters";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
-import type {
-  ArtifactKind,
-  RpcAck,
-  WorkflowStatus,
-  WorkflowSummary,
-} from "@artfct-ai/contracts/types";
+import type { ArtifactKind, RpcAck, WorkflowSummary } from "@artfct-ai/contracts/types";
 import type { Artifact } from "../artifact/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ResolvedStage } from "../config/stage";
@@ -166,22 +161,12 @@ export interface WorkflowRuntime {
   now(): number;
 }
 
-/** Why a conversation did not take an event the router handed it: it is not opened yet, or its workflow ended. */
-export type EventRefusal =
-  | { refused: "not_created" }
-  | { refused: "ended"; status: WorkflowStatus };
-
-/** The RPC surface of the Workflow Durable Object. The orchestrator entrypoint calls it. */
-export interface WorkflowRpc {
-  /** Open the conversation from its first event and the ended workflow it follows. */
-  create(
-    conversationId: string,
-    event: InboundEvent,
-    endedWorkflowId: string | null,
-  ): Promise<RpcAck>;
-  /** Take a later event, or refuse it so the router routes it elsewhere. */
-  handle(event: InboundEvent): Promise<RpcAck | EventRefusal>;
-  /** The status summary of the workflow. Null before a plan creates one. */
-  status(): Promise<WorkflowSummary | null>;
+/** The RPC surface of the Conversation Durable Object. The orchestrator entrypoint calls it. */
+export interface ConversationRpc {
+  /** Take an event the router routed here. The first event opens the conversation. */
+  handle(conversationId: string, event: InboundEvent): Promise<RpcAck>;
+  /** The status summary of a workflow. Null unless it is the conversation's latest workflow. */
+  status(workflowId: string): Promise<WorkflowSummary | null>;
+  /** Everything the conversation stores, for admins. */
   debug(): Promise<unknown>;
 }

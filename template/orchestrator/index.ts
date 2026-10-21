@@ -6,4 +6,4 @@ declare const CONFIG: Parameters<typeof registerConfig>[0];
 registerConfig(CONFIG);
 
 export { default } from "@artfct-ai/core/orchestrator";
-export { Sandbox, SandboxLarge, Workflow } from "@artfct-ai/core/durable-objects";
+export { Conversation, Sandbox, SandboxLarge } from "@artfct-ai/core/durable-objects";

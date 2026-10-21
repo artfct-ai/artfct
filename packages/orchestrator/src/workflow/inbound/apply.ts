@@ -139,7 +139,7 @@ const STOP_NOTES: Record<StopOutcome, string> = {
 };
 
 /** Stop the author of the job session a person pressed Stop in. */
-export async function stopSessionAuthor(
+async function stopSessionAuthor(
   workflow: WorkflowRuntime,
   event: InboundEvent,
 ): Promise<Applied | "handled"> {

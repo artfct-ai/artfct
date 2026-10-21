@@ -47,7 +47,7 @@ async function seedBinding(binding: Binding, workflowId: string): Promise<void> 
 }
 
 async function startDurableObject(workflowId: string): Promise<void> {
-  const stub = env.Workflow.getByName(workflowId);
+  const stub = env.Conversation.getByName(workflowId);
   await runInDurableObject(stub, async (workflow) => {
     await workflow.status();
     if (workflow.store.conversation()) return;
@@ -62,7 +62,7 @@ async function startDurableObject(workflowId: string): Promise<void> {
 }
 
 async function stopTurnAndReadLog(workflowId: string): Promise<string[]> {
-  const stub = env.Workflow.getByName(workflowId);
+  const stub = env.Conversation.getByName(workflowId);
   return runInDurableObject(stub, async (workflow) => {
     const dump = (await workflow.debug()) as { log: Array<{ line: string }> };
     await workflow.cancelAllAlarms();
@@ -79,8 +79,8 @@ function spyOnWarn() {
 }
 
 function failCreates(onStub: (name: string) => void = () => {}) {
-  const getByName = env.Workflow.getByName.bind(env.Workflow);
-  return vi.spyOn(env.Workflow, "getByName").mockImplementation((name) => {
+  const getByName = env.Conversation.getByName.bind(env.Conversation);
+  return vi.spyOn(env.Conversation, "getByName").mockImplementation((name) => {
     onStub(name);
     return new Proxy(getByName(name), {
       get: (stub, key) =>
@@ -94,7 +94,7 @@ function failCreates(onStub: (name: string) => void = () => {}) {
 }
 
 async function firstTranscriptMessage(workflowId: string): Promise<string> {
-  const stub = env.Workflow.getByName(workflowId);
+  const stub = env.Conversation.getByName(workflowId);
   return runInDurableObject(stub, async (workflow) => {
     await workflow.settle();
     const dump = (await workflow.debug()) as { transcript: Array<{ message: unknown }> };
@@ -325,7 +325,7 @@ describe("deliver a start event", () => {
     });
 
     it("answers no status summary until a plan creates the workflow", async () => {
-      expect(await env.Workflow.getByName(workflowId).status()).toBeNull();
+      expect(await env.Conversation.getByName(workflowId).status()).toBeNull();
     });
   });
 
@@ -898,8 +898,8 @@ describe("deliver a base branch move", () => {
         );
       }
       warn = spyOnWarn();
-      const getByName = env.Workflow.getByName.bind(env.Workflow);
-      const spy = vi.spyOn(env.Workflow, "getByName").mockImplementation((name) => {
+      const getByName = env.Conversation.getByName.bind(env.Conversation);
+      const spy = vi.spyOn(env.Conversation, "getByName").mockImplementation((name) => {
         if (failed !== undefined) return getByName(name);
         failed = name;
         return new Proxy(getByName(name), {

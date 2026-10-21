@@ -5,7 +5,7 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { planTools } from "../src/agent/tools/plan";
-import type { Workflow } from "../src/workflow";
+import type { Conversation } from "../src/conversation";
 import type { WorkflowRuntime } from "../src/workflow/types";
 import { ScriptedFailure } from "./fake-model";
 import type { Scenario } from "./scenario";
@@ -33,16 +33,16 @@ const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 let opened = 0;
 
 /**
- * A real Workflow DO whose conversation a Slack request opened, before a plan creates its
+ * A real Conversation DO whose conversation a Slack request opened, before a plan creates its
  * workflow, with no alarms pending.
  * `clients` runs before the DO starts. Every call opens a new DO.
  */
-export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scenario<Workflow> {
+export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scenario<Conversation> {
   return async (run) => {
     opened += 1;
     const name = `wf_fresh_${opened}`;
-    const stub = env.Workflow.getByName(name);
-    await runInDurableObject(stub, async (workflow: Workflow) => {
+    const stub = env.Conversation.getByName(name);
+    await runInDurableObject(stub, async (workflow: Conversation) => {
       const outside = clients();
       workflow.services.tracker = async () => outside.tracker ?? null;
       workflow.services.code = () => outside.code ?? null;
@@ -74,7 +74,7 @@ export async function startWorkflow(workflow: WorkflowRuntime): Promise<void> {
 export function plannedWorkflow(
   concurrency: number,
   clients?: () => WorkflowClients,
-): Scenario<Workflow> {
+): Scenario<Conversation> {
   return (run) =>
     freshWorkflow(clients)(async (workflow) => {
       const { set_plan } = planTools(workflow);

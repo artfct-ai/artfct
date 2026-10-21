@@ -121,7 +121,7 @@ describe("linear install", () => {
 });
 
 describe("admin routes", () => {
-  const DUMPS = ["/workflows/wf_1", "/workflows/wf_1/debug", "/bindings"];
+  const DUMPS = ["/workflows/wf_1", "/conversations/cv_1/debug", "/bindings"];
 
   describe("a deploy, which sets no ADMIN_DEBUG", () => {
     let app: Harness;
@@ -152,7 +152,7 @@ describe("admin routes", () => {
 
     beforeEach(async () => {
       app = harness({ adminDebug: true });
-      debug = await app.request(adminGet("/workflows/wf_2/debug"));
+      debug = await app.request(adminGet("/conversations/cv_2/debug"));
       bindings = await app.request(adminGet("/bindings"));
     });
 
@@ -162,15 +162,15 @@ describe("admin routes", () => {
     });
 
     it("answers the debug state the orchestrator reported", async () => {
-      expect(await debug.json<unknown>()).toEqual({ workflow_id: "wf_2", debug: true });
+      expect(await debug.json<unknown>()).toEqual({ conversation_id: "cv_2", debug: true });
     });
 
     it("hands back the bindings the orchestrator holds", async () => {
       expect(await bindings.json<unknown>()).toEqual(FAKE_BINDINGS);
     });
 
-    it("passes the workflow id to the debug call", () => {
-      expect(app.rpc.debugIds).toEqual(["wf_2"]);
+    it("passes the conversation id to the debug call", () => {
+      expect(app.rpc.debugIds).toEqual(["cv_2"]);
     });
 
     it("rejects a wrong token", async () => {

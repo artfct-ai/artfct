@@ -2,7 +2,7 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import type { Workflow } from "../../workflow";
+import type { Conversation } from "../../conversation";
 import { ScriptedFailure, type Action } from "../../../test/fake-model";
 import type { Scenario } from "../../../test/scenario";
 import { ACK_TEXT } from "../../../test/scripted-model";
@@ -54,13 +54,13 @@ let opened = 0;
 
 function settledWorkflow(
   script: Action[] | null,
-  act?: (workflow: Workflow) => Promise<unknown>,
+  act?: (workflow: Conversation) => Promise<unknown>,
 ): Scenario<Debug> {
   return async (run) => {
     opened += 1;
     const name = `wf_turn_${opened}`;
-    const stub = env.Workflow.getByName(name);
-    await runInDurableObject(stub, async (workflow: Workflow) => {
+    const stub = env.Conversation.getByName(name);
+    await runInDurableObject(stub, async (workflow: Conversation) => {
       if (script) {
         const model = new ScriptedFailure(script);
         workflow.services = { ...workflow.services, model: async () => model };
@@ -79,9 +79,9 @@ function settledWorkflow(
 async function loseTurn() {
   opened += 1;
   const name = `wf_turn_${opened}`;
-  const stub = env.Workflow.getByName(name);
+  const stub = env.Conversation.getByName(name);
   let debug!: Debug;
-  await runInDurableObject(stub, async (workflow: Workflow) => {
+  await runInDurableObject(stub, async (workflow: Conversation) => {
     workflow.services = {
       ...workflow.services,
       model: async () => new ScriptedFailure(["throw", "throw"], RESET),
@@ -347,7 +347,7 @@ describe("agent turn", () => {
         const model = new ScriptedFailure(["text"]);
         await withNewInstanceModel(model, async () => {
           await evictDurableObject(stub);
-          await runInDurableObject(stub, async (workflow: Workflow) => {
+          await runInDurableObject(stub, async (workflow: Conversation) => {
             await workflow.status();
             await workflow.settle();
             await run((await workflow.debug()) as Debug);

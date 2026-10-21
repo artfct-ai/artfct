@@ -5,7 +5,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { Notifier, type ChannelClients, type PostOptions } from "../../notify/notifier";
-import type { Workflow } from "../../workflow";
+import type { Conversation } from "../../conversation";
 import { failWorkflow } from "../lifecycle";
 import { type Scenario, scenario } from "../../../test/scenario";
 import { startWorkflow } from "../../../test/fresh-workflow";
@@ -13,7 +13,7 @@ import { jobInputKey } from "../store/input-key";
 
 type Outbox = Array<{ kind: string; payload: Record<string, unknown> }>;
 
-async function outboxOf(workflow: Workflow): Promise<Outbox> {
+async function outboxOf(workflow: Conversation): Promise<Outbox> {
   const debug = (await workflow.debug()) as { outbox: Outbox };
   return debug.outbox;
 }
@@ -70,11 +70,11 @@ let opened = 0;
 function createdFrom(
   event: InboundEvent,
   endedWorkflowId: string | null = null,
-): Scenario<Workflow> {
+): Scenario<Conversation> {
   return async (run) => {
     opened += 1;
     const name = `wf_events_${opened}`;
-    const stub = env.Workflow.getByName(name);
+    const stub = env.Conversation.getByName(name);
     await runInDurableObject(stub, async (workflow) => {
       await workflow.create(name, event, endedWorkflowId);
       await workflow.settle();
@@ -87,11 +87,11 @@ const freshWorkflow = createdFrom(start);
 
 const plannedWorkflow = scenario(freshWorkflow, startWorkflow);
 
-function firstTaskId(workflow: Workflow): string {
+function firstTaskId(workflow: Conversation): string {
   return `${workflow.store.requireConversation().conversation_id}.1`;
 }
 
-function firstJobId(workflow: Workflow): string {
+function firstJobId(workflow: Conversation): string {
   return `${workflow.store.requireConversation().conversation_id}-1`;
 }
 
@@ -266,18 +266,18 @@ const humanReview: InboundEvent = {
   pull: humanReviewPull,
 };
 
-async function logOf(workflow: Workflow): Promise<string[]> {
+async function logOf(workflow: Conversation): Promise<string[]> {
   const debug = (await workflow.debug()) as { log: Array<{ line: string }> };
   return debug.log.map((row) => row.line);
 }
 
-async function wakesOf(workflow: Workflow): Promise<string[]> {
+async function wakesOf(workflow: Conversation): Promise<string[]> {
   return (await logOf(workflow)).filter((line) => line.startsWith("agent wake"));
 }
 
 type Transcript = Array<{ message: { role: string; content: unknown } }>;
 
-async function inboxOf(workflow: Workflow): Promise<string[]> {
+async function inboxOf(workflow: Conversation): Promise<string[]> {
   await workflow.settle();
   const debug = (await workflow.debug()) as {
     inbox: Array<{ text: string }>;
@@ -320,7 +320,7 @@ const reviewedTask = scenario(freshWorkflow, async (workflow) => {
   });
 });
 
-type Ack = Awaited<ReturnType<Workflow["handle"]>>;
+type Ack = Awaited<ReturnType<Conversation["handle"]>>;
 
 describe("human reviews", () => {
   describe("a review that carries comments", () => {
@@ -438,7 +438,7 @@ describe("finished workflows", () => {
 
   describe("a message from a person", () => {
     let before: number;
-    let answer: Awaited<ReturnType<Workflow["handle"]>>;
+    let answer: Awaited<ReturnType<Conversation["handle"]>>;
     const answered = scenario(failed, async (workflow) => {
       before = (await outboxOf(workflow)).length;
       answer = await workflow.handle({

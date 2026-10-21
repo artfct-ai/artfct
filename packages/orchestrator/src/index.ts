@@ -20,13 +20,13 @@ import type { Env } from "./env";
 import { completeLinearInstall, linearInstallUrl } from "./oauth/install";
 import { deliver } from "./router/deliver";
 import { resolveActor } from "./router/identity";
-import { Workflow } from "./workflow";
+import { Conversation } from "./conversation";
 
 export { Sandbox, Sandbox as SandboxLarge } from "./sandbox/durable-object";
-export { Workflow };
+export { Conversation };
 
 /**
- * The orchestrator Worker. It owns the D1 database and every Workflow Durable Object.
+ * The orchestrator Worker. It owns the D1 database and every Conversation Durable Object.
  * Ingress reaches it only through this entrypoint: RPC for calls, `fetch` for the bridge
  * WebSocket upgrade.
  */
@@ -44,12 +44,14 @@ export default class Orchestrator extends WorkerEntrypoint<Env> implements Orche
     return install?.organization_id ?? null;
   }
 
-  status(workflowId: string): Promise<WorkflowSummary | null> {
-    return this.env.Workflow.getByName(workflowId).status();
+  async status(workflowId: string): Promise<WorkflowSummary | null> {
+    const workflow = await findWorkflow(createDb(this.env.DB), workflowId);
+    if (!workflow) return null;
+    return this.env.Conversation.getByName(workflow.conversation_id).status(workflowId);
   }
 
-  debug(workflowId: string): Promise<unknown> {
-    return this.env.Workflow.getByName(workflowId).debug();
+  debug(conversationId: string): Promise<unknown> {
+    return this.env.Conversation.getByName(conversationId).debug();
   }
 
   bindings(): Promise<BindingRecord[]> {
@@ -65,14 +67,14 @@ export default class Orchestrator extends WorkerEntrypoint<Env> implements Orche
   }
 
   /**
-   * The bridge WebSocket upgrade, forwarded by ingress. It goes to the Durable Object that owns
-   * the socket. A dial for a workflow that was never created gets 404 and creates none.
+   * The bridge WebSocket upgrade, forwarded by ingress. It goes to the conversation of the workflow
+   * the dial names. A dial for a workflow that was never created gets 404 and opens none.
    */
   override async fetch(request: Request): Promise<Response> {
     const bridge = parseBridgePath(new URL(request.url).pathname);
     if (!bridge) return new Response("artfct-orchestrator", { status: 200 });
     const workflow = await findWorkflow(createDb(this.env.DB), bridge.workflowId);
     if (!workflow) return new Response("unknown workflow", { status: 404 });
-    return this.env.Workflow.getByName(bridge.workflowId).fetch(request);
+    return this.env.Conversation.getByName(workflow.conversation_id).fetch(request);
   }
 }

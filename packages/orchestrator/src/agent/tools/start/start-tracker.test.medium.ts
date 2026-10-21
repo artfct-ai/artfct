@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { plannedWorkflow } from "../../../../test/fresh-workflow";
 import type { Scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
-import type { Workflow } from "../../../workflow";
+import type { Conversation } from "../../../conversation";
 import type { Subject } from "../../../workflow/store/state";
 import { SET_SUBJECT_FIRST } from "../../../workflow/subject";
 import { startTools } from "./start";
@@ -31,7 +31,7 @@ const SUBJECT_ISSUE = trackerIssue({ id: "i1", identifier: "ENG-1", project_id: 
 
 const PROJECT = { id: "proj-1", name: "Login", url: "https://tracker.example/acme/project/login" };
 
-type IssueStart = { workflow: Workflow; tracker: FakeTracker; result: string };
+type IssueStart = { workflow: Conversation; tracker: FakeTracker; result: string };
 
 type StartSetup = { appUserId?: string; subject?: Subject | null };
 

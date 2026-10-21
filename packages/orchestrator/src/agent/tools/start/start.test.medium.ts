@@ -19,7 +19,7 @@ import { freshDurableRuntime } from "../../../../test/durable-runtime";
 import { seedEndedWorkflow, seedTask, patchStagePlan } from "../../../../test/fake-runtime";
 import { scenario, type Scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
-import type { Workflow } from "../../../workflow";
+import type { Conversation } from "../../../conversation";
 import type { JobInput } from "../../../workflow/lifecycle";
 import { planTools } from "../plan";
 import { jobInputKey } from "../../../workflow/store/input-key";
@@ -31,7 +31,7 @@ const REQUEST = "Fix the login redirect.";
 
 type JobSeed = { stage?: string; issue?: { id: string; key: string } };
 
-function seedJob(workflow: Workflow, jobId: string, taskId: string, seed: JobSeed = {}): void {
+function seedJob(workflow: Conversation, jobId: string, taskId: string, seed: JobSeed = {}): void {
   workflow.store.insertJob({
     job_id: jobId,
     stage: seed.stage ?? "implement",
@@ -76,7 +76,7 @@ function subjectTracker(): FakeTracker {
 function subjectWorkflow(
   concurrency: number,
   clients: () => WorkflowClients = () => ({}),
-): Scenario<Workflow> {
+): Scenario<Conversation> {
   return (run) =>
     plannedWorkflow(concurrency, () => ({ tracker: subjectTracker(), ...clients() }))(
       async (workflow) => {
@@ -321,7 +321,7 @@ describe("start_job on the open pull request of an earlier job", () => {
 });
 
 function issueStartedByAnotherWorkflow(
-  afterStart: (firstWorkflow: Workflow, jobId: string) => Promise<void> | void,
+  afterStart: (firstWorkflow: Conversation, jobId: string) => Promise<void> | void,
 ): Scenario<Completion> {
   return async (run) => {
     await subjectWorkflow(1, () => ({ code: pullHost(false) }))(async (firstWorkflow) => {
@@ -339,7 +339,7 @@ function issueStartedByAnotherWorkflow(
   };
 }
 
-function cancelAuthor(firstWorkflow: Workflow, jobId: string): void {
+function cancelAuthor(firstWorkflow: Conversation, jobId: string): void {
   firstWorkflow.store.updateTask(firstWorkflow.store.authorTaskOf(jobId).task_id, {
     status: "cancelled",
   });
@@ -773,7 +773,7 @@ function pullHost(merged: boolean): FakeCodeHost {
   });
 }
 
-function pullJob(workflow: Workflow, seed: JobSeed = {}): void {
+function pullJob(workflow: Conversation, seed: JobSeed = {}): void {
   seedJob(workflow, "j1", "t1", seed);
   workflow.store.updateTask("t1", { status: "in_review" });
   workflow.store.upsertArtifact({
@@ -784,7 +784,7 @@ function pullJob(workflow: Workflow, seed: JobSeed = {}): void {
   });
 }
 
-type Completion = { workflow: Workflow; result: string };
+type Completion = { workflow: Conversation; result: string };
 
 function completedPullJob(code: () => FakeCodeHost | null): Scenario<Completion> {
   return (run) =>

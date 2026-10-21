@@ -1,4 +1,4 @@
-import type { Binding } from "./sources";
+import type { Binding, ConversationPlace } from "./sources";
 
 /** What an inbound event asks the workflow to do. */
 type EventKind =
@@ -80,12 +80,14 @@ type PageDetail = {
 /** Structured details for pull request and CI events. */
 export type PullEventDetail = PullDetail | BaseMovedDetail;
 
-/** Normalized event from any capability. Ingress builds it. The Workflow DO consumes it. */
+/** Normalized event from any capability. Ingress builds it. The Conversation DO consumes it. */
 export type InboundEvent = {
   id: string;
   kind: EventKind;
   actor: Actor | null;
   bindings: Binding[];
+  /** The conversation the event is said in, when it is said in a chat thread or a tracker session. */
+  place?: ConversationPlace;
   links: string[];
   text: string;
   control?: VerbalCommand;
