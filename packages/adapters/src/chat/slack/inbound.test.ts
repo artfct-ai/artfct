@@ -3,7 +3,6 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ChatUser } from "@artfct-ai/contracts/types";
 import { fakeUserActor } from "../../../test/fake-actors";
 import {
-  appJoinedChannel,
   slackInbound,
   unwrapSlackLinks,
   type SlackEvent,
@@ -535,58 +534,14 @@ describe("slack reactions", () => {
   });
 });
 
-function joined(user: string): SlackEvent {
-  return { type: "member_joined_channel", user, channel: "C1" };
-}
-
 describe("slack channel joins", () => {
-  describe("this app joining a channel", () => {
-    it("names the channel", () => {
-      expect(appJoinedChannel(callback(joined("UBOT")))).toBe("C1");
-    });
-  });
-
-  describe("this app joining a Slack Connect channel", () => {
-    it("names no channel", () => {
-      const shared = { ...callback(joined("UBOT")), is_ext_shared_channel: true };
-      expect(appJoinedChannel(shared)).toBeNull();
-    });
-  });
-
-  describe("another member joining the same channel", () => {
-    it("names no channel", () => {
-      expect(appJoinedChannel(callback(joined("U1")))).toBeNull();
-    });
-
-    it("is ignored by the mapper", async () => {
-      const normalized = await normalize(joined("U1"));
-      expect("ignore" in normalized).toBe(true);
-    });
-  });
-
-  describe("a mention of this app", () => {
-    it("names no channel", () => {
-      const mention: SlackEvent = {
-        type: "app_mention",
-        user: "U1",
-        channel: "C1",
-        ts: "1700.1",
-        text: "<@UBOT> ship it",
-      };
-      expect(appJoinedChannel(callback(mention))).toBeNull();
-    });
-  });
-
-  describe("a join on a callback that names no authorization", () => {
-    it("names no channel", () => {
-      const bare: SlackEventCallback = {
-        type: "event_callback",
-        event_id: "Ev1",
-        event: joined("UBOT"),
-      };
-      expect(appJoinedChannel(bare)).toBeNull();
-    });
-  });
+  it.each(["UBOT", "U1"])(
+    "ignores %s joining a channel, which only a trigger handles",
+    async (user) => {
+      const normalized = await normalize({ type: "member_joined_channel", user, channel: "C1" });
+      expect(normalized).toEqual({ ignore: "slack.member_joined_channel is not conversational" });
+    },
+  );
 });
 
 describe("slack links", () => {

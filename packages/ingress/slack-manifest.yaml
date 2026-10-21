@@ -30,7 +30,7 @@ settings:
     request_url: https://REPLACE_ME/webhooks/slack
     bot_events:
       - app_mention
-      # Ingress greets the channel when this app joins and ignores every other join.
+      # A join can fire a trigger. The app greets a channel it joins when none fires.
       - member_joined_channel
       - message.channels
       - message.groups

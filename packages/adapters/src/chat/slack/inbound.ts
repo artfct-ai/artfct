@@ -202,21 +202,6 @@ async function resolveActor(context: SlackContext, userId: string) {
   return context.resolveActor({ ...user, email: user.email?.toLowerCase() ?? null });
 }
 
-/**
- * The channel this app itself was just added to, or null for any other payload. A Slack Connect
- * channel names no channel, so the app does not greet where it will not answer.
- */
-export function appJoinedChannel(payload: unknown): string | null {
-  const parsed = slackEventCallbackSchema.safeParse(payload);
-  if (!parsed.success) return null;
-  const callback = parsed.data;
-  if (callback.is_ext_shared_channel) return null;
-  const event = callback.event;
-  if (event.type !== "member_joined_channel") return null;
-  if (event.user !== botUserId(callback)) return null;
-  return event.channel;
-}
-
 /** This app's own Slack user id, which every event callback names. */
 function botUserId(callback: SlackEventCallback): string | undefined {
   return callback.authorizations?.[0]?.user_id;

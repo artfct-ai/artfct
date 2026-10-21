@@ -1,12 +1,18 @@
-import { configuredVendors, conversationalEvents, vendorEventIsAboutPull } from "../clients";
+import {
+  configuredVendors,
+  conversationalEvents,
+  vendorEventIsAboutPull,
+  vendorEventNamesAChannel,
+} from "../clients";
 import type { Adapters } from "./adapters";
 import type { EventTrigger, WorkflowDefinition } from "./workflow-definition";
 
 /**
  * Why an event trigger of the definition cannot fire. Its event names a vendor the deployment
  * does not configure, or one of the conversational events. A pull request event reports on its
- * pull request, so it takes no channel, and any other event needs one. Null when every trigger
- * can fire.
+ * pull request, so it takes no channel. An event whose vendor names its channel, such as a member
+ * joining one, may leave the channel out. Any other event needs one. Null when every trigger can
+ * fire.
  */
 export function eventTriggersProblem(
   definition: WorkflowDefinition,
@@ -34,7 +40,8 @@ function eventTriggerProblem(trigger: EventTrigger, adapters: Adapters): string 
   if (aboutPull && trigger.channel !== undefined) {
     return `channel: ${trigger.event} reports on its pull request, so it does not take a channel`;
   }
-  if (!aboutPull && trigger.channel === undefined) {
+  const namesAChannel = vendorEventNamesAChannel(adapters, trigger.event);
+  if (!aboutPull && !namesAChannel && trigger.channel === undefined) {
     return `channel: ${trigger.event} needs a channel to report in`;
   }
   return null;

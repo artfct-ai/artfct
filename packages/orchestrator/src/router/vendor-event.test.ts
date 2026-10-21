@@ -1,9 +1,9 @@
 import type { Actor } from "@artfct-ai/contracts/inbound";
-import type { IdentityQuery, VendorEvent } from "@artfct-ai/contracts/types";
+import type { VendorEvent, VendorEventCauser } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { loadWorkflowDefinition } from "../config/workflow-definition";
 import type { TriggerFiring } from "../triggers/types";
-import { fireMatchingTriggers, type VendorEventRouter } from "./vendor-event";
+import { fireMatchingTriggers, routeVendorEvent, type VendorEventRouter } from "./vendor-event";
 
 const DEFINITION = loadWorkflowDefinition(
   "reviews",
@@ -35,22 +35,47 @@ const RELEASED: VendorEvent = {
   about_app: false,
 };
 
+const ONBOARDING = loadWorkflowDefinition(
+  "channel-onboarding",
+  [
+    "description: Onboard a channel.",
+    "stages:",
+    "  - { name: design, artifact: page, author: { produce: { execution: harness, skill: design } } }",
+    "triggers:",
+    "  - { event: slack.member_joined_channel, filters: { artfct.about_app: [true] }, prompt: Introduce yourself. }",
+  ].join("\n"),
+);
+
+const APP_JOINED: VendorEvent = {
+  delivery_id: "Ev1",
+  name: "slack.member_joined_channel",
+  payload: { type: "member_joined_channel", user: "UBOT", channel: "C9", inviter: "U1" },
+  causer: { source: "chat", user_id: "U1" },
+  about_app: true,
+  enrichment: { kind: "channel", channel: "C9" },
+};
+
 class ScriptedRouter implements VendorEventRouter {
-  readonly definitions = [DEFINITION];
-  readonly queries: IdentityQuery[] = [];
+  readonly queries: VendorEventCauser[] = [];
   readonly sent: TriggerFiring[][] = [];
+  readonly greeted: string[] = [];
 
   constructor(
     private readonly actor: Actor | null = { email: "octocat@acme.test", display_name: "octocat" },
+    readonly definitions = [DEFINITION],
   ) {}
 
-  resolveActor = async (query: IdentityQuery): Promise<Actor | null> => {
-    this.queries.push(query);
+  resolveActor = async (causer: VendorEventCauser): Promise<Actor | null> => {
+    this.queries.push(causer);
     return this.actor;
   };
 
   sendFirings = async (firings: TriggerFiring[]): Promise<void> => {
     this.sent.push(firings);
+  };
+
+  greet = async (channel: string): Promise<void> => {
+    this.greeted.push(channel);
   };
 }
 
@@ -99,5 +124,42 @@ describe("fireMatchingTriggers", () => {
     });
     expect(router.queries).toEqual([PULL_OPENED.causer]);
     expect(router.sent).toEqual([]);
+  });
+});
+
+describe("routeVendorEvent", () => {
+  it("starts the trigger's workflow in the channel the app joined, without the greeting", async () => {
+    const router = new ScriptedRouter(undefined, [ONBOARDING]);
+    expect(await routeVendorEvent(router, APP_JOINED)).toEqual({ firings: 1 });
+    expect(router.sent[0]?.map(({ reports }) => reports)).toEqual([
+      { kind: "channel", channel: "C9" },
+    ]);
+    expect(router.greeted).toEqual([]);
+  });
+
+  it("greets a channel the app joined when no trigger matches", async () => {
+    const router = new ScriptedRouter();
+    await routeVendorEvent(router, APP_JOINED);
+    expect(router.greeted).toEqual(["C9"]);
+  });
+
+  it("greets a channel the app joined when the inviter does not pass access", async () => {
+    const router = new ScriptedRouter(null, [ONBOARDING]);
+    await routeVendorEvent(router, APP_JOINED);
+    expect(router.sent).toEqual([]);
+    expect(router.greeted).toEqual(["C9"]);
+  });
+
+  it("does not greet when a person joins", async () => {
+    const router = new ScriptedRouter(undefined, [ONBOARDING]);
+    const personJoined: VendorEvent = {
+      ...APP_JOINED,
+      about_app: false,
+      causer: { source: "chat", user_id: "U2" },
+    };
+    expect(await routeVendorEvent(router, personJoined)).toEqual({
+      dropped: "no trigger matches slack.member_joined_channel",
+    });
+    expect(router.greeted).toEqual([]);
   });
 });

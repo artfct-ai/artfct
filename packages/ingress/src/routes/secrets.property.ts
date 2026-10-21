@@ -123,7 +123,7 @@ function slackPayload(event: SlackEvent, message: string): object {
     case "mention":
       return slackMention(`<@UBOT> ${message}`);
     case "app_joined":
-      return slackMemberJoined("UBOT");
+      return slackMemberJoined("UBOT", "U1");
     case "url_verification":
       return { type: "url_verification", challenge: message };
     default: {

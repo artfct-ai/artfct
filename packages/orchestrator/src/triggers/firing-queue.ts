@@ -1,11 +1,16 @@
-import type { IdentityQuery, VendorEvent, VendorEventDelivery } from "@artfct-ai/contracts/types";
+import type {
+  VendorEvent,
+  VendorEventCauser,
+  VendorEventDelivery,
+} from "@artfct-ai/contracts/types";
 import { chat, codeHost } from "../clients";
 import { registeredConfig } from "../config/register-config";
 import { createDb } from "../db/client";
 import { deleteFiringThreadsBefore } from "../db/firing-threads";
 import type { Env } from "../env";
-import { resolveActor } from "../router/identity";
-import { fireMatchingTriggers } from "../router/vendor-event";
+import { GREETING } from "../router/greeting";
+import { resolveVendorEventCauser } from "../router/identity";
+import { routeVendorEvent } from "../router/vendor-event";
 import { consumeFiring, type FiringConsumer } from "./consumer";
 import { scheduledFirings } from "./schedule";
 import type { TriggerFiring } from "./types";
@@ -23,16 +28,28 @@ export async function runScheduledMinute(env: Env, scheduledTime: number): Promi
   await deleteFiringThreadsBefore(createDb(env.DB), new Date(scheduledTime - FIRING_RETENTION_MS));
 }
 
-/** Queue a firing for each trigger the vendor event matches, for a causer who passes access. */
+/**
+ * Queue a firing for each trigger the vendor event matches, for a causer who passes access. The app
+ * joining a channel without a firing posts the greeting there.
+ */
 export function deliverVendorEvent(env: Env, event: VendorEvent): Promise<VendorEventDelivery> {
+  const { config, workflowDefinitions } = registeredConfig();
   const router = {
-    definitions: registeredConfig().workflowDefinitions,
-    resolveActor: (query: IdentityQuery) => resolveActor(env, query),
+    definitions: workflowDefinitions,
+    resolveActor: (causer: VendorEventCauser) => resolveVendorEventCauser(env, causer),
     sendFirings: async (firings: TriggerFiring[]) => {
       await env.TRIGGER_FIRINGS.sendBatch(firings.map((body) => ({ body })));
     },
+    greet: async (channel: string) => {
+      const client = chat(env, config.adapters.chat.provider);
+      if (!client) {
+        console.warn(`the chat has no credential, so ${channel} does not get the greeting`);
+        return;
+      }
+      await client.postChannelMessage(channel, GREETING);
+    },
   };
-  return fireMatchingTriggers(router, event);
+  return routeVendorEvent(router, event);
 }
 
 /** The firing queue's consumer. Each message is one attempt. */

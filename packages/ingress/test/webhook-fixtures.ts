@@ -138,12 +138,18 @@ export function slackThreadReply(text: string): SlackEventCallback & Record<stri
   };
 }
 
-/** A `member_joined_channel` event callback as Slack sends it when a member joins a channel. */
-export function slackMemberJoined(user: string): SlackEventCallback & Record<string, unknown> {
+/**
+ * A `member_joined_channel` event callback as Slack sends it when a member joins a channel. An
+ * invited member's event names the inviter.
+ */
+export function slackMemberJoined(
+  user: string,
+  inviter?: string,
+): SlackEventCallback & Record<string, unknown> {
   return {
     ...slackMention(""),
     event_context: "1-member_joined_channel-T1-C1",
-    event: { type: "member_joined_channel", user, channel: "C1" },
+    event: { type: "member_joined_channel", user, channel: "C1", ...(inviter ? { inviter } : {}) },
   };
 }
 

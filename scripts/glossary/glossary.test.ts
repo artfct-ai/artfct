@@ -86,32 +86,46 @@ describe("missingCodeNames", () => {
   });
 });
 
+const SOURCE_SCAN_TIMEOUT_MS = 30_000;
+
 describe("the glossary", () => {
   const rows = glossaryRows(readGlossary());
 
-  it("names only code that exists", () => {
-    const code = codeSources()
-      .map((file) => file.text)
-      .join("\n");
-    expect(missingCodeNames(rows, code, codePathExists)).toEqual([]);
-  });
+  it(
+    "names only code that exists",
+    () => {
+      const code = codeSources()
+        .map((file) => file.text)
+        .join("\n");
+      expect(missingCodeNames(rows, code, codePathExists)).toEqual([]);
+    },
+    SOURCE_SCAN_TIMEOUT_MS,
+  );
 
-  it("is not contradicted by a banned word in code, prompts, or skills", () => {
-    const hits = bannedWordHits(rows, bannedWordSources(), ALLOWED_WORDS);
-    expect(hits.map((hit) => `${hit.path}:${hit.line} says "${hit.word}" for ${hit.term}`)).toEqual(
-      [],
-    );
-  });
+  it(
+    "is not contradicted by a banned word in code, prompts, or skills",
+    () => {
+      const hits = bannedWordHits(rows, bannedWordSources(), ALLOWED_WORDS);
+      expect(
+        hits.map((hit) => `${hit.path}:${hit.line} says "${hit.word}" for ${hit.term}`),
+      ).toEqual([]);
+    },
+    SOURCE_SCAN_TIMEOUT_MS,
+  );
 
-  it("allows only words that are still used", () => {
-    const hits = bannedWordHits(rows, bannedWordSources(), []);
-    const unused = ALLOWED_WORDS.flatMap((entry) =>
-      (entry.paths === "everywhere" ? [null] : entry.paths)
-        .filter(
-          (path) => !hits.some((hit) => hit.word === entry.word && (!path || hit.path === path)),
-        )
-        .map((path) => `${entry.word} in ${path ?? "every file"}`),
-    );
-    expect(unused).toEqual([]);
-  });
+  it(
+    "allows only words that are still used",
+    () => {
+      const hits = bannedWordHits(rows, bannedWordSources(), []);
+      const unused = ALLOWED_WORDS.flatMap((entry) =>
+        (entry.paths === "everywhere" ? [null] : entry.paths)
+          .filter(
+            (path) => !hits.some((hit) => hit.word === entry.word && (!path || hit.path === path)),
+          )
+          .map((path) => `${entry.word} in ${path ?? "every file"}`),
+      );
+      expect(unused).toEqual([]);
+    },
+    SOURCE_SCAN_TIMEOUT_MS,
+  );
 });
