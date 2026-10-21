@@ -495,10 +495,7 @@ export const FAKE_PLANNED_WORKFLOW_ID = "wf_planned";
 export function patchPlan(
   workflow: WorkflowRuntime,
   patch: Partial<
-    Pick<
-      WorkflowRow,
-      "definition" | "name" | "reason" | "repo" | "request_text" | "request_links"
-    >
+    Pick<WorkflowRow, "definition" | "name" | "reason" | "repo" | "request_text" | "request_links">
   >,
 ): void {
   if (workflow.store.activeWorkflow()) {

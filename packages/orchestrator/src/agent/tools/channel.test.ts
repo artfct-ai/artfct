@@ -24,7 +24,11 @@ const LATER_MESSAGE: ChatMessageRef = { channel: "C1", message: "1757000002.0002
 
 function takeChatMessages(workflow: FakeRuntime, written: ChatMessageRef[]): void {
   for (const chatMessage of written) {
-    workflow.transcript.enqueue("fix it", "message", { body: "fix it", links: [], chat_message: chatMessage });
+    workflow.transcript.enqueue("fix it", "message", {
+      body: "fix it",
+      links: [],
+      chat_message: chatMessage,
+    });
   }
   workflow.transcript.takeInbox();
 }
