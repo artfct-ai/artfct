@@ -20,10 +20,7 @@ export async function runScheduledMinute(env: Env, scheduledTime: number): Promi
   await deleteFiringThreadsBefore(createDb(env.DB), new Date(scheduledTime - FIRING_RETENTION_MS));
 }
 
-/**
- * The firing queue's consumer. Each message is one attempt, acknowledged once the conversation
- * took the firing or the next attempt is sent. A message whose attempt throws is delivered again.
- */
+/** The firing queue's consumer. Each message is one attempt. */
 export async function consumeFiringBatch(
   env: Env,
   batch: MessageBatch<TriggerFiring>,
@@ -40,13 +37,25 @@ export async function consumeFiringBatch(
       await env.TRIGGER_FIRINGS.send(firing, { delaySeconds });
     },
   };
-  for (const message of batch.messages) {
-    try {
-      await consumeFiring(consumer, message.body);
-      message.ack();
-    } catch (error) {
-      console.error(`a firing attempt threw, so the queue delivers it again: ${String(error)}`);
-      message.retry();
-    }
+  for (const message of batch.messages) await consumeFiringMessage(consumer, message);
+}
+
+/** The parts of a queue message the consumer uses. */
+type FiringMessage = Pick<Message<TriggerFiring>, "body" | "ack" | "retry">;
+
+/**
+ * Take one attempt from the queue. Acknowledge the message once the attempt returns. When it
+ * throws, as when the send of the next attempt fails, the queue delivers the message again.
+ */
+export async function consumeFiringMessage(
+  consumer: FiringConsumer,
+  message: FiringMessage,
+): Promise<void> {
+  try {
+    await consumeFiring(consumer, message.body);
+    message.ack();
+  } catch (error) {
+    console.error(`a firing attempt threw, so the queue delivers it again: ${String(error)}`);
+    message.retry();
   }
 }

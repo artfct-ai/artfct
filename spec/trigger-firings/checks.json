@@ -1,0 +1,32 @@
+{
+  "invariants": [
+    "aFiringStartsAtMostOneWorkflow",
+    "aRetriedFiringKeepsItsThread",
+    "aFailedFiringIsTriedUntilItsAttemptsRunOut"
+  ],
+  "mainMinutes": {
+    "twoMinutes": 0.5
+  },
+  "witnesses": {
+    "twoMinutes": [
+      "aFiringDeliveredTwiceStartsOnce",
+      "aLateCronRunFiresOnce",
+      "aFiringStartsOnItsSecondAttempt",
+      "aFiringRunsOutOfAttempts",
+      "aRetryReusesItsThread",
+      "twoConsumersRaceOneStartLine"
+    ]
+  },
+  "maxSteps": {
+    "twoMinutes": 40
+  },
+  "tlc": {
+    "ignoredVariables": ["lateRuns", "stepWitnesses"],
+    "bounds": {
+      "twoMinutes": {
+        "pr": { "cronRuns": 2, "deliveriesMade": 3, "conversationRestarts": 1 },
+        "nightly": { "cronRuns": 2, "deliveriesMade": 4, "conversationRestarts": 2 }
+      }
+    }
+  }
+}

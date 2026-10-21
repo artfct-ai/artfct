@@ -10,6 +10,7 @@ import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { planTools } from "../src/agent/tools/plan";
+import { fireWorkflow } from "../src/workflow/inbound/firing";
 import {
   ASK_WHETHER_ACCEPTED,
   ASK_WHICH_OPTION,
@@ -346,6 +347,16 @@ const SPEC_TIMERS = Object.keys(GENERATION_TIMER_OF) as (keyof typeof GENERATION
 
 /** The workflow definition the spec names by 2, which the deployment does not hold. */
 const UNDECLARED_DEFINITION = "triage";
+
+/** The channel of the trigger whose firings the spec's firing step delivers. */
+const FIRING_CHANNEL = "C9";
+
+/** The workflow definition the spec names by `definition`. */
+function definitionName(world: WorkflowWorld, definition: number): string {
+  if (definition === 2) return UNDECLARED_DEFINITION;
+  if (definition === 1) return SECOND_DEFINITION;
+  return world.workflow.workflowDefinitions()[0]?.name ?? "";
+}
 
 type CallKind = (typeof CALL_KINDS)[number];
 type CheckAnswer = (typeof CHECK_ANSWERS)[number];
@@ -826,6 +837,7 @@ export class WorkflowLifecycleReplay {
   private pagesWritten = 0;
   private answeredModelCall: HeldCall | null = null;
   private readonly endedIssues = new Set<number>();
+  private firings = 0;
   private completionAnswer: CompletionAnswer = "NotAnswered";
   private storeAtStaleAlarm: string | null = null;
   private readonly firedStaleDeadlines = new Map<string, ModelTurnAlarm>();
@@ -1196,6 +1208,10 @@ export class WorkflowLifecycleReplay {
               subject: trackerLinkOf(required(picks.subjectLink)),
             }),
         );
+      case "aTriggerFiresTheWorkflow":
+        return worldAction(`a trigger of definition ${picks.definition} fires`, (world) =>
+          this.fireTrigger(world, required(picks.definition)),
+        );
       case "agentStartsJob":
       case "theAgentStartsAJobOnARequest":
       case "agentStartsJobOnADonePage":
@@ -1465,6 +1481,28 @@ export class WorkflowLifecycleReplay {
     }
   }
 
+  private async fireTrigger(world: WorkflowWorld, definition: number): Promise<void> {
+    const minute = new Date(Date.UTC(2026, 9, 19, 9, this.firings)).toISOString();
+    this.firings += 1;
+    await fireWorkflow(world.workflow, {
+      conversationId: world.workflow.store.requireConversation().conversation_id,
+      firing: {
+        firing: {
+          cause: { kind: "schedule", minute },
+          definition: definitionName(world, definition),
+          position: 0,
+          attempt: 1,
+        },
+        trigger: {
+          schedule: "0 9 * * *",
+          channel: FIRING_CHANNEL,
+          prompt: "Upgrade the dependencies.",
+        },
+        thread: "1800000000.000100",
+      },
+    });
+  }
+
   private async setPlan(
     world: WorkflowWorld,
     {
@@ -1474,12 +1512,7 @@ export class WorkflowLifecycleReplay {
       subject,
     }: { definition: number; withStages: boolean; jobSlots: number; subject: TrackerLink | null },
   ): Promise<void> {
-    const name =
-      definition === 2
-        ? UNDECLARED_DEFINITION
-        : definition === 1
-          ? SECOND_DEFINITION
-          : (world.workflow.workflowDefinitions()[0]?.name ?? "");
+    const name = definitionName(world, definition);
     const stages = {
       stages: [this.stage],
       page_parent: this.modelAuthor ? PAGE_PARENT : null,

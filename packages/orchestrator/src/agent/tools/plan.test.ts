@@ -91,6 +91,7 @@ describe("set_plan", () => {
         name: "incident",
         description: "Fix an incident.",
         documents: {},
+        triggers: [],
         stages: [implement],
       });
     });
