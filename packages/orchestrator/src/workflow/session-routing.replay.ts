@@ -44,6 +44,7 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     if (step.cutClosingReplies) {
       expect(replay.cutClosingReplies(), divergence(step)).toEqual(step.cutClosingReplies);
     }
+    if (step.narration) expect(replay.narration(), divergence(step)).toEqual(step.narration);
   }
   replay = null;
 }
@@ -125,19 +126,14 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
     file: "a-stored-closing-reply-gives-up-after-a-later-reply-gave-up",
   },
   {
-    name: "gives up the alarm of a closing reply cut before another reply's give-up on its next failed post",
-    setup: "trackerResearch",
-    file: "a-closing-reply-cut-before-a-give-up-gives-up-on-its-next-failure",
-  },
-  {
-    name: "gives up the alarm of a stored closing reply during a model call once a later reply's alarm gave up",
+    name: "gives up the alarm of a stored closing reply of a model-call author once a later reply's alarm gave up",
     setup: "trackerModelCall",
-    file: "a-stored-closing-reply-gives-up-during-a-model-call-after-a-later-reply-gave-up",
+    file: "a-stored-closing-reply-of-a-model-call-author-gives-up-after-a-later-reply-gave-up",
   },
   {
-    name: "gives up the alarm of a stored closing reply in a sub-issue session once a later reply's alarm gave up",
+    name: "gives up the alarm of a stored closing reply in a chat workflow once an earlier reply's alarm gave up",
     setup: "chatThread",
-    file: "a-stored-closing-reply-in-a-sub-issue-session-gives-up-after-a-later-reply-gave-up",
+    file: "a-stored-closing-reply-in-a-chat-workflow-gives-up-after-an-earlier-reply-gave-up",
   },
 ];
 

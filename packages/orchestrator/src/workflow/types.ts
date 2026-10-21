@@ -98,8 +98,11 @@ export interface WorkflowRuntime {
   /** Schedule a method call due now, unless the same method with the same payload is scheduled. */
   scheduleAlarmOnce(method: ScheduledMethod, payload: unknown): Promise<void>;
   cancelAlarm(id: string): Promise<void>;
-  /** Cancel each scheduled call of a method whose payload matches. */
-  cancelAlarmsWhere(method: ScheduledMethod, matches: (payload: unknown) => boolean): Promise<void>;
+  /** Cancel each scheduled call of a method whose payload matches. Returns their payloads. */
+  cancelAlarmsWhere(
+    method: ScheduledMethod,
+    matches: (payload: unknown) => boolean,
+  ): Promise<unknown[]>;
   /** Call a method by name at an interval. A method and payload that already repeat start nothing. */
   startRepeatingAlarm(
     everySeconds: number,

@@ -9,6 +9,7 @@ import { armTurnWatchdog, onTurnTimeout } from "../src/agent/turn/watchdog";
 import { flushBoards } from "../src/workflow/board/board";
 import { onIdle } from "../src/workflow/lifecycle";
 import {
+  closingReplyFoldedLine,
   DONE_TEXT,
   FEED_GIVES_UP_AFTER_MS,
   NARRATION_INTERVAL_MS,
@@ -217,9 +218,16 @@ export type SpecMessage = { inFlight: number; seen: boolean };
 
 /**
  * A closing reply whose post an instance restart or a tracker failure cut, whether its alarm is
- * still armed, and whether its alarm gave up.
+ * still armed, whether its alarm gave up, and whether it folded into the narration.
  */
-export type SpecCutClosingReply = SpecFeedPost & { armed: boolean; gaveUp: boolean };
+export type SpecCutClosingReply = SpecFeedPost & {
+  armed: boolean;
+  gaveUp: boolean;
+  folded: boolean;
+};
+
+/** Whether narration waits for a job's author, and whether its last post is within the interval. */
+export type SpecNarration = { waits: boolean; postedLately: boolean };
 
 /** The values the spec picked for one action. */
 export type SpecPicks = {
@@ -240,8 +248,8 @@ export type SpecPicks = {
 
 /**
  * One state of a trace: the action that led to it, its picks, what its step sent, the workflow,
- * the session messages that waited on the idle clock, and the closing replies an instance restart
- * cut. A pinned trace that predates the last two has none.
+ * the session messages that waited on the idle clock, the closing replies an instance restart
+ * cut, and the narration of each job. A pinned trace that predates the last three has none.
  */
 export type TraceStep = {
   action: string;
@@ -250,6 +258,7 @@ export type TraceStep = {
   routing: SpecRouting;
   messages: SpecMessage[] | null;
   cutClosingReplies: SpecCutClosingReply[] | null;
+  narration: SpecNarration[] | null;
 };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
@@ -288,6 +297,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const reply = pickOf("reply");
     const messages = itfField(state, `${setup}::sessionRouting::sessionMessages`, true);
     const cut = itfField(state, `${setup}::sessionRouting::cutClosingReplies`, true);
+    const narration = itfField(state, `${setup}::sessionRouting::feedNarration`, true);
     const facts = itfField(state, `${setup}::sessionRouting::lastStep`);
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
@@ -325,8 +335,26 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
       routing: specRouting(itfField(state, `${setup}::sessionRouting::routing`)),
       messages: messages === null ? null : specMessages(messages),
       cutClosingReplies: cut === null ? null : specCutClosingReplies(cut),
+      narration: narration === null ? null : specNarration(narration),
     };
   });
+}
+
+function specNarration(value: unknown): SpecNarration[] {
+  return itfList(itfField(value, "#map"))
+    .map((pair) => {
+      const [job, narration] = itfList(pair);
+      return { job: itfInt(job), narration };
+    })
+    .toSorted((left, right) => left.job - right.job)
+    .map(({ narration }) => ({
+      waits: itfBool(itfField(narration, "waits")),
+      postedLately: itfBool(itfField(narration, "postedLately")),
+    }));
+}
+
+function optionalItfBool(value: unknown, name: string): boolean {
+  return itfField(value, name, true) === null ? false : itfBool(itfField(value, name));
 }
 
 function specCutClosingReplies(value: unknown): SpecCutClosingReply[] {
@@ -341,7 +369,8 @@ function specCutClosingReplies(value: unknown): SpecCutClosingReply[] {
       kind: itfOneOf(itfVariant(itfField(cut, "kind"))!.tag, FEED_KINDS),
       stored: itfInt(itfField(cut, "stored")),
       armed: itfBool(itfField(cut, "armed")),
-      gaveUp: itfField(cut, "gaveUp", true) === null ? false : itfBool(itfField(cut, "gaveUp")),
+      gaveUp: optionalItfBool(cut, "gaveUp"),
+      folded: optionalItfBool(cut, "folded"),
     }));
 }
 
@@ -604,6 +633,7 @@ export class SessionRoutingReplay {
       await this.world.apply(this.actionFor(step));
       this.world.setTrackerHealth("up");
     }
+    this.recordCutReplies();
     await this.world.apply(
       worldAction("sandboxes come up", async (world) => {
         for (const task of world.tasksAwaitingSandbox()) await world.startSandboxOf(task.task_id);
@@ -615,11 +645,7 @@ export class SessionRoutingReplay {
       .filter((row) => row.channel === "feed" && !NOT_FEED_ACTIVITIES.includes(row.kind))
       .map((row) => feedActivityOf(row.payload));
     if (step.action === "authorTurnEnds") feed.push(...narratedAccounts(rows, narrationBefore));
-    this.cutReplies.push(
-      ...this.closingReplyAlarms()
-        .map((alarm) => alarm.payload)
-        .filter((armed) => !this.cutReplies.some((cut) => cut.activity.id === armed.activity.id)),
-    );
+    this.recordCutReplies();
     return {
       posts: deliveries.map(({ event, targets }) => {
         const kind = POST_KIND_OF[event.type];
@@ -632,6 +658,18 @@ export class SessionRoutingReplay {
         .map((row) => issueOfKey(issueKeyOfTarget(row.target)))
         .toSorted(),
     };
+  }
+
+  /**
+   * Record each closing reply whose alarm is armed and was not seen before. A turn start folds a
+   * reply that a restart cut as its sandbox comes up, so the step records them before it too.
+   */
+  private recordCutReplies(): void {
+    this.cutReplies.push(
+      ...this.closingReplyAlarms()
+        .map((alarm) => alarm.payload)
+        .filter((armed) => !this.cutReplies.some((cut) => cut.activity.id === armed.activity.id)),
+    );
   }
 
   /** The narration that waits for each author, by task. */
@@ -657,14 +695,41 @@ export class SessionRoutingReplay {
 
   /**
    * The closing replies whose post an instance restart or a tracker failure cut, in the order of
-   * the cuts. A reply whose alarm is gone before the tracker stored it gave up.
+   * the cuts. A reply whose alarm is gone before the tracker stored it, and that did not fold into
+   * the narration, gave up.
    */
   cutClosingReplies(): SpecCutClosingReply[] {
     const armed = this.closingReplyAlarms().map((alarm) => alarm.payload.activity.id);
+    const logLines = this.world.workflow.store.logLines();
     return this.cutReplies.map(({ activity }) => {
       const posted = this.feedPostOf(activity);
       const isArmed = armed.includes(activity.id);
-      return { ...posted, armed: isArmed, gaveUp: !isArmed && posted.stored === 0 };
+      const folded = logLines.some(
+        (row) =>
+          row.task_id === activity.task_id && row.line === closingReplyFoldedLine(activity.id),
+      );
+      return {
+        ...posted,
+        armed: isArmed,
+        gaveUp: !isArmed && !folded && posted.stored === 0,
+        folded,
+      };
+    });
+  }
+
+  /** The narration of each job's author, in the order of the jobs. */
+  narration(): SpecNarration[] {
+    const { workflow } = this.world;
+    const { store } = workflow;
+    return store.jobs().map((job) => {
+      const author = store.authorTask(job.job_id);
+      const feed = author ? store.sessionFeed(author.task_id) : null;
+      const narratedAt = feed?.narrated_at ?? null;
+      return {
+        waits: Boolean(feed?.narration),
+        postedLately:
+          narratedAt !== null && workflow.now() - Date.parse(narratedAt) < NARRATION_INTERVAL_MS,
+      };
     });
   }
 
@@ -818,9 +883,10 @@ export class SessionRoutingReplay {
       case "chatThreadJoins":
         return chatThreadJoins();
       case "authorStreams":
-        return required(picks.streamed) === "Message"
-          ? authorStreams(this.unfinishedIndexOf(required(picks.id)), "message")
-          : this.toolCallOnceNarrationIsDue(this.unfinishedIndexOf(required(picks.id)));
+        return authorStreams(
+          this.unfinishedIndexOf(required(picks.id)),
+          required(picks.streamed) === "Message" ? "message" : "tool",
+        );
       case "authorReportsTodos":
         return authorReportsTodos(
           this.unfinishedIndexOf(required(picks.id)),
@@ -912,21 +978,6 @@ export class SessionRoutingReplay {
    * The alarm of a closing reply that a restart cut posts it. The platform drops a one-shot alarm
    * once its callback returns.
    */
-  /**
-   * The author calls a tool once its narration interval has passed, so the narration before it
-   * posts and does not wait. The spec does not model narration that waits.
-   */
-  private toolCallOnceNarrationIsDue(index: number): WorkflowAction {
-    const toolCall = authorStreams(index, "tool");
-    return {
-      run: (world) => {
-        world.advanceClock(NARRATION_INTERVAL_MS);
-        return toolCall.run(world);
-      },
-      toString: () => `${String(toolCall)} once narration is due`,
-    };
-  }
-
   private async closingReplyAlarmFires(world: WorkflowWorld, replyIndex: number): Promise<void> {
     const cut = this.cutReplies[replyIndex];
     if (!cut) throw new Error(`no closing reply ${replyIndex} was cut`);
