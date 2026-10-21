@@ -18,7 +18,7 @@ type TaskFixture = { workflow: Conversation; name: string; taskId: string; socke
 let opened = 0;
 
 async function seedProvisioningTask(workflow: Conversation, name: string): Promise<string> {
-  await workflow.status();
+  await workflow.status("wf_none");
   workflow.store.openConversation({
     conversation_id: name,
     request_title: "",
@@ -91,7 +91,7 @@ const connectedMcp: Scenario<McpFixture> = async (run) => {
   });
   try {
     await runInDurableObject(env.Conversation.getByName(`wf_mcp_${opened}`), async (workflow) => {
-      await workflow.status();
+      await workflow.status("wf_none");
       workflow.services.mcpCredential = async () => "lin_oauth_a";
       const tools = Object.keys(await workflow.mcpTools());
       await run({ workflow, requests, tools });

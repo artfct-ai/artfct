@@ -5,9 +5,10 @@ import type { Subject } from "./store/state";
 import { describe, expect, it } from "vitest";
 import { findBinding } from "../db/bindings";
 import { createDb } from "../db/client";
-import { createWorkflow } from "../db/workflows";
+import { writeRouterWorkflowStatus } from "./lifecycle";
 import { freshDurableRuntime } from "../../test/durable-runtime";
 import {
+  FAKE_PLANNED_WORKFLOW_ID,
   patchStageReviewers,
   seedTask,
   type FakeRuntime,
@@ -37,11 +38,9 @@ function readyEvents(workflow: FakeRuntime) {
 
 describe("recordArtifact", () => {
   const recorded: Scenario<FakeRuntime> = scenario(freshDurableRuntime, async (workflow) => {
-    await createWorkflow(
-      createDb(workflow.env.DB),
-      workflow.store.requireConversation().conversation_id,
-    );
-    await recordArtifact(workflow, seedAuthor(workflow), TARGET);
+    const author = seedAuthor(workflow);
+    await writeRouterWorkflowStatus(workflow);
+    await recordArtifact(workflow, author, TARGET);
   });
 
   it("stores the artifact under its kind", () =>
@@ -62,7 +61,7 @@ describe("recordArtifact", () => {
     recorded(async (workflow) => {
       const db = createDb(workflow.env.DB);
       expect(await findBinding(db, { source: "code_pull", repo: "acme/app", number: 1 })).toBe(
-        "wf_x",
+        FAKE_PLANNED_WORKFLOW_ID,
       );
     }));
 

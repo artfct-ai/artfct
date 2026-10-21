@@ -12,10 +12,8 @@ import {
 } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
-import { openMemoryDb } from "../../../test/memory-db";
-import { testEnv } from "../../../test/test-env";
 import { RECEIPT_TEXT } from "../feed/feed";
-import { eventRefusalOf, handleEvent, openConversation } from "./events";
+import { deliverToConversation, handleEvent } from "./events";
 
 describe("handleEvent", () => {
   const MARK = "evil.test";
@@ -132,11 +130,7 @@ describe("a message a person wrote", () => {
 
   describe("that starts the workflow in a chat thread", () => {
     const started = scenario(freshRuntime, async (workflow) => {
-      await openConversation(workflow, {
-        conversationId: "wf_x",
-        event: START,
-        endedWorkflowId: null,
-      });
+      await deliverToConversation(workflow, { conversationId: "wf_x", event: START });
     });
 
     it("tells the agent which chat message it was", () =>
@@ -230,9 +224,9 @@ describe("a message a person wrote", () => {
         expect(workflow.alarmsFor("onIdle")).toEqual([]);
       }));
 
-    it("does not tell the agent", () =>
+    it("tells the agent", () =>
       prompted((workflow) => {
-        expect(workflow.notes).toEqual([]);
+        expect(workflow.notes.map((note) => note.from?.body)).toEqual(["also add a test"]);
       }));
   });
 
@@ -331,12 +325,14 @@ describe("a message a person wrote", () => {
       });
     });
 
-    it("tells the person the workflow ended, without a receipt", () =>
+    it("tells the agent, which may start the next workflow", () =>
       prompted((workflow) => {
-        expect(feedPayloadsOf(workflow)).toEqual([]);
-        expect(workflow.posted).toEqual([
-          { type: "info", text: "This workflow is done. Start a new request for more work." },
-        ]);
+        expect(workflow.notes.map((note) => note.from?.body)).toEqual(["also add a test"]);
+      }));
+
+    it("posts nothing on its own", () =>
+      prompted((workflow) => {
+        expect(workflow.posted).toEqual([]);
       }));
   });
 });
@@ -347,70 +343,3 @@ function feedPayloadsOf(workflow: FakeRuntime): unknown[] {
     .filter((row) => row.channel === "feed")
     .map((row) => row.payload);
 }
-
-function runningWorkflow(): FakeRuntime {
-  const workflow = new FakeRuntime(openMemoryDb(), testEnv());
-  workflow.store.updateWorkflow({ status: "running" });
-  return workflow;
-}
-
-function doneWorkflow(): FakeRuntime {
-  const workflow = new FakeRuntime(openMemoryDb(), testEnv());
-  seedEndedWorkflow(workflow, "done");
-  return workflow;
-}
-
-describe("eventRefusalOf", () => {
-  const PROMPT: InboundEvent = {
-    id: "evt-prompt",
-    kind: "prompt",
-    actor: { email: "dev@acme.test", display_name: "Dev" },
-    bindings: [],
-    links: [],
-    text: "also add a test",
-  };
-  const STATUS: InboundEvent = { ...PROMPT, id: "evt-status", kind: "status", actor: null };
-
-  describe("a workflow whose create has not returned", () => {
-    const workflow = new FakeRuntime(openMemoryDb(), testEnv(), "uncreated");
-
-    it("refuses every event", () => {
-      expect(eventRefusalOf(workflow, STATUS)).toEqual({ refused: "not_created" });
-      expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "not_created" });
-    });
-  });
-
-  describe("a created workflow that ended", () => {
-    const workflow = doneWorkflow();
-
-    it("refuses a person's message with its status", () => {
-      expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "ended", status: "done" });
-    });
-
-    it("takes an event nobody wrote", () => {
-      expect(eventRefusalOf(workflow, STATUS)).toBeNull();
-    });
-  });
-
-  describe("a created workflow whose end started", () => {
-    const workflow = runningWorkflow();
-    workflow.store.startWorkflowEnd({
-      ends_as: "failed",
-      reason: "The build broke.",
-      answering: [],
-      posted: false,
-    });
-
-    it("refuses a person's message with the status it ends as", () => {
-      expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "ended", status: "failed" });
-    });
-  });
-
-  describe("a created workflow that runs", () => {
-    const workflow = runningWorkflow();
-
-    it("takes a person's message", () => {
-      expect(eventRefusalOf(workflow, PROMPT)).toBeNull();
-    });
-  });
-});

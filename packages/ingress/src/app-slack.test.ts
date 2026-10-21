@@ -48,13 +48,14 @@ describe("slack webhook", () => {
         expect(app.rpc.deliveries).toHaveLength(1);
       });
 
-      it("delivers the mention as a start bound to its own thread", () => {
+      it("delivers the mention as a start in its own thread", () => {
         expect(app.rpc.deliveries[0]).toMatchObject({
           id: "slack:Ev1",
           kind: "start",
           text: "fix the flaky test in https://github.com/acme/app",
           links: ["https://github.com/acme/app"],
-          bindings: [{ source: "chat_thread", external_id: "C1:1756893600.000100" }],
+          bindings: [],
+          place: { source: "chat_thread", channel: "C1", thread: "1756893600.000100" },
           reply_to: { source: "chat", channel: "C1", thread: "1756893600.000100" },
           acknowledge: { message: "1756893600.000100", user: "U1" },
           actor: { email: "dev@acme.test" },
@@ -64,14 +65,15 @@ describe("slack webhook", () => {
   });
 
   describe("a thread reply that links a pull request", () => {
-    it("binds to its own thread alone", async () => {
+    it("belongs to its own thread alone", async () => {
       const app = harness();
       const text = "continue <https://github.com/acme/app/pull/12|#12> and add docs";
       await app.request(await slackPost(JSON.stringify(slackThreadReply(text))));
       await app.settle();
-      expect(app.rpc.deliveries[0]?.bindings).toEqual([
-        { source: "chat_thread", external_id: "C1:1756893600.000100" },
-      ]);
+      expect(app.rpc.deliveries[0]).toMatchObject({
+        bindings: [],
+        place: { source: "chat_thread", channel: "C1", thread: "1756893600.000100" },
+      });
     });
   });
 
@@ -83,7 +85,8 @@ describe("slack webhook", () => {
       await app.settle();
       expect(app.rpc.deliveries[0]).toMatchObject({
         kind: "start",
-        bindings: [{ source: "chat_thread", external_id: "C1:1756893600.000100" }],
+        bindings: [],
+        place: { source: "chat_thread", channel: "C1", thread: "1756893600.000100" },
         links: ["https://github.com/acme/app/pull/12"],
       });
     });
@@ -117,7 +120,8 @@ describe("slack webhook", () => {
       expect(app.rpc.deliveries[0]).toMatchObject({
         kind: "prompt",
         text: "also update the docs",
-        bindings: [{ source: "chat_thread", external_id: "C1:1756893600.000100" }],
+        bindings: [],
+        place: { source: "chat_thread", channel: "C1", thread: "1756893600.000100" },
       });
     });
   });

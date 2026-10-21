@@ -130,11 +130,12 @@ describe("linear agent sessions", () => {
       expect(event.links).toEqual(["https://github.com/acme/app"]);
     });
 
-    it("binds to the session and to the issue", () => {
-      expect(event.bindings).toEqual([
-        { source: "tracker_session", external_id: "sess1" },
-        { source: "tracker_issue", external_id: "iss1" },
-      ]);
+    it("binds to the issue", () => {
+      expect(event.bindings).toEqual([{ source: "tracker_issue", external_id: "iss1" }]);
+    });
+
+    it("belongs to the conversation of the issue", () => {
+      expect(event.place).toEqual({ source: "tracker_issue", issue_id: "iss1" });
     });
 
     it("replies on the session", () => {
@@ -177,11 +178,8 @@ describe("linear agent sessions", () => {
       expect(event.actor).toBeNull();
     });
 
-    it("binds to the session and to the issue", () => {
-      expect(event.bindings).toEqual([
-        { source: "tracker_session", external_id: "sess1" },
-        { source: "tracker_issue", external_id: "iss1" },
-      ]);
+    it("binds to the issue", () => {
+      expect(event.bindings).toEqual([{ source: "tracker_issue", external_id: "iss1" }]);
     });
   });
 

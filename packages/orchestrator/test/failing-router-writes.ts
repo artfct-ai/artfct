@@ -3,7 +3,7 @@ import type { Env } from "../src/env";
 /** The router writes of a job start: the workflow status write and the binding write of a branch. */
 function isRouterWrite(sql: string): boolean {
   return (
-    sql.startsWith('update "workflows" set "status"') ||
+    sql.startsWith('insert into "workflows"') ||
     (sql.startsWith('insert into "bindings"') && sql.includes(" select "))
   );
 }

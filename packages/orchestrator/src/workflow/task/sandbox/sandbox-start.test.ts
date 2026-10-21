@@ -8,13 +8,17 @@ import { describe, expect, it } from "bun:test";
 import { Adapters } from "../../../config/adapters";
 import { findBinding } from "../../../db/bindings";
 import { createDb } from "../../../db/client";
-import { createWorkflow } from "../../../db/workflows";
 import { FailingRouterWrites } from "../../../../test/failing-router-writes";
 import { sqliteD1 } from "../../../../test/sqlite-d1";
-import { MAX_RESTARTS } from "../../lifecycle";
+import { MAX_RESTARTS, writeRouterWorkflowStatus } from "../../lifecycle";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import { FakeSandboxProvider } from "../../../../test/fake-sandbox";
-import { seedTask, type FakeRuntime, patchPlan } from "../../../../test/fake-runtime";
+import {
+  FAKE_PLANNED_WORKFLOW_ID,
+  patchPlan,
+  seedTask,
+  type FakeRuntime,
+} from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { provision, restartSandbox, sandboxStartInFlight, startSandbox } from "./sandbox";
 import { onHelloTimeout } from "../harness/timers";
@@ -29,9 +33,9 @@ const BRANCH_BINDING = { source: "code_branch", repo: "acme/app", branch: BRANCH
 async function seedQueuedTaskOnABranch(workflow: FakeRuntime, restarts: number): Promise<void> {
   const db = sqliteD1();
   workflow.env = { ...workflow.env, DB: db };
-  await createWorkflow(createDb(db), workflow.store.requireConversation().conversation_id);
   workflow.codeHostInstance = new FakeCodeHost();
   patchPlan(workflow, { repo: "acme/app" });
+  await writeRouterWorkflowStatus(workflow);
   seedTask(workflow, { status: "queued", stage: "design", branch: BRANCH, restarts });
 }
 
@@ -286,7 +290,9 @@ describe("provision", () => {
 
     it("binds the branch to the workflow", () =>
       provisioned(async (workflow) => {
-        expect(await findBinding(createDb(workflow.env.DB), BRANCH_BINDING)).toBe("wf_x");
+        expect(await findBinding(createDb(workflow.env.DB), BRANCH_BINDING)).toBe(
+          FAKE_PLANNED_WORKFLOW_ID,
+        );
       }));
 
     it("starts one sandbox", () =>

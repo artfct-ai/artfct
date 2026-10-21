@@ -23,6 +23,7 @@ const START_EVENT: InboundEvent = {
   kind: "start",
   actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
+  place: { source: "chat_thread", channel: "C1", thread: "1.0" },
   links: ["https://github.com/acme/app"],
   text: "ship it",
   reply_to: { source: "chat", channel: "C1", thread: "1.0" },
@@ -49,7 +50,7 @@ export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scen
       if (outside.documents !== undefined)
         workflow.services.documents = async () => outside.documents ?? null;
       workflow.services.model = async () => new ScriptedFailure(["text"]);
-      await workflow.create(name, START_EVENT, null);
+      await workflow.handle(name, START_EVENT);
       await workflow.settle();
       await workflow.cancelAllAlarms();
       try {

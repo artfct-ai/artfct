@@ -8,7 +8,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { findBinding } from "../../../db/bindings";
 import { createDb } from "../../../db/client";
-import { createWorkflow, setWorkflowStatus } from "../../../db/workflows";
+import { writeWorkflowRow } from "../../../db/workflows";
 import {
   freshWorkflow,
   plannedWorkflow,
@@ -351,7 +351,7 @@ describe("start_job on an issue another workflow started a job on", () => {
 
     it("refuses and names the workflow", () =>
       refused(({ result }) => {
-        expect(result).toMatch(/^Workflow wf_fresh_\d+ is still running on ENG-1\./);
+        expect(result).toMatch(/^Workflow wf_[a-z2-7]+ is still running on ENG-1\./);
       }));
 
     it("records no job", () =>
@@ -365,19 +365,17 @@ describe("start_job on an issue another workflow started a job on", () => {
 
     it("refuses", () =>
       refused(({ result }) => {
-        expect(result).toMatch(/^Workflow wf_fresh_\d+ is still running on ENG-1\./);
+        expect(result).toMatch(/^Workflow wf_[a-z2-7]+ is still running on ENG-1\./);
       }));
   });
 
   describe("after that workflow ended", () => {
     const started = issueStartedByAnotherWorkflow(async (firstWorkflow) => {
-      const db = createDb(env.DB);
-      await createWorkflow(db, firstWorkflow.store.requireConversation().conversation_id);
-      await setWorkflowStatus(
-        db,
-        firstWorkflow.store.requireConversation().conversation_id,
-        "done",
-      );
+      await writeWorkflowRow(createDb(env.DB), {
+        workflow_id: firstWorkflow.store.requireWorkflowRow().workflow_id,
+        conversation_id: firstWorkflow.store.requireConversation().conversation_id,
+        status: "done",
+      });
     });
 
     it("starts the job", () =>
@@ -389,7 +387,7 @@ describe("start_job on an issue another workflow started a job on", () => {
       started(async ({ workflow }) => {
         const issue = { source: "tracker_issue", external_id: "ENG-1" } as const;
         expect(await findBinding(createDb(env.DB), issue)).toBe(
-          workflow.store.requireConversation().conversation_id,
+          workflow.store.requireWorkflowRow().workflow_id,
         );
       }));
   });

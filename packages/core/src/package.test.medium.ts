@@ -39,7 +39,7 @@ describe("the template Workers on the built artfct package", () => {
 
     it("start a Conversation on the bundled migrations", async () => {
       const stub = env.Conversation.getByName("wf_package");
-      await stub.status();
+      await stub.status("wf_none");
       await runInDurableObject(stub, (instance, state) => {
         const tables = state.storage.sql
           .exec<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -56,7 +56,7 @@ describe("the template Workers on the built artfct package", () => {
 
     it("starts a Conversation on the config the entrypoint registered", async () => {
       const stub = env.Conversation.getByName("wf_config");
-      await stub.status();
+      await stub.status("wf_none");
       await runInDurableObject(stub, (instance: Conversation) => {
         expect(instance.workflowDefinitions()).toEqual(
           loadDeploymentConfig(env.TEST_DEPLOYMENT_CONFIG).workflowDefinitions,

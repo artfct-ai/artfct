@@ -65,7 +65,7 @@ function settledWorkflow(
         const model = new ScriptedFailure(script);
         workflow.services = { ...workflow.services, model: async () => model };
       }
-      await workflow.create(name, start, null);
+      await workflow.handle(name, start);
       await workflow.settle();
       if (act) {
         await act(workflow);
@@ -86,7 +86,7 @@ async function loseTurn() {
       ...workflow.services,
       model: async () => new ScriptedFailure(["throw", "throw"], RESET),
     };
-    await workflow.create(name, start, null);
+    await workflow.handle(name, start);
     await workflow.settle().catch(() => undefined);
     workflow.transcript.enqueue("[note]\nA task result arrived.", "task_result");
     await expect(workflow.runAgent()).rejects.toThrow(RESET);
@@ -312,7 +312,12 @@ describe("agent turn", () => {
 
   describe("a status question", () => {
     const answered = settledWorkflow(null, (workflow) =>
-      workflow.handle({ ...start, id: "evt-status", kind: "status", text: "status?" }),
+      workflow.handle(workflow.store.requireConversation().conversation_id, {
+        ...start,
+        id: "evt-status",
+        kind: "status",
+        text: "status?",
+      }),
     );
 
     it("answers with the cost so far", () =>
@@ -348,7 +353,7 @@ describe("agent turn", () => {
         await withNewInstanceModel(model, async () => {
           await evictDurableObject(stub);
           await runInDurableObject(stub, async (workflow: Conversation) => {
-            await workflow.status();
+            await workflow.status("wf_none");
             await workflow.settle();
             await run((await workflow.debug()) as Debug);
           });

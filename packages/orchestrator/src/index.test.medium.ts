@@ -4,7 +4,7 @@ import { env, exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "./db/client";
 import { saveLinearInstall } from "./db/linear-installs";
-import { createWorkflow } from "./db/workflows";
+import { writeWorkflowRow } from "./db/workflows";
 
 function bridgeUpgrade(workflowId: string): Request {
   return new Request(`https://orchestrator.test/bridge/${workflowId}/${workflowId}.1`, {
@@ -55,13 +55,17 @@ describe("the orchestrator entrypoint", () => {
     let response: Response;
 
     beforeEach(async () => {
-      await createWorkflow(createDb(env.DB), "wf_created");
+      await writeWorkflowRow(createDb(env.DB), {
+        workflow_id: "wf_created",
+        conversation_id: "cv_holding",
+        status: "running",
+      });
       response = await exports.default.fetch(bridgeUpgrade("wf_created"));
     });
 
-    it("reaches the Durable Object of that workflow", async () => {
+    it("reaches the Durable Object of the workflow's conversation", async () => {
       const ids = await listDurableObjectIds(env.Conversation);
-      expect(ids.map(String)).toEqual([String(env.Conversation.idFromName("wf_created"))]);
+      expect(ids.map(String)).toEqual([String(env.Conversation.idFromName("cv_holding"))]);
     });
 
     it("answers with the socket the Durable Object opened", () => {
