@@ -96,7 +96,8 @@ import {
 
 /**
  * The setups the replay runs, each on the traces of one setup module of the workflow lifecycle
- * spec, and the stage each one runs. A judge runs on the traces of the reviewer.
+ * spec, and the stage each one runs. A harness author's judge runs on the traces of the reviewer,
+ * since the spec does not reopen a harness author's page.
  */
 export const SPEC_SETUPS = {
   pagesWithAReviewer: {
@@ -181,7 +182,7 @@ export const SPEC_SETUPS = {
     pageEnding: "acceptance",
   },
   modelCallPagesWithAJudge: {
-    module: "modelCallPagesWithAReviewer",
+    module: "modelCallPagesWithAJudge",
     refiners: "judge",
     pageAuthor: "model",
     research: false,
