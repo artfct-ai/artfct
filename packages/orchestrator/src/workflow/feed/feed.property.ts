@@ -192,6 +192,23 @@ const A_REPLY_WAITS_FOR_THE_NARRATION_THE_TRACKER_REFUSED: FeedAction[] = [
   { kind: "turn_end", reason: "end_turn" },
 ];
 
+const A_HELD_REPLY_LANDS_ONCE_THE_TRACKER_RECOVERS: FeedAction[] = [
+  { kind: "health", health: "fails_before_storing" },
+  { kind: "narrate", steps: 2 },
+  { kind: "turn_end", reason: "end_turn" },
+  { kind: "wait", minutes: 1 },
+  { kind: "health", health: "up" },
+  { kind: "wait", minutes: 2 },
+];
+
+const A_REPLY_GIVES_UP_BEHIND_NARRATION_THE_TRACKER_STORES_BUT_FAILS: FeedAction[] = [
+  { kind: "narrate", steps: 2 },
+  { kind: "health", health: "fails_after_storing" },
+  { kind: "stop" },
+  { kind: "wait", minutes: 30 },
+  { kind: "wait", minutes: 30 },
+];
+
 const THE_FEED_GIVES_UP_AFTER_AN_HOUR_OF_FAILURES: FeedAction[] = [
   { kind: "health", health: "fails_before_storing" },
   { kind: "narrate", steps: 2 },
@@ -239,7 +256,7 @@ class FeedRun {
   readonly replies: string[] = [];
   readonly toolTitles: string[] = [];
   readonly closings: ClosingTurn[] = [];
-  readonly postableAt: number[] = [];
+  readonly alarmCouldLandAt: number[] = [];
   readonly givenUp: string[] = [];
   readonly folded: FoldedReply[] = [];
   private message = "";
@@ -290,6 +307,14 @@ class FeedRun {
     return this.tracker.health !== "fails_before_storing" && !this.tracker.refusesNarration();
   }
 
+  /**
+   * A closing reply's post could land: the tracker takes posts, and it answers them or no
+   * narration waits ahead of the reply.
+   */
+  private replyCouldLand(narrationWaits: boolean): boolean {
+    return this.takesPosts() && (this.tracker.health === "up" || !narrationWaits);
+  }
+
   private touch(): void {
     this.activeAt = this.now();
     this.touchedAt = this.now();
@@ -334,10 +359,10 @@ class FeedRun {
 
   private async tick(): Promise<void> {
     this.workflow.clock = this.now() + MINUTE_MS;
-    if (this.takesPosts()) this.postableAt.push(this.now());
+    const waiting = this.workflow.store.sessionFeed(AUTHOR);
+    if (this.replyCouldLand(!!waiting?.narration)) this.alarmCouldLandAt.push(this.now());
     this.passQuotaReset();
     const lowBefore = this.quotaLow();
-    const waiting = this.workflow.store.sessionFeed(AUTHOR);
     const narrationDue =
       !!waiting?.narration &&
       (waiting.narrated_at === null ||
@@ -438,7 +463,11 @@ class FeedRun {
     return posts;
   }
 
-  private async closeFeed(step: FeedStepKind, closing: FeedClosing | null): Promise<FeedPost[]> {
+  private async closeFeed(
+    step: FeedStepKind,
+    closing: FeedClosing | null,
+    couldLandAtItsEnd: boolean,
+  ): Promise<FeedPost[]> {
     const closingsBefore = this.closingIds();
     const endedAt = this.now();
     const linesBefore = this.written.length;
@@ -446,7 +475,8 @@ class FeedRun {
       closeSessionFeed(this.workflow, this.author(), closing),
     );
     for (const id of this.closingIds()) {
-      if (!closingsBefore.has(id)) this.closings.push({ id, endedAt, linesBefore });
+      if (!closingsBefore.has(id))
+        this.closings.push({ id, endedAt, linesBefore, couldLandAtItsEnd });
     }
     return posts;
   }
@@ -464,11 +494,16 @@ class FeedRun {
     if (narrationWaits && this.quotaLow())
       this.witnesses.turnEndsWithWaitingNarrationWhileQuotaLow += 1;
     const takesEveryPost = this.takesEveryPost();
-    if (this.takesPosts()) this.postableAt.push(this.now());
+    const replyFolds = this.workflow.alarmsFor("postClosingReply").length > 0;
+    const couldLandAtItsEnd = this.replyCouldLand(narrationWaits || replyFolds);
     if (narrationWaits && this.tracker.health === "up" && this.tracker.refusesNarration())
       this.witnesses.repliesThatWaitedForNarration += 1;
     this.touch();
-    const posts = await this.closeFeed(reason === "stop" ? "stop" : "turn_end", closing);
+    const posts = await this.closeFeed(
+      reason === "stop" ? "stop" : "turn_end",
+      closing,
+      couldLandAtItsEnd,
+    );
     if (!takesEveryPost) return;
     const stillWaits = !!this.workflow.store.sessionFeed(AUTHOR)?.narration;
     heartbeatsAreTheOnlyPostsTheQuotaSkips(posts, stillWaits);
@@ -488,7 +523,7 @@ class FeedRun {
     }
     const closing = closingWhenTheAuthorGoesOn(feedClosingOf(reason));
     this.touch();
-    await this.closeFeed("turn_end", closing);
+    await this.closeFeed("turn_end", closing, false);
     this.quietSince = this.now();
     await this.recordFolds("turn_start", () => startSessionFeedTurn(this.workflow, this.author()));
   }
@@ -758,10 +793,13 @@ describe("session feed invariants", () => {
           theReplyNeverPostsAsNarration(run.posts, run.replies, run.folded);
           everyNarrationLinePostsInOrder(run.posts, run.written, run.givenUp, run.folded);
           heartbeatsAndNarrationWaitWhileTheQuotaIsLow(run.posts);
-          everyClosingReplyLands(run.posts, run.closings, run.postableAt, FEED_GIVES_UP_AFTER_MS, {
-            folded: run.folded,
-            givenUp: run.givenUp,
-          });
+          everyClosingReplyLands(
+            run.posts,
+            run.closings,
+            run.alarmCouldLandAt,
+            FEED_GIVES_UP_AFTER_MS,
+            { folded: run.folded, givenUp: run.givenUp },
+          );
           theReplyIsTheLastLineOfItsTurn(run.posts, run.closings, run.written);
         }),
         {
@@ -772,6 +810,8 @@ describe("session feed invariants", () => {
             [A_CLOSING_REPLY_LANDS_ONCE_THE_TRACKER_RECOVERS],
             [A_REPLY_WAITS_FOR_THE_NARRATION_THE_TRACKER_REFUSED],
             [THE_FEED_GIVES_UP_AFTER_AN_HOUR_OF_FAILURES],
+            [A_REPLY_GIVES_UP_BEHIND_NARRATION_THE_TRACKER_STORES_BUT_FAILS],
+            [A_HELD_REPLY_LANDS_ONCE_THE_TRACKER_RECOVERS],
             [A_WAITING_REPLY_FOLDS_INTO_THE_NEXT_TURN],
             [A_TURN_END_GOING_ON_NARRATES_ITS_ACCOUNT],
           ],
