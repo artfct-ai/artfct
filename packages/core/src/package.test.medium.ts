@@ -1,6 +1,6 @@
 import Orchestrator from "@artfct-ai/core/orchestrator";
 import { loadDeploymentConfig, loadWorkflowDefinition } from "@artfct-ai/core/config";
-import { Sandbox, Workflow } from "@artfct-ai/core/durable-objects";
+import { Conversation, Sandbox } from "@artfct-ai/core/durable-objects";
 import { runInDurableObject } from "cloudflare:test";
 import { DurableObject, env, exports, WorkerEntrypoint } from "cloudflare:workers";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -37,9 +37,9 @@ describe("the template Workers on the built artfct package", () => {
       expect(Sandbox.prototype).toBeInstanceOf(DurableObject);
     });
 
-    it("start a Workflow on the bundled migrations", async () => {
-      const stub = env.Workflow.getByName("wf_package");
-      await stub.status();
+    it("start a Conversation on the bundled migrations", async () => {
+      const stub = env.Conversation.getByName("wf_package");
+      await stub.status("wf_none");
       await runInDurableObject(stub, (instance, state) => {
         const tables = state.storage.sql
           .exec<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -48,16 +48,16 @@ describe("the template Workers on the built artfct package", () => {
         const applied = state.storage.sql
           .exec<{ count: number }>("SELECT count(*) AS count FROM __drizzle_migrations")
           .one().count;
-        expect(instance).toBeInstanceOf(Workflow);
+        expect(instance).toBeInstanceOf(Conversation);
         expect(tables).toEqual(expect.arrayContaining(["jobs", "tasks", "outbox"]));
         expect(applied).toBeGreaterThan(0);
       });
     });
 
-    it("starts a Workflow on the config the entrypoint registered", async () => {
-      const stub = env.Workflow.getByName("wf_config");
-      await stub.status();
-      await runInDurableObject(stub, (instance: Workflow) => {
+    it("starts a Conversation on the config the entrypoint registered", async () => {
+      const stub = env.Conversation.getByName("wf_config");
+      await stub.status("wf_none");
+      await runInDurableObject(stub, (instance: Conversation) => {
         expect(instance.workflowDefinitions()).toEqual(
           loadDeploymentConfig(env.TEST_DEPLOYMENT_CONFIG).workflowDefinitions,
         );

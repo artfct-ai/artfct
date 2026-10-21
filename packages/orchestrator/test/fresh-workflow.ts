@@ -5,7 +5,7 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { planTools } from "../src/agent/tools/plan";
-import type { Workflow } from "../src/workflow";
+import type { Conversation } from "../src/conversation";
 import type { WorkflowRuntime } from "../src/workflow/types";
 import { ScriptedFailure } from "./fake-model";
 import type { Scenario } from "./scenario";
@@ -23,6 +23,7 @@ const START_EVENT: InboundEvent = {
   kind: "start",
   actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
+  place: { source: "chat_thread", channel: "C1", thread: "1.0" },
   links: ["https://github.com/acme/app"],
   text: "ship it",
   reply_to: { source: "chat", channel: "C1", thread: "1.0" },
@@ -33,23 +34,23 @@ const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 let opened = 0;
 
 /**
- * A real Workflow DO whose conversation a Slack request opened, before a plan creates its
+ * A real Conversation DO whose conversation a Slack request opened, before a plan creates its
  * workflow, with no alarms pending.
  * `clients` runs before the DO starts. Every call opens a new DO.
  */
-export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scenario<Workflow> {
+export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scenario<Conversation> {
   return async (run) => {
     opened += 1;
     const name = `wf_fresh_${opened}`;
-    const stub = env.Workflow.getByName(name);
-    await runInDurableObject(stub, async (workflow: Workflow) => {
+    const stub = env.Conversation.getByName(name);
+    await runInDurableObject(stub, async (workflow: Conversation) => {
       const outside = clients();
       workflow.services.tracker = async () => outside.tracker ?? null;
       workflow.services.code = () => outside.code ?? null;
       if (outside.documents !== undefined)
         workflow.services.documents = async () => outside.documents ?? null;
       workflow.services.model = async () => new ScriptedFailure(["text"]);
-      await workflow.create(name, START_EVENT, null);
+      await workflow.handle(name, START_EVENT);
       await workflow.settle();
       await workflow.cancelAllAlarms();
       try {
@@ -74,7 +75,7 @@ export async function startWorkflow(workflow: WorkflowRuntime): Promise<void> {
 export function plannedWorkflow(
   concurrency: number,
   clients?: () => WorkflowClients,
-): Scenario<Workflow> {
+): Scenario<Conversation> {
   return (run) =>
     freshWorkflow(clients)(async (workflow) => {
       const { set_plan } = planTools(workflow);

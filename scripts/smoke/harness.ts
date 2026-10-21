@@ -99,13 +99,13 @@ const CHILD_EXIT_GRACE_MS = 5_000;
 
 /**
  * Lines from wrangler that mean a Worker under test hit a real error. Request logs, the
- * `[wf_...]` workflow log, and the bridge chatter never match. Kept narrow on purpose.
+ * `[cv_...]` conversation log, and the bridge chatter never match. Kept narrow on purpose.
  */
 const DEV_ERROR_PATTERN =
   /✘ \[ERROR\]|\[wrangler:err(?:or)?\]|Uncaught (?:\(in (?:promise|response)\) )?[\w.]*(?:Error|Exception)\b|\bagent turn failed|\bsandbox (?:start|destroy) failed|\] slack Ev[A-Za-z0-9]+: /;
 
 /** Lines echoed under a `dev>` prefix when the run is not verbose. */
-const DEV_ECHO_PATTERN = /\[wf_/;
+const DEV_ECHO_PATTERN = /\[cv_/;
 
 /** Kills every child this module spawned. Safe to call more than once. */
 function killChildren(): void {

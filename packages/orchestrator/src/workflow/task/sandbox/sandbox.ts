@@ -200,7 +200,7 @@ async function startGeneration(
     skills,
     harness: workflow.harness(sandbox.harness),
     adapters: config.adapters,
-    workflowId: workflow.store.requireConversation().conversation_id,
+    workflowId: workflow.store.requireWorkflowRow().workflow_id,
     publicUrl: workflow.env.PUBLIC_URL ?? "",
     repo: workflow.store.workflowRow()?.repo ?? null,
     commitAuthor,

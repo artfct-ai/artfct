@@ -1,13 +1,9 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import {
   generateTraces,
   RouterBindingsReplay,
   SPEC_SETUPS,
-  traceSteps,
   type SpecSetup,
   type TraceStep,
 } from "../../test/router-bindings-replay";
@@ -49,44 +45,7 @@ async function replayTrace(
   replay = null;
 }
 
-const PINNED_TRACES = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../test/router-bindings-traces",
-);
-
-const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
-  {
-    name: "refuses a job on the issue whose claim lost to another workflow",
-    setup: "twoSessionsOnOneIssue",
-    file: "a-job-claims-the-issue-after-its-binding-moved",
-  },
-  {
-    name: "hands a base move to the next workflow after the call to one throws",
-    setup: "baseMoveFanOut",
-    file: "a-base-move-goes-on-past-a-failed-call",
-  },
-  {
-    name: "keeps the bindings of a workflow a takeover created when the first create throws",
-    setup: "chatThread",
-    file: "an-abandon-keeps-the-bindings-a-takeover-created",
-  },
-  {
-    name: "points the binding back at the ended workflow when the next workflow's create throws",
-    setup: "chatThread",
-    file: "an-abandon-points-the-binding-back-at-the-ended-workflow",
-  },
-];
-
 describe("router bindings spec", () => {
-  for (const { name, setup, file } of PINNED) {
-    it(name, async () => {
-      const trace: unknown = JSON.parse(
-        readFileSync(join(PINNED_TRACES, `${file}.itf.json`), "utf8"),
-      );
-      await replayTrace(setup, traceSteps(trace), 0);
-    });
-  }
-
   for (const setup of SPEC_SETUPS) {
     it(
       `replays its traces through the router on ${setup}`,

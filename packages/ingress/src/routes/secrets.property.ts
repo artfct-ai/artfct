@@ -91,7 +91,7 @@ const ingressRequest: fc.Arbitrary<IngressRequest> = fc.oneof(
     path: fc.constantFrom(
       "/linear/install",
       "/workflows/wf_1",
-      "/workflows/wf_1/debug",
+      "/conversations/cv_1/debug",
       "/bindings",
     ),
     bearer: fc.constantFrom("configured_token" as const, "wrong_token" as const, "none" as const),

@@ -7,23 +7,20 @@ import { env } from "cloudflare:workers";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { describe, expect, it, vi } from "vitest";
-import type { Workflow } from "./workflow";
+import type { Conversation } from "./conversation";
 import { fakeMcpServerAnswer } from "../test/fake-mcp-server";
 import { fakeConnection, patchPlan, seededJobInput, type FakeSocket } from "../test/fake-runtime";
 import { scenario, type Scenario } from "../test/scenario";
 
 const FIXED_NOW = Date.UTC(2026, 8, 3, 12, 0, 0);
-type TaskFixture = { workflow: Workflow; name: string; taskId: string; socket: FakeSocket };
+type TaskFixture = { workflow: Conversation; name: string; taskId: string; socket: FakeSocket };
 
 let opened = 0;
 
-async function seedProvisioningTask(workflow: Workflow, name: string): Promise<string> {
-  await workflow.status();
+async function seedProvisioningTask(workflow: Conversation, name: string): Promise<string> {
+  await workflow.status("wf_none");
   workflow.store.openConversation({
     conversation_id: name,
-    request_title: "",
-    request_text: "",
-    request_links: [],
     origin: null,
   });
   patchPlan(workflow, {});
@@ -54,7 +51,7 @@ async function seedProvisioningTask(workflow: Workflow, name: string): Promise<s
 const provisioningTask: Scenario<TaskFixture> = async (run) => {
   opened += 1;
   const name = `wf_medium_${opened}`;
-  const stub = env.Workflow.getByName(name);
+  const stub = env.Conversation.getByName(name);
   await runInDurableObject(stub, async (workflow) => {
     const taskId = await seedProvisioningTask(workflow, name);
     await run({ workflow, name, taskId, socket: fakeConnection(taskId, 1) });
@@ -64,7 +61,7 @@ const provisioningTask: Scenario<TaskFixture> = async (run) => {
 async function openBridgeSocket(): Promise<WebSocket> {
   opened += 1;
   const name = `wf_medium_${opened}`;
-  const stub = env.Workflow.getByName(name);
+  const stub = env.Conversation.getByName(name);
   const taskId = await runInDurableObject(stub, (workflow) => seedProvisioningTask(workflow, name));
   const response = await stub.fetch(`https://do/bridge/${name}/${taskId}`, {
     headers: { upgrade: "websocket", ...bridgeTokenHeaders("secret") },
@@ -79,7 +76,7 @@ function nextFrame(socket: WebSocket): Promise<unknown> {
     socket.addEventListener("message", (event) => resolve(event.data), { once: true });
   });
 }
-type McpFixture = { workflow: Workflow; requests: Request[]; tools: string[] };
+type McpFixture = { workflow: Conversation; requests: Request[]; tools: string[] };
 
 const connectedMcp: Scenario<McpFixture> = async (run) => {
   opened += 1;
@@ -90,8 +87,8 @@ const connectedMcp: Scenario<McpFixture> = async (run) => {
     return fakeMcpServerAnswer(request, { tools: ["get_issue", "delete_comment"] });
   });
   try {
-    await runInDurableObject(env.Workflow.getByName(`wf_mcp_${opened}`), async (workflow) => {
-      await workflow.status();
+    await runInDurableObject(env.Conversation.getByName(`wf_mcp_${opened}`), async (workflow) => {
+      await workflow.status("wf_none");
       workflow.services.mcpCredential = async () => "lin_oauth_a";
       const tools = Object.keys(await workflow.mcpTools());
       await run({ workflow, requests, tools });
@@ -105,7 +102,7 @@ function dial(name: string, taskId: string, token: string): ConnectionContext {
   return { request: new Request(`https://do/bridge/${name}/${taskId}`, { headers }) };
 }
 
-describe("Workflow", () => {
+describe("Conversation", () => {
   describe("the orchestrator agent's MCP tools", () => {
     it("offers the allowed tools of the tracker server", () =>
       connectedMcp(async ({ tools }) => {

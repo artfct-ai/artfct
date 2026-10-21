@@ -50,9 +50,8 @@ export const MUTANTS: Mutant[] = [
     id: "W3",
     invariant: "workflowLifecycle::nothingReopensAFinishedWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (workflow.store.workflowFinished()) {\n    await replyFinished",
-    replace:
-      '  if (workflow.store.workflowFinished() && event.kind !== "prompt") {\n    await replyFinished',
+    find: "  return workflow.store.workflowFinished() && !asksTheAgent(event);\n",
+    replace: "  return workflow.store.workflowFinished() && !isMessage(event);\n",
   },
   {
     id: "W4",
@@ -597,28 +596,6 @@ export const MUTANTS: Mutant[] = [
     replace: "    if (carried === null) {\n      continue;\n      sent.notes.push(\n",
   },
   {
-    id: "R1",
-    invariant: "routerBindings::messageAfterEndStartsNextWorkflow (claim)",
-    path: "src/router/deliver.ts",
-    find: "    if (!claimWon) return follow(",
-    replace: "    if (!(claimWon || true)) return follow(",
-  },
-  {
-    id: "R2",
-    invariant: "routerBindings::messageAfterEndStartsNextWorkflow (bind all)",
-    path: "src/router/deliver.ts",
-    find: "    if (index === claimedIndex) continue;\n    const previous = bound.workflowId;",
-    replace:
-      "    if (index === claimedIndex || true) continue;\n    const previous = bound.workflowId;",
-  },
-  {
-    id: "R3",
-    invariant: "routerBindings::aDeliveryLeavesTheBindingsOfARunningWorkflow",
-    path: "src/router/deliver.ts",
-    find: "    const previous = bound.workflowId;",
-    replace: "    const previous = await findBinding(db, bound.binding);",
-  },
-  {
     id: "R4",
     invariant: "routerBindings::oneRunningWorkflowHasAJobOnAnIssue (moved binding)",
     path: "src/agent/tools/start/start.ts",
@@ -640,13 +617,6 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (!end.posted)",
   },
   {
-    id: "W420",
-    invariant: "routerBindings::aPersonsEventCreatesTheWorkflowItFindsUncreated",
-    path: "src/router/deliver.ts",
-    find: "        return isPersonsStartOrMessage(event)\n",
-    replace: "        return false\n",
-  },
-  {
     id: "W421",
     invariant: "routerBindings::aRecordedPullRequestIsBoundToItsWorkflow",
     path: "src/workflow/artifact.ts",
@@ -655,33 +625,65 @@ export const MUTANTS: Mutant[] = [
       "  workflow.store.upsertArtifact({\n    job_id: task.job_id,\n    kind,\n    external_url: target.url,\n    ref: target.ref,\n  });\n  if (binding) await bindWorkflow(workflow, binding);\n",
   },
   {
-    id: "W422",
-    invariant: "routerBindings::aBindingStaysBoundThroughItsDeliveries",
-    path: "src/db/bindings.ts",
-    find: "  await db.batch([unbind, ...restores, markFailed]);\n",
-    replace: "  await db.batch([unbind, markFailed]);\n",
-  },
-  {
-    id: "W423",
-    invariant: "routerBindings::aWorkflowHearsOfItsPredecessor (takeover drops it)",
+    id: "W540",
+    invariant: "routerBindings::aDeliveryNeverCreatesAWorkflow",
     path: "src/router/deliver.ts",
-    find: "    event,\n    taken.predecessorId,\n",
-    replace: "    event,\n    null,\n",
+    find: '  if (event.kind === "start") await recordConversation(db, place);\n',
+    replace:
+      '  if (event.kind === "start") {\n    await recordConversation(db, place);\n    const { writeWorkflowRow } = await import("../db/workflows");\n    await writeWorkflowRow(db, { workflow_id: `wf_${event.id}`, conversation_id: await conversationIdOf(place), status: "running" });\n  }\n',
   },
   {
-    id: "W424",
-    invariant:
-      "routerBindings::aDeliveryLeavesTheBindingsOfARunningWorkflow (unconditional abandon)",
-    path: "src/db/bindings.ts",
-    find: "      exists(whileNew),\n    ),\n  );\n",
-    replace: "    ),\n  );\n",
-  },
-  {
-    id: "W428",
-    invariant: "routerBindings::aWorkflowHearsOfItsPredecessor (claim records none)",
+    id: "W541",
+    invariant: "routerBindings::anEventReachesItsBoundOrPlaceConversation (place first)",
     path: "src/router/deliver.ts",
-    find: "    const claimWon = predecessorId\n",
-    replace: "    const claimWon = false\n",
+    find: '  const bound = await findBoundConversation(db, event.bindings);\n  if (bound) return { kind: "deliver", conversationId: bound };\n  const { place } = event;\n',
+    replace:
+      '  const { place } = event;\n  const bound = place ? null : await findBoundConversation(db, event.bindings);\n  if (bound) return { kind: "deliver", conversationId: bound };\n',
+  },
+  {
+    id: "W542",
+    invariant: "routerBindings::anEventReachesItsBoundOrPlaceConversation (known reply dropped)",
+    path: "src/router/deliver.ts",
+    find: "  else if (!(await conversationRecorded(db, place))) {\n",
+    replace: "  else if (!(await conversationRecorded(db, place)) || true) {\n",
+  },
+  {
+    id: "W543",
+    invariant: "routerBindings::anEndedWorkflowKeepsNoBinding (code host bindings only)",
+    path: "src/db/bindings.ts",
+    find: "  await db.delete(bindings).where(eq(bindings.workflow_id, workflowId));\n",
+    replace:
+      '  await db\n    .delete(bindings)\n    .where(and(eq(bindings.workflow_id, workflowId), eq(bindings.source, "code_pull")));\n',
+  },
+  {
+    id: "W544",
+    invariant: "routerBindings::anEndedWorkflowKeepsNoBinding (claim of an unbound object)",
+    path: "src/db/bindings.ts",
+    find: "      .select(liveBindingRow(db, binding, claim.workflowId))\n      .onConflictDoNothing()\n",
+    replace:
+      "      .values({\n        source: binding.source,\n        external_id: externalId(binding),\n        repo: repoOf(binding),\n        workflow_id: claim.workflowId,\n        created_at: nowIso(),\n      })\n      .onConflictDoNothing()\n",
+  },
+  {
+    id: "W545",
+    invariant: "routerBindings::anEndedWorkflowKeepsNoBinding (claim of a bound object)",
+    path: "src/db/bindings.ts",
+    find: "      and(bindingKeyIs(binding), eq(bindings.workflow_id, claim.previous), exists(liveClaimer)),\n",
+    replace: "      and(bindingKeyIs(binding), eq(bindings.workflow_id, claim.previous)),\n",
+  },
+  {
+    id: "W546",
+    invariant: "routerBindings::anEndedWorkflowKeepsNoBinding (bind of a pull request)",
+    path: "src/db/bindings.ts",
+    find: "    .select(liveBindingRow(db, binding, workflowId))\n    .onConflictDoUpdate({\n",
+    replace:
+      "    .values({\n      source: binding.source,\n      external_id: externalId(binding),\n      repo: repoOf(binding),\n      workflow_id: workflowId,\n      created_at: nowIso(),\n    })\n    .onConflictDoUpdate({\n",
+  },
+  {
+    id: "W547",
+    invariant: "routerBindings::theRouterRowMatchesTheWorkflowEnd (late running write)",
+    path: "src/db/workflows.ts",
+    find: "      setWhere: notInArray(workflows.status, FINISHED_WORKFLOW_STATUSES),\n",
+    replace: "",
   },
   {
     id: "F1",
@@ -961,34 +963,6 @@ export const MUTANTS: Mutant[] = [
     path: "src/router/chat-ack.ts",
     find: "  }, delayMs);",
     replace: "  }, delayMs / 2);",
-  },
-  {
-    id: "W172",
-    invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated",
-    path: "src/workflow/inbound/events.ts",
-    find: '  if (!workflow.store.conversation()) return { refused: "not_created" };\n',
-    replace: "  if (!workflow.store.conversation()) return null;\n",
-  },
-  {
-    id: "W173",
-    invariant: "routerBindings::aPersonsMessageNeverReachesAnEndedWorkflow",
-    path: "src/workflow/inbound/events.ts",
-    find: "  if (!workflow.store.workflowFinished() || !isMessage(event)) return null;",
-    replace: '  if (!workflow.store.workflowFinished() || event.kind !== "start") return null;',
-  },
-  {
-    id: "W174",
-    invariant: "routerBindings::anAbandonedWorkflowKeepsNoBinding",
-    path: "src/db/bindings.ts",
-    find: "  await db.batch([unbind, ...restores, markFailed]);\n",
-    replace: "  await db.batch([...restores, markFailed]);\n",
-  },
-  {
-    id: "W175",
-    invariant: "routerBindings::anEndedWorkflowKeepsNoCodeHostBinding",
-    path: "src/workflow/lifecycle.ts",
-    find: 'const CODE_SOURCES: BindingSource[] = ["code_branch", "code_pull"];',
-    replace: 'const CODE_SOURCES: BindingSource[] = ["code_branch"];',
   },
   {
     id: "W176",
@@ -2285,9 +2259,9 @@ export const MUTANTS: Mutant[] = [
     id: "W405",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow (a message during an end)",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (!workflow.store.workflowFinished()) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n",
+    find: "  if (!answeredAsFinished(workflow, event)) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n",
     replace:
-      '  if (isMessage(event) && workflow.store.workflowRow()?.status === "ending")\n    await changeWorkflowStatus(workflow, "running");\n  if (!workflow.store.workflowFinished()) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n',
+      '  if (isMessage(event) && workflow.store.workflowRow()?.status === "ending")\n    await changeWorkflowStatus(workflow, "running");\n  if (!answeredAsFinished(workflow, event)) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n',
   },
   {
     id: "W395",

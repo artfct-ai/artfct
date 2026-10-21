@@ -2,11 +2,11 @@
 import type { Actor, InboundEvent } from "./inbound";
 import type { BindingSource } from "./sources";
 
-/** Acknowledgement returned by every Workflow RPC that takes an event. */
-export type RpcAck = { ok: true; workflow_id?: string; duplicate?: boolean };
+/** Acknowledgement returned by every Conversation RPC that takes an event. */
+export type RpcAck = { ok: true; duplicate?: boolean };
 
-/** Lifecycle of one workflow. It is `new` until the plan that names its workflow definition. */
-export type WorkflowStatus = "new" | "running" | "waiting_input" | "done" | "cancelled" | "failed";
+/** Lifecycle of one workflow, from the plan or firing that creates it. */
+export type WorkflowStatus = "running" | "waiting_input" | "done" | "cancelled" | "failed";
 
 /** Lifecycle of one coding task. The board renders one column per status. */
 export const TASK_STATUSES = [
@@ -87,9 +87,9 @@ export type IdentityQuery =
   | { source: "code"; user: CodeUser }
   | { source: "documents"; user: ExternalUser };
 
-/** What happened to a delivered event. `joined` means a start event landed on an existing workflow. */
+/** What happened to a delivered event: the conversation it reached, a drop, or a base move fan-out. */
 export type Delivery =
-  | { workflow_id: string; created: boolean; joined?: boolean; result: RpcAck }
+  | { conversation_id: string; result: RpcAck }
   | { dropped: string }
   | { fanned_out: number; results: RpcAck[] };
 
@@ -104,17 +104,18 @@ export type LinearInstallResult =
   | { installed: true; organization: string; app_user_id: string }
   | { installed: false; error: string };
 
-/** One binding as listed for admins. */
+/** One binding as listed for admins, with the conversation of the workflow that owns it. */
 export type BindingRecord = {
   source: BindingSource;
   external_id: string;
   workflow_id: string;
+  conversation_id: string;
   created_at: string;
 };
 
 /** The RPC surface of the orchestrator Worker. Ingress calls it through a service binding. */
 export interface OrchestratorRpc {
-  /** Route an event to its workflow, or start one. */
+  /** Route an event to the conversation a binding or its place leads to, or drop it. */
   deliver(event: InboundEvent): Promise<Delivery>;
   /** Resolve an external user to an authorized actor, or null. */
   resolveActor(query: IdentityQuery): Promise<Actor | null>;
@@ -122,12 +123,13 @@ export interface OrchestratorRpc {
   trackerWorkspace(): Promise<string | null>;
   /** The status summary of a workflow. Null when the id names a workflow that was never created. */
   status(workflowId: string): Promise<WorkflowSummary | null>;
-  debug(workflowId: string): Promise<unknown>;
+  /** The debug dump of one conversation's Durable Object. */
+  debug(conversationId: string): Promise<unknown>;
   bindings(): Promise<BindingRecord[]>;
   /** A fresh Linear authorize link for an app-actor install. The state inside it works once. */
   linearInstallUrl(input: { redirect_uri: string }): Promise<LinearInstallLink>;
   /** Complete an install from the OAuth callback: spend the state, exchange the code, store tokens. */
   linearInstall(input: LinearInstallInput): Promise<LinearInstallResult>;
-  /** Carries the bridge WebSocket upgrade to the Workflow Durable Object that owns the socket. */
+  /** Carries the bridge WebSocket upgrade to the Conversation Durable Object that owns the socket. */
   fetch(request: Request): Promise<Response>;
 }

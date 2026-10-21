@@ -1,8 +1,8 @@
-import type { BindingSource } from "@artfct-ai/contracts/sources";
+import type { BindingSource, ConversationPlace } from "@artfct-ai/contracts/sources";
 import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 import { index, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-/** External ids that route inbound events to a workflow. */
+/** Objects a workflow works on, each routing events to the conversation of the workflow that owns it. */
 export const bindings = sqliteTable(
   "bindings",
   {
@@ -18,21 +18,27 @@ export const bindings = sqliteTable(
   ],
 );
 
-/** One row per workflow with its lifecycle status. The router reads the status. */
+/** One row per place that has a conversation. The conversation id is derived from the place. */
+export const conversations = sqliteTable(
+  "conversations",
+  {
+    source: text().$type<ConversationPlace["source"]>().notNull(),
+    external_id: text().notNull(),
+    created_at: text().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.source, table.external_id] })],
+);
+
+/**
+ * One row per workflow from its creation, with the conversation that holds it and its status. The
+ * router, the status call, and the sandbox bridge read it.
+ */
 export const workflows = sqliteTable("workflows", {
   workflow_id: text().primaryKey(),
+  conversation_id: text().notNull(),
   status: text().$type<WorkflowStatus>().notNull(),
   created_at: text().notNull(),
   updated_at: text().notNull(),
-});
-
-/**
- * The predecessor of each workflow a person's message started on a binding whose workflow ended.
- * A takeover of the create reads it, so the workflow still hears of its predecessor.
- */
-export const workflowPredecessors = sqliteTable("workflow_predecessors", {
-  workflow_id: text().primaryKey(),
-  predecessor_id: text().notNull(),
 });
 
 /**

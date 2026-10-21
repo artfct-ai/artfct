@@ -470,9 +470,6 @@ export class FakeRuntime implements WorkflowRuntime {
 export function openFakeConversation(workflow: WorkflowRuntime): void {
   workflow.store.openConversation({
     conversation_id: FAKE_WORKFLOW_ID,
-    request_title: "",
-    request_text: "",
-    request_links: [],
     origin: null,
   });
 }
@@ -497,7 +494,9 @@ export const FAKE_PLANNED_WORKFLOW_ID = "wf_planned";
  */
 export function patchPlan(
   workflow: WorkflowRuntime,
-  patch: Partial<Pick<WorkflowRow, "definition" | "name" | "reason" | "repo">>,
+  patch: Partial<
+    Pick<WorkflowRow, "definition" | "name" | "reason" | "repo" | "request_text" | "request_links">
+  >,
 ): void {
   if (workflow.store.activeWorkflow()) {
     workflow.store.updateWorkflow(patch);
@@ -509,6 +508,8 @@ export function patchPlan(
     name: "",
     reason: "",
     repo: null,
+    request_text: "",
+    request_links: [],
     subject: null,
     ...patch,
   });

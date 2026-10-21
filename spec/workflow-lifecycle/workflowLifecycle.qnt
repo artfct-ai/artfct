@@ -2517,9 +2517,11 @@ module workflowLifecycle {
   }
 
   /// A person writes a message in the chat thread. It wakes a sleeping workflow whose end has not
-  /// started.
+  /// started. Once the end started, it changes nothing and goes to the agent, which may plan the
+  /// next workflow of the conversation.
   action personWrites: bool =
-    move(eventHandled(workflow, untold(if (hasEnded(workflow)) workflow else messageWakes(workflow))), MessageStep)
+    if (hasEnded(workflow)) move({ flow: workflow, told: true }, MessageStep)
+    else move(eventHandled(workflow, untold(messageWakes(workflow))), MessageStep)
 
   /// A person's message in the session of the subject issue goes to its author as a prompt while
   /// the author runs. Only a workflow from a tracker origin has that session.
@@ -3008,13 +3010,14 @@ module workflowLifecycle {
     })
 
   /// On a workflow whose end started, no event changes the status, the tasks, or the prompts. An
-  /// event on such a workflow does not tell the agent.
+  /// event on such a workflow does not tell the agent, except a person's message, which the agent
+  /// answers.
   pure def leavesAFinishedWorkflow(step: Transition): bool =
     (isEventStep(step.kind) and hasEnded(step.before)) implies and {
       step.after.status == step.before.status,
       step.after.jobs.length() == step.before.jobs.length(),
       promptsSentToTasks(step.after) == promptsSentToTasks(step.before),
-      not(step.toldTheAgent),
+      step.kind == MessageStep or not(step.toldTheAgent),
     }
 
   /// An alarm of an older sandbox generation, or of a model turn the author no longer holds,
@@ -3800,7 +3803,8 @@ module workflowLifecycle {
       not(hasUnfinishedTask(workflow))
 
   /// On a workflow whose end started, no event changes the status, the tasks, or the prompts. An
-  /// event on such a workflow does not tell the agent.
+  /// event on such a workflow does not tell the agent, except a person's message, which the agent
+  /// answers.
   val nothingReopensAFinishedWorkflow: bool = lastStepKept.nothingReopensAFinishedWorkflow
 
   /// An alarm of an older sandbox generation changes nothing. A stale alarm does not tell the

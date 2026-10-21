@@ -644,8 +644,8 @@ class RevisionHeldComments extends FakeDocuments {
 }
 
 /**
- * The fake runtime as the Workflow wires agent turns: `tellAgent` queues the text and runs the
- * turn in the turn lane, as the Workflow does. The posts and the release that close a turn wait
+ * The fake runtime as the Conversation wires agent turns: `tellAgent` queues the text and runs the
+ * turn in the turn lane, as the Conversation does. The posts and the release that close a turn wait
  * for the replay.
  */
 class ReplayRuntime extends FakeRuntime {
@@ -1006,7 +1006,7 @@ export class AgentTurnsReplay {
     const [first, ...rest] = models;
     if (!first) throw new Error("the trace configured no decisions model");
     const ledger = new ReplayLedger([first, ...rest]);
-    const stub = env.Workflow.getByName(`agent-turns-replay-${replays}`);
+    const stub = env.Conversation.getByName(`agent-turns-replay-${replays}`);
     const realSetTimeout = globalThis.setTimeout;
     const realClearTimeout = globalThis.clearTimeout;
     await runInDurableObject(stub, async (_instance, state) => {
@@ -1222,8 +1222,8 @@ export class AgentTurnsReplay {
     const body = `Fix the flaky test with ${NAMED_MODEL} (inbox ${id}).${LONG_DETAIL}`;
     const from: WroteFrom =
       target.source === "chat"
-        ? { body, reply_to: target, chat_message: { channel: target.channel, message } }
-        : { body, reply_to: target };
+        ? { body, links: [], reply_to: target, chat_message: { channel: target.channel, message } }
+        : { body, links: [], reply_to: target };
     if (target.source === "chat") {
       await this.runtime.notifier.acknowledge(target, { message, user: "U1" }, "Replay");
     }

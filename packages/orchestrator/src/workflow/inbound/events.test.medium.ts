@@ -5,7 +5,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { Notifier, type ChannelClients, type PostOptions } from "../../notify/notifier";
-import type { Workflow } from "../../workflow";
+import type { Conversation } from "../../conversation";
 import { failWorkflow } from "../lifecycle";
 import { type Scenario, scenario } from "../../../test/scenario";
 import { startWorkflow } from "../../../test/fresh-workflow";
@@ -13,7 +13,7 @@ import { jobInputKey } from "../store/input-key";
 
 type Outbox = Array<{ kind: string; payload: Record<string, unknown> }>;
 
-async function outboxOf(workflow: Workflow): Promise<Outbox> {
+async function outboxOf(workflow: Conversation): Promise<Outbox> {
   const debug = (await workflow.debug()) as { outbox: Outbox };
   return debug.outbox;
 }
@@ -67,16 +67,13 @@ const prClosed: InboundEvent = {
 
 let opened = 0;
 
-function createdFrom(
-  event: InboundEvent,
-  endedWorkflowId: string | null = null,
-): Scenario<Workflow> {
+function createdFrom(event: InboundEvent): Scenario<Conversation> {
   return async (run) => {
     opened += 1;
     const name = `wf_events_${opened}`;
-    const stub = env.Workflow.getByName(name);
+    const stub = env.Conversation.getByName(name);
     await runInDurableObject(stub, async (workflow) => {
-      await workflow.create(name, event, endedWorkflowId);
+      await workflow.handle(name, event);
       await workflow.settle();
       await run(workflow);
     });
@@ -85,13 +82,17 @@ function createdFrom(
 
 const freshWorkflow = createdFrom(start);
 
+function deliver(workflow: Conversation, event: InboundEvent) {
+  return workflow.handle(workflow.store.requireConversation().conversation_id, event);
+}
+
 const plannedWorkflow = scenario(freshWorkflow, startWorkflow);
 
-function firstTaskId(workflow: Workflow): string {
+function firstTaskId(workflow: Conversation): string {
   return `${workflow.store.requireConversation().conversation_id}.1`;
 }
 
-function firstJobId(workflow: Workflow): string {
+function firstJobId(workflow: Conversation): string {
   return `${workflow.store.requireConversation().conversation_id}-1`;
 }
 
@@ -124,14 +125,14 @@ describe("the subject of the workflow a plan creates", () => {
 describe("acknowledge", () => {
   describe("a start from a Slack thread, then a prompt and a repeat of it", () => {
     const prompted = scenario(freshWorkflow, async (workflow) => {
-      await workflow.handle({
+      await deliver(workflow, {
         ...start,
         id: "evt-prompt",
         kind: "prompt",
         text: "also add a test",
         acknowledge: { message: "1.5", user: "U1" },
       });
-      await workflow.handle({ ...start, id: "evt-prompt", kind: "prompt" });
+      await deliver(workflow, { ...start, id: "evt-prompt", kind: "prompt" });
     });
 
     it("marks each Slack message as received once, before the agent is told", () =>
@@ -139,7 +140,7 @@ describe("acknowledge", () => {
         const acks = (await outboxOf(workflow)).filter((entry) => entry.kind === "acknowledge");
         expect(acks.map((entry) => entry.payload)).toEqual([
           { message: "1.0", user: "U1", title: "fix the flaky test" },
-          { message: "1.5", user: "U1", title: "fix the flaky test" },
+          { message: "1.5", user: "U1" },
         ]);
       }));
   });
@@ -147,7 +148,7 @@ describe("acknowledge", () => {
   describe("a message after the plan named the workflow", () => {
     const named = scenario(freshWorkflow, async (workflow) => {
       patchPlan(workflow, { name: "Flaky checkout test" });
-      await workflow.handle({
+      await deliver(workflow, {
         ...start,
         id: "evt-named",
         kind: "prompt",
@@ -167,20 +168,14 @@ describe("acknowledge", () => {
   });
 
   describe("a bare mention, which Slack maps to an empty title and empty text", () => {
-    let recorder: RecordingNotifier;
     const bare = createdFrom({ ...start, id: "evt-bare", title: "", text: "" });
 
-    it("titles the request rather than storing the empty string", () =>
-      bare((workflow) => {
-        expect(workflow.store.requireConversation().request_title).toBe("task");
-      }));
-
-    it("sends that title to Slack, never an empty one", () =>
+    it("titles the thread rather than sending Slack the empty string", () =>
       bare(async (workflow) => {
-        recorder = new RecordingNotifier(NO_CHANNELS, () => {});
-        workflow.notifier = recorder;
-        await workflow.release();
-        expect(recorder.releases).toEqual([{ finished: false, title: "task" }]);
+        const acks = (await outboxOf(workflow)).filter((entry) => entry.kind === "acknowledge");
+        expect(acks.map((entry) => entry.payload)).toEqual([
+          { message: "1.0", user: "U1", title: "task" },
+        ]);
       }));
   });
 
@@ -203,7 +198,7 @@ describe("release", () => {
     let kinds: string[];
     const handled = scenario(freshWorkflow, async (workflow) => {
       const before = (await outboxOf(workflow)).length;
-      await workflow.handle({
+      await deliver(workflow, {
         ...start,
         id: "evt-review",
         kind: "feedback",
@@ -224,7 +219,7 @@ describe("release", () => {
     let kinds: string[];
     const handled = scenario(plannedWorkflow, async (workflow) => {
       const before = (await outboxOf(workflow)).length;
-      await workflow.handle({
+      await deliver(workflow, {
         ...start,
         id: "evt-cancel",
         kind: "prompt",
@@ -266,18 +261,18 @@ const humanReview: InboundEvent = {
   pull: humanReviewPull,
 };
 
-async function logOf(workflow: Workflow): Promise<string[]> {
+async function logOf(workflow: Conversation): Promise<string[]> {
   const debug = (await workflow.debug()) as { log: Array<{ line: string }> };
   return debug.log.map((row) => row.line);
 }
 
-async function wakesOf(workflow: Workflow): Promise<string[]> {
+async function wakesOf(workflow: Conversation): Promise<string[]> {
   return (await logOf(workflow)).filter((line) => line.startsWith("agent wake"));
 }
 
 type Transcript = Array<{ message: { role: string; content: unknown } }>;
 
-async function inboxOf(workflow: Workflow): Promise<string[]> {
+async function inboxOf(workflow: Conversation): Promise<string[]> {
   await workflow.settle();
   const debug = (await workflow.debug()) as {
     inbox: Array<{ text: string }>;
@@ -320,13 +315,13 @@ const reviewedTask = scenario(freshWorkflow, async (workflow) => {
   });
 });
 
-type Ack = Awaited<ReturnType<Workflow["handle"]>>;
+type Ack = Awaited<ReturnType<Conversation["handle"]>>;
 
 describe("human reviews", () => {
   describe("a review that carries comments", () => {
     let ack: Ack;
     const reviewed = scenario(reviewedTask, async (workflow) => {
-      ack = await workflow.handle(humanReview);
+      ack = await deliver(workflow, humanReview);
     });
 
     it("takes the webhook", () =>
@@ -367,7 +362,7 @@ describe("human reviews", () => {
         before = (await inboxOf(workflow)).length;
         wakesBefore = await wakesOf(workflow);
         outboxBefore = await outboxOf(workflow);
-        ack = await workflow.handle(humanReview);
+        ack = await deliver(workflow, humanReview);
       });
 
       it("answers that it is a duplicate", () =>
@@ -395,7 +390,7 @@ describe("human reviews", () => {
   describe("a review whose whole content is its top level body", () => {
     let ack: Ack;
     const reviewed = scenario(reviewedTask, async (workflow) => {
-      ack = await workflow.handle({
+      ack = await deliver(workflow, {
         ...humanReview,
         id: "github:delivery-3",
         text: "This is a ton of unneeded complexity.",
@@ -438,10 +433,10 @@ describe("finished workflows", () => {
 
   describe("a message from a person", () => {
     let before: number;
-    let answer: Awaited<ReturnType<Workflow["handle"]>>;
+    let answer: Awaited<ReturnType<Conversation["handle"]>>;
     const answered = scenario(failed, async (workflow) => {
       before = (await outboxOf(workflow)).length;
-      answer = await workflow.handle({
+      answer = await deliver(workflow, {
         ...start,
         id: "evt-late-prompt",
         kind: "prompt",
@@ -455,20 +450,21 @@ describe("finished workflows", () => {
         expect(workflow.store.workflowStatus()).toBe("failed");
       }));
 
-    it("refuses it with the status, so the router starts the next workflow", () =>
+    it("takes it", () =>
       answered(() => {
-        expect(answer).toEqual({ refused: "ended", status: "failed" });
+        expect(answer).toEqual({ ok: true });
       }));
 
-    it("posts nothing", () =>
+    it("marks the message received", () =>
       answered(async (workflow) => {
-        expect((await outboxOf(workflow)).slice(before)).toEqual([]);
+        const added = (await outboxOf(workflow)).slice(before);
+        expect(added.map((entry) => entry.kind)).toContain("acknowledge");
       }));
 
-    it("tells the agent nothing", () =>
+    it("tells the agent, which may plan the next workflow in the conversation", () =>
       answered(async (workflow) => {
         const inbox = await inboxOf(workflow);
-        expect(inbox.some((text) => text.includes("keep going with the tickets"))).toBe(false);
+        expect(inbox.some((text) => text.includes("keep going with the tickets"))).toBe(true);
       }));
   });
 
@@ -476,7 +472,7 @@ describe("finished workflows", () => {
     let before: number;
     const stopped = scenario(failed, async (workflow) => {
       before = (await outboxOf(workflow)).length;
-      await workflow.handle({
+      await deliver(workflow, {
         ...start,
         id: "evt-late-stop",
         kind: "stop",
@@ -501,7 +497,7 @@ describe("finished workflows", () => {
     let before: number;
     const lateSession = scenario(failed, async (workflow) => {
       before = (await outboxOf(workflow)).length;
-      await workflow.handle({
+      await deliver(workflow, {
         ...start,
         id: "evt-late-session",
         kind: "start",
@@ -527,7 +523,7 @@ describe("finished workflows", () => {
     let before: number;
     const ignored = scenario(failed, async (workflow) => {
       before = (await outboxOf(workflow)).length;
-      await workflow.handle(prClosed);
+      await deliver(workflow, prClosed);
     });
 
     it("posts nothing", () =>
@@ -542,8 +538,8 @@ describe("finished workflows", () => {
 
     describe("then a review and a cancel, which people caused without writing to the workflow", () => {
       const stillIgnored = scenario(ignored, async (workflow) => {
-        await workflow.handle(humanReview);
-        await workflow.handle({
+        await deliver(workflow, humanReview);
+        await deliver(workflow, {
           ...start,
           id: "evt-late-cancel",
           kind: "control",
@@ -576,7 +572,7 @@ describe("finished workflows", () => {
 
       describe("then a status question", () => {
         const asked = scenario(stillIgnored, async (workflow) => {
-          await workflow.handle({
+          await deliver(workflow, {
             ...start,
             id: "evt-late-status",
             kind: "status",
@@ -605,7 +601,7 @@ describe("finished workflows", () => {
       workflow.notifier = recorder;
       await workflow.post({ type: "info", text: "working" });
       await failWorkflow(workflow, "boom");
-      await workflow.handle({ ...start, id: "evt-late-status", kind: "status", text: "status?" });
+      await deliver(workflow, { ...start, id: "evt-late-status", kind: "status", text: "status?" });
     });
 
     it("closes the Slack session once, and keeps it open for the answer", () =>
@@ -643,9 +639,9 @@ describe("the thread title between turns", () => {
       await workflow.release();
     });
 
-    it("leaves the thread on the first line the person typed", () =>
+    it("keeps the thread's title", () =>
       unplanned(() => {
-        expect(recorder.releases).toEqual([{ finished: false, title: "fix the flaky test" }]);
+        expect(recorder.releases).toEqual([{ finished: false, title: undefined }]);
       }));
   });
 });
@@ -667,7 +663,7 @@ describe("idle", () => {
     let first: string | null;
     const messaged = scenario(plannedWorkflow, async (workflow) => {
       first = workflow.store.requireWorkflowRow().idle_schedule;
-      await workflow.handle({ ...start, id: "evt-idle-prompt", kind: "prompt", text: "hi" });
+      await deliver(workflow, { ...start, id: "evt-idle-prompt", kind: "prompt", text: "hi" });
     });
 
     it("starts the idle alarm over", () =>
@@ -709,7 +705,7 @@ describe("idle", () => {
 
     describe("and then a message from a person", () => {
       const woken = scenario(slept, async (workflow) => {
-        await workflow.handle({ ...start, id: "evt-wake", kind: "prompt", text: "continue" });
+        await deliver(workflow, { ...start, id: "evt-wake", kind: "prompt", text: "continue" });
       });
 
       it("wakes the workflow up", () =>
@@ -718,24 +714,4 @@ describe("idle", () => {
         }));
     });
   });
-});
-
-describe("a workflow that follows an ended one", () => {
-  const followed = createdFrom(start, "wf_ended");
-
-  it("tells its first turn to read the thread of the ended workflow", () =>
-    followed(async (workflow) => {
-      const debug = (await workflow.debug()) as { transcript: Array<{ message: unknown }> };
-      const first = JSON.stringify(debug.transcript[0]?.message);
-      expect(first).toContain("workflow wf_ended ended here");
-      expect(first).toContain("read_channel and thread_ts=1.0");
-    }));
-});
-
-describe("a workflow that follows nothing", () => {
-  it("does not mention an earlier workflow", () =>
-    freshWorkflow(async (workflow) => {
-      const debug = (await workflow.debug()) as { transcript: Array<{ message: unknown }> };
-      expect(JSON.stringify(debug.transcript[0]?.message)).not.toContain("ended here");
-    }));
 });

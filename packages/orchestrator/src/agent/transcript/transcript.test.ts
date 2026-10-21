@@ -17,7 +17,7 @@ describe("TranscriptStore", () => {
 
   describe("two queued messages", () => {
     const queued = scenario(freshRuntime, (workflow) => {
-      workflow.transcript.enqueue("first", "message", { body: "first" });
+      workflow.transcript.enqueue("first", "message", { body: "first", links: [] });
       workflow.transcript.enqueue("second", "none");
     });
 
@@ -63,7 +63,7 @@ describe("TranscriptStore", () => {
 
       describe("with a row that arrives during the turn", () => {
         const arrived = scenario(taken, (workflow) => {
-          workflow.transcript.enqueue("third", "message", { body: "third" });
+          workflow.transcript.enqueue("third", "message", { body: "third", links: [] });
         });
 
         it("leaves it waiting for the next turn", () =>
@@ -113,6 +113,7 @@ describe("TranscriptStore", () => {
     const queued = scenario(freshRuntime, (workflow) => {
       workflow.transcript.enqueue("fix it", "message", {
         body: "fix it",
+        links: [],
         reply_to: { source: "chat", channel: "C1", thread: "1.0" },
         chat_message: { channel: "C1", message: "1.5" },
       });

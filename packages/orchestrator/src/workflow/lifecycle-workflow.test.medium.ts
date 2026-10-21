@@ -2,7 +2,13 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { claimBinding, listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
-import { type FakeRuntime, seedTask, patchStagePlan } from "../../test/fake-runtime";
+import { writeWorkflowRow } from "../db/workflows";
+import {
+  FAKE_PLANNED_WORKFLOW_ID,
+  type FakeRuntime,
+  seedTask,
+  patchStagePlan,
+} from "../../test/fake-runtime";
 import { freshDurableRuntime } from "../../test/durable-runtime";
 import { scenario } from "../../test/scenario";
 import { completeWorkflow, failWorkflow } from "./lifecycle";
@@ -12,25 +18,32 @@ const STAGES = ["design", "breakdown", "implement"];
 const db = createDb(env.DB);
 
 async function bindEverything(): Promise<void> {
+  for (const workflowId of [FAKE_PLANNED_WORKFLOW_ID, "wf_other"]) {
+    await writeWorkflowRow(db, {
+      workflow_id: workflowId,
+      conversation_id: `cv_${workflowId}`,
+      status: "running",
+    });
+  }
   await claimBinding(
     db,
-    { source: "chat_thread", external_id: "C1:1.0" },
-    { previous: null, workflowId: "wf_x" },
+    { source: "documents_page", external_id: "page1" },
+    { previous: null, workflowId: FAKE_PLANNED_WORKFLOW_ID },
   );
   await claimBinding(
     db,
     { source: "tracker_issue", external_id: "iss1" },
-    { previous: null, workflowId: "wf_x" },
+    { previous: null, workflowId: FAKE_PLANNED_WORKFLOW_ID },
   );
   await claimBinding(
     db,
     { source: "code_branch", repo: "acme/app", branch: "b" },
-    { previous: null, workflowId: "wf_x" },
+    { previous: null, workflowId: FAKE_PLANNED_WORKFLOW_ID },
   );
   await claimBinding(
     db,
     { source: "code_pull", repo: "acme/app", number: 1 },
-    { previous: null, workflowId: "wf_x" },
+    { previous: null, workflowId: FAKE_PLANNED_WORKFLOW_ID },
   );
   await claimBinding(
     db,
@@ -78,13 +91,9 @@ describe("completeWorkflow", () => {
         await completeWorkflow(workflow, "all done");
       });
 
-      it("drops the GitHub bindings and keeps the chat and issue ones", () =>
+      it("drops every binding of the workflow and keeps the other workflow's", () =>
         unbound(async () => {
-          expect(await boundSources()).toEqual([
-            "chat_thread:wf_x",
-            "code_pull:wf_other",
-            "tracker_issue:wf_x",
-          ]);
+          expect(await boundSources()).toEqual(["code_pull:wf_other"]);
         }));
     });
   });
@@ -127,13 +136,9 @@ describe("failWorkflow", () => {
       await failWorkflow(workflow, "boom");
     });
 
-    it("drops the GitHub bindings and keeps the chat and issue ones", () =>
+    it("drops every binding of the workflow and keeps the other workflow's", () =>
       unbound(async () => {
-        expect(await boundSources()).toEqual([
-          "chat_thread:wf_x",
-          "code_pull:wf_other",
-          "tracker_issue:wf_x",
-        ]);
+        expect(await boundSources()).toEqual(["code_pull:wf_other"]);
       }));
   });
 });

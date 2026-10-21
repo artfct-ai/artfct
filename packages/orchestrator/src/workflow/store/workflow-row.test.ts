@@ -15,9 +15,6 @@ const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
 
 const OPENED: NewConversation = {
   conversation_id: "wf_row",
-  request_title: "Fix the login redirect",
-  request_text: "Fix the login redirect.",
-  request_links: [],
   origin: SESSION,
 };
 
@@ -27,6 +24,8 @@ const PLANNED: NewWorkflow = {
   name: "Login redirect",
   reason: "asked",
   repo: "acme/app",
+  request_text: "Fix the login redirect.",
+  request_links: ["https://linear.app/acme/issue/ENG-1"],
   subject: { kind: "issue", issue_id: "issue-1" },
 };
 
@@ -71,11 +70,6 @@ describe("an opened conversation", () => {
       expect(store.replyTargets()).toEqual([SESSION]);
     }));
 
-  it("is named by its request title", () =>
-    opened((store) => {
-      expect(store.workflowName()).toBe("Fix the login redirect");
-    }));
-
   it("counts no task and no job", () =>
     opened((store) => {
       expect(store.taskCount()).toBe(0);
@@ -96,9 +90,13 @@ describe("a workflow a plan created", () => {
       expect(store.subject()).toEqual({ kind: "issue", issue_id: "issue-1" });
     }));
 
-  it("is named by its plan", () =>
+  it("keeps its name and the request it was created for", () =>
     created((store) => {
-      expect(store.workflowName()).toBe("Login redirect");
+      expect(store.requireWorkflowRow()).toMatchObject({
+        name: "Login redirect",
+        request_text: "Fix the login redirect.",
+        request_links: ["https://linear.app/acme/issue/ENG-1"],
+      });
     }));
 
   it("takes a later plan's name, reason and repository", () =>
@@ -123,13 +121,23 @@ describe("a workflow after the one that ended", () => {
     });
     store.startWorkflowEnd({ ends_as: "done", reason: "Merged.", answering: [], posted: true });
     store.updateWorkflow({ status: "ended" });
-    store.createWorkflow({ ...PLANNED, workflow_id: "wf_second", name: "Docs", subject: null });
+    store.createWorkflow({
+      ...PLANNED,
+      workflow_id: "wf_second",
+      name: "Docs",
+      request_text: "Now write the docs.",
+      request_links: [],
+      subject: null,
+    });
   });
 
   it("is the active workflow", () =>
     next((store) => {
-      expect(store.activeWorkflow()?.workflow_id).toBe("wf_second");
-      expect(store.workflowName()).toBe("Docs");
+      expect(store.activeWorkflow()).toMatchObject({
+        workflow_id: "wf_second",
+        name: "Docs",
+        request_text: "Now write the docs.",
+      });
     }));
 
   it("starts without the stage plan, the subject or the end of the one before", () =>

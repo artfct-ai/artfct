@@ -1,12 +1,12 @@
 import type { Harness } from "@artfct-ai/adapters/harness/types";
-import type { Binding, BindingSource } from "@artfct-ai/contracts/sources";
+import type { Binding } from "@artfct-ai/contracts/sources";
 import type { ArtifactClose, ArtifactTarget } from "../artifact/types";
 import { branchName, jobId as makeJobId, newToken, taskId as makeTaskId } from "../ids";
 import { resolveStage, type ResolvedStage } from "../config/stage";
 import { noteMessage } from "../agent/transcript/envelope";
 import { bindWorkflow as bindInDb, deleteBindings } from "../db/bindings";
 import { createDb } from "../db/client";
-import { setWorkflowStatus } from "../db/workflows";
+import { writeWorkflowRow } from "../db/workflows";
 import { TAG_TO_START_AGAIN } from "../notify/messages";
 import { dropBoardFlush, flushBoards } from "./board/board";
 import { closeAbandonedTurnFeed, STOPPED_CLOSING } from "./feed/feed";
@@ -91,7 +91,7 @@ export async function startJob(
   const { input } = options;
   const issue = input.kind === "issue" ? input.issue : null;
   const target = input.kind === "target" ? input.target : null;
-  const title = issue?.title ?? options.title ?? opened.request_title;
+  const title = issue?.title ?? options.title ?? store.requireWorkflowRow().name;
   const branch = stage.branch ? (options.continued_branch ?? branchName(jobId, title)) : null;
   const issueLinked = issue !== null && workflow.store.jobByIssue(issue.id) !== null;
   workflow.store.insertJob({
@@ -628,7 +628,7 @@ async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd):
   await writeRouterWorkflowStatus(workflow);
   if (!end.posted) await postWorkflowEnd(workflow, end);
   if (end.ends_as === "done") await completeTrackerIssues(workflow);
-  await unbindCodeHost(workflow);
+  await unbindWorkflow(workflow);
   workflow.store.updateWorkflow({ status: "ended" });
 }
 
@@ -661,10 +661,10 @@ async function completeTrackerIssues(workflow: WorkflowRuntime): Promise<void> {
   }
 }
 
-/** Point an external object (pull, branch, page) at this workflow so ingress can route to it. */
+/** Point an object the workflow works on, such as a pull request, a branch, or a page, at it. */
 export async function bindWorkflow(workflow: WorkflowRuntime, binding: Binding): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await bindInDb(db, binding, workflow.store.requireConversation().conversation_id);
+  await bindInDb(db, binding, workflow.store.requireWorkflowRow().workflow_id);
 }
 
 /** Move a workflow whose end has not started between running and waiting for input. */
@@ -678,26 +678,25 @@ export async function changeWorkflowStatus(
 }
 
 /**
- * Copy the status of the conversation's workflow to the router's row of the Durable Object, which
- * the router reads to drop machine events on a finished workflow without waking it. A resumed
- * workflow end writes it again, since an instance restart may have cut off the write.
+ * Write the active workflow's status to the router's row of it, which the router reads to route
+ * only through running workflows. The plan that creates the workflow writes it first. The start
+ * step and a resumed workflow end write it again, since an instance restart may have cut a write.
  */
 export async function writeRouterWorkflowStatus(workflow: WorkflowRuntime): Promise<void> {
+  const active = workflow.store.activeWorkflow();
+  if (!active) return;
   const db = createDb(workflow.env.DB);
-  const { conversation_id } = workflow.store.requireConversation();
-  await setWorkflowStatus(db, conversation_id, workflow.store.workflowStatus());
+  await writeWorkflowRow(db, {
+    workflow_id: active.workflow_id,
+    conversation_id: workflow.store.requireConversation().conversation_id,
+    status: workflow.store.workflowStatus(),
+  });
 }
 
-/** The bindings a workflow takes on the code host: its branches and its pull requests. */
-const CODE_SOURCES: BindingSource[] = ["code_branch", "code_pull"];
-
-/**
- * The workflow ended, whichever way, so its code host bindings go. The chat, tracker session, and
- * issue bindings stay, so a person's next message on them starts a new workflow.
- */
-async function unbindCodeHost(workflow: WorkflowRuntime): Promise<void> {
+/** The workflow ended, whichever way, so every binding it holds goes. The conversation stays. */
+async function unbindWorkflow(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await deleteBindings(db, workflow.store.requireConversation().conversation_id, CODE_SOURCES);
+  await deleteBindings(db, workflow.store.requireWorkflowRow().workflow_id);
 }
 
 /** What the agent says when the humans have been silent for `orchestrator.idle_hours`. */

@@ -8,7 +8,6 @@ import {
   fakeDocumentsOf,
   patchNestingHost,
   patchPlan,
-  seedEndedWorkflow,
   seedTask,
   type FakeRuntime,
 } from "../../../test/fake-runtime";
@@ -62,38 +61,6 @@ function addPlanStage(workflow: FakeRuntime): void {
 }
 
 describe("set_plan", () => {
-  describe("on a workflow that is done", () => {
-    let result: string;
-    const refused = scenario(freshRuntime, async (workflow) => {
-      seedEndedWorkflow(workflow, "done");
-      const { set_plan } = planTools(workflow);
-      result = toolText(
-        await set_plan.execute(
-          {
-            name: "Ship it",
-            definition: "development",
-            stages: ["design"],
-            repo: null,
-            page_parent: null,
-            reason: "more",
-          },
-          call,
-        ),
-      );
-    });
-
-    it("refuses, since a finished workflow stays finished", () =>
-      refused(() => {
-        expect(result).toBe("The workflow is done. A finished workflow stays finished.");
-      }));
-
-    it("stays done with no plan", () =>
-      refused((workflow) => {
-        expect(workflow.store.workflowStatus()).toBe("done");
-        expect(workflow.store.stagePlan()).toBeNull();
-      }));
-  });
-
   describe("a workflow definition the deployment does not hold", () => {
     let result: string;
     const named = scenario(unstartedRuntime, async (workflow) => {

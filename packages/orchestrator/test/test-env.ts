@@ -37,7 +37,7 @@ export function testEnv(): Env {
   return {
     ...testVars(),
     DB: missingBinding("DB") as Env["DB"],
-    Workflow: missingBinding("Workflow") as Env["Workflow"],
+    Conversation: missingBinding("Conversation") as Env["Conversation"],
     Sandbox: missingBinding("Sandbox") as Env["Sandbox"],
     SandboxLarge: missingBinding("SandboxLarge") as Env["SandboxLarge"],
     TEST_MIGRATIONS: [],

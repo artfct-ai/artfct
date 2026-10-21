@@ -103,8 +103,8 @@ export async function slackInbound(
 const SENDER_UNAUTHORIZED: ChatInbound = { ignore: "sender is not authorized" };
 
 /**
- * A mention starts a workflow, or joins the running one its thread is bound to. A status
- * question inside a thread only asks. A bot's mention is dropped.
+ * A mention starts its thread's conversation, or speaks in it. A status question inside a thread
+ * only asks. A bot's mention is dropped.
  */
 async function mentionEvent(event: MentionEvent, context: SlackContext): Promise<ChatInbound> {
   if (event.bot_id) return { ignore: "bot mention" };
@@ -118,7 +118,8 @@ async function mentionEvent(event: MentionEvent, context: SlackContext): Promise
       id: `slack:${context.callback.event_id}`,
       kind,
       actor,
-      bindings: [{ source: "chat_thread", external_id: `${event.channel}:${threadTs}` }],
+      bindings: [],
+      place: { source: "chat_thread", channel: event.channel, thread: threadTs },
       links: extractLinks(unwrapSlackLinks(text)),
       text: unwrapSlackLinks(text),
       title: text.split("\n")[0]?.slice(0, 120),
@@ -129,7 +130,7 @@ async function mentionEvent(event: MentionEvent, context: SlackContext): Promise
 }
 
 /**
- * Human replies inside a bound thread. Bot, system, and mention messages are dropped, and so is
+ * Human replies inside a thread. Bot, system, and mention messages are dropped, and so is
  * a reply that opens with a tag of somebody else.
  */
 async function threadReplyEvent(event: MessageEvent, context: SlackContext): Promise<ChatInbound> {
@@ -153,7 +154,8 @@ async function threadReplyEvent(event: MessageEvent, context: SlackContext): Pro
       id: `slack:${context.callback.event_id}`,
       kind: classifyPrompt(text),
       actor,
-      bindings: [{ source: "chat_thread", external_id: `${event.channel}:${event.thread_ts}` }],
+      bindings: [],
+      place: { source: "chat_thread", channel: event.channel, thread: event.thread_ts },
       links: extractLinks(text),
       text,
       reply_to: { source: "chat", channel: event.channel, thread: event.thread_ts },
@@ -162,7 +164,7 @@ async function threadReplyEvent(event: MessageEvent, context: SlackContext): Pro
   };
 }
 
-/** The configured reaction on any message in a thread is a one-word reply to the workflow bound to it. */
+/** The configured reaction on any message in a thread is a one-word reply in its thread's conversation. */
 async function reactionEvent(event: ReactionEvent, context: SlackContext): Promise<ChatInbound> {
   if (event.reaction !== context.reaction || event.item.type !== "message") {
     return { ignore: `reaction ${event.reaction}` };
@@ -176,7 +178,8 @@ async function reactionEvent(event: ReactionEvent, context: SlackContext): Promi
       id: `slack:${context.callback.event_id}`,
       kind: "prompt",
       actor,
-      bindings: [{ source: "chat_thread", external_id: `${channel}:${threadTs}` }],
+      bindings: [],
+      place: { source: "chat_thread", channel, thread: threadTs },
       links: [],
       text: `reacted with :${event.reaction}:`,
       reply_to: { source: "chat", channel, thread: threadTs },

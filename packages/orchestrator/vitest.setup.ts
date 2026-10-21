@@ -4,9 +4,9 @@ import { beforeEach } from "vitest";
 import { createDb } from "./src/db/client";
 import {
   bindings,
+  conversations,
   linearInstalls,
   linearOauthStates,
-  workflowPredecessors,
   workflows,
 } from "./src/db/schema";
 import "./test/register-config";
@@ -35,7 +35,7 @@ beforeEach(async () => {
   const db = createDb(env.DB);
   await db.delete(bindings);
   await db.delete(workflows);
-  await db.delete(workflowPredecessors);
+  await db.delete(conversations);
   await db.delete(linearInstalls);
   await db.delete(linearOauthStates);
 });

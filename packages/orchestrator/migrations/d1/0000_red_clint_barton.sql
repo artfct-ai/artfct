@@ -8,6 +8,13 @@ CREATE TABLE `bindings` (
 );
 --> statement-breakpoint
 CREATE INDEX `bindings_workflow` ON `bindings` (`workflow_id`);--> statement-breakpoint
+CREATE TABLE `conversations` (
+	`source` text NOT NULL,
+	`external_id` text NOT NULL,
+	`created_at` text NOT NULL,
+	PRIMARY KEY(`source`, `external_id`)
+);
+--> statement-breakpoint
 CREATE TABLE `linear_installs` (
 	`organization_id` text PRIMARY KEY NOT NULL,
 	`organization_name` text NOT NULL,
@@ -25,13 +32,9 @@ CREATE TABLE `linear_oauth_states` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `workflow_predecessors` (
-	`workflow_id` text PRIMARY KEY NOT NULL,
-	`predecessor_id` text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE `workflows` (
 	`workflow_id` text PRIMARY KEY NOT NULL,
+	`conversation_id` text NOT NULL,
 	`status` text NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL

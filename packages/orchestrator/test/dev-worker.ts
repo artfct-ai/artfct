@@ -2,9 +2,9 @@ import { registerConfig } from "../src/config/register-config";
 import { envSecret, type Env } from "../src/env";
 import {
   defaultServices,
-  Workflow as DeployedWorkflow,
+  Conversation as DeployedConversation,
   type WorkflowServices,
-} from "../src/workflow";
+} from "../src/conversation";
 import templateConfig from "./template-config.json";
 import { MockSandboxProvider } from "./mock-sandbox-provider";
 
@@ -25,7 +25,7 @@ export const devServices: WorkflowServices = {
   sandbox: (env) => new MockSandboxProvider(mockSandboxUrl(env)),
 };
 
-/** The Workflow of `bun run dev`. */
-export class Workflow extends DeployedWorkflow {
+/** The Conversation of `bun run dev`. */
+export class Conversation extends DeployedConversation {
   override services: WorkflowServices = { ...devServices };
 }

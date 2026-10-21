@@ -29,6 +29,7 @@ export async function linearIssueEvent(
     control: "cancel",
     actor,
     bindings: [{ source: "tracker_issue", external_id: payload.data.id }],
+    place: { source: "tracker_issue", issue_id: payload.data.id },
     links: [],
     text: `Issue moved to ${state.name}`,
   };

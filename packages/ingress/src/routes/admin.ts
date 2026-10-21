@@ -21,7 +21,7 @@ adminRoutes.get("/workflows/:id", async (ctx) => {
   return ctx.json(summary);
 });
 
-adminRoutes.get("/workflows/:id/debug", async (ctx) =>
+adminRoutes.get("/conversations/:id/debug", async (ctx) =>
   ctx.json(await ctx.env.ORCHESTRATOR.debug(ctx.req.param("id"))),
 );
 

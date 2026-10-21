@@ -44,7 +44,7 @@ function personTurn(answers: Record<string, number>): Scenario<Turned> {
         ref: { kind: "page", page_id: PAGE_ID },
       });
       const message = eventMessage(wrote, { first: false, job: null, artifact: null, notes: [] });
-      workflow.transcript.enqueue(message, "message", { body: wrote.text });
+      workflow.transcript.enqueue(message, "message", { body: wrote.text, links: [] });
       await runAgentTurn(workflow);
       await run({ workflow, model });
     });

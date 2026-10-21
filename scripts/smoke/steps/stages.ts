@@ -16,7 +16,7 @@ import {
   countOutboxMessages,
   countTurns,
   fetchBindings,
-  fetchWorkflowDebug,
+  fetchConversationDebug,
   handedOverLine,
   hasLogLine,
   hasOutboxMessage,
@@ -27,7 +27,7 @@ import {
   waitForHandoverRead,
   waitForTurns,
   waitUntil,
-  type WorkflowDebug,
+  type ConversationDebug,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
 import { authorTurnsThrough, PAGE_PARENT_ID, SELECTED_OPTION, STAGE_NAMES } from "../config";
@@ -43,12 +43,12 @@ import { postLinearWebhook } from "../webhooks";
 import { FIRST_ISSUE, FIRST_SESSION } from "./linear-start";
 
 /** Inputs for the document stages: the workflow and the task of its first stage. */
-export type DocumentStagesOptions = { workflowId: string; taskId: string };
+export type DocumentStagesOptions = { conversationId: string; taskId: string };
 
 /** What the PR steps need: the task of the PR stage and its branch. */
 export type DocumentStagesResult = { taskId: string; branch: string };
 
-type DebugTask = WorkflowDebug["tasks"][number];
+type DebugTask = ConversationDebug["tasks"][number];
 
 /** Slug of the first issue's title, as the branch name carries it. */
 const TITLE_SLUG = "eng-42-fix-login-redirect";
@@ -57,7 +57,7 @@ const TITLE_SLUG = "eng-42-fix-login-redirect";
 const ACCEPT_REPLY = "looks good, go ahead";
 
 /** A Linear status reply. */
-function isStatusReply(message: WorkflowDebug["outbox"][number]): boolean {
+function isStatusReply(message: ConversationDebug["outbox"][number]): boolean {
   return (
     message.channel === "tracker" &&
     message.kind === "response" &&
@@ -78,7 +78,7 @@ async function replyOnLinear(body: string): Promise<void> {
 }
 
 /** The task of a stage that starts in a sandbox: its researcher on the model stage, else its author. */
-function sandboxedTaskOf(debug: WorkflowDebug, stage: string): DebugTask | undefined {
+function sandboxedTaskOf(debug: ConversationDebug, stage: string): DebugTask | undefined {
   if (stage !== MODEL_DOC_STAGE) return authorTaskOf(debug, stage);
   const job = debug.jobs.find((row) => row.stage === stage);
   return debug.tasks.find((task) => task.job_id === job?.job_id && task.role === "researcher");
@@ -86,15 +86,15 @@ function sandboxedTaskOf(debug: WorkflowDebug, stage: string): DebugTask | undef
 
 /** Waits until the humans heard about a document on Linear, and checks that its page is bound. */
 async function assertDocumentAnnounced(options: {
-  workflowId: string;
+  conversationId: string;
   stage: string;
   url: string;
   pageId: string;
 }): Promise<void> {
-  const { workflowId, stage, url, pageId } = options;
+  const { conversationId, stage, url, pageId } = options;
   await waitUntil({ label: `${stage}: linear response links the document` }, async () =>
     hasOutboxMessage(
-      await fetchWorkflowDebug(workflowId),
+      await fetchConversationDebug(conversationId),
       (message) =>
         message.channel === "tracker" &&
         message.kind === "response" &&
@@ -105,12 +105,12 @@ async function assertDocumentAnnounced(options: {
   assert(
     bindings.some(
       (binding) =>
-        binding.workflow_id === workflowId &&
+        binding.conversation_id === conversationId &&
         binding.source === "documents_page" &&
         binding.external_id === pageId,
     ),
     `${stage}: notion_page binding exists`,
-    bindings.filter((binding) => binding.workflow_id === workflowId),
+    bindings.filter((binding) => binding.conversation_id === conversationId),
   );
 }
 
@@ -119,17 +119,17 @@ async function assertDocumentAnnounced(options: {
  * the announcement. A reviewed stage gets there only once its agent review ends.
  */
 async function assertDocumentRecorded(options: {
-  workflowId: string;
+  conversationId: string;
   taskId: string;
   stage: string;
   expectedTurns: number;
-}): Promise<WorkflowDebug> {
-  const { workflowId, taskId, stage, expectedTurns } = options;
+}): Promise<ConversationDebug> {
+  const { conversationId, taskId, stage, expectedTurns } = options;
   const url = docUrlForStage(stage);
   const debug = await waitUntil(
     { label: `${stage}: document recorded from agent output` },
     async () => {
-      const dump = await fetchWorkflowDebug(workflowId);
+      const dump = await fetchConversationDebug(conversationId);
       const task = taskById(dump, taskId);
       const ready = artifactOf(dump, task.job_id)?.status === "ready";
       const inReview = task.status === "in_review";
@@ -142,7 +142,7 @@ async function assertDocumentRecorded(options: {
   assertEqual(artifact.status, "ready", `${stage}: artifact status`);
   assertEqual(taskById(debug, taskId).status, "in_review", `${stage}: task status`);
   assertEqual(countTurns(debug), expectedTurns, `${stage}: one harness turn per stage so far`);
-  await assertDocumentAnnounced({ workflowId, stage, url, pageId: notionPageId(stage) });
+  await assertDocumentAnnounced({ conversationId, stage, url, pageId: notionPageId(stage) });
   return debug;
 }
 
@@ -151,11 +151,11 @@ async function assertDocumentRecorded(options: {
  * about the page once, and only after the loop closed.
  */
 async function assertPageReviewPosted(
-  workflowId: string,
+  conversationId: string,
   taskId: string,
   stage: string,
 ): Promise<void> {
-  const debug = await fetchWorkflowDebug(workflowId);
+  const debug = await fetchConversationDebug(conversationId);
   const jobId = taskById(debug, taskId).job_id;
   const onPage = (await fetchMockNotionComments()).filter(
     (comment) => comment.page_id === notionPageId(stage),
@@ -197,18 +197,18 @@ async function assertPageReviewPosted(
 }
 
 /** Asks for status on the Linear session and checks it names the plan and the running task. */
-async function assertStatusNamesStage(workflowId: string, stage: string): Promise<void> {
-  const before = await fetchWorkflowDebug(workflowId);
+async function assertStatusNamesStage(conversationId: string, stage: string): Promise<void> {
+  const before = await fetchConversationDebug(conversationId);
   const replies = countOutboxMessages(before, isStatusReply);
   const turns = countTurns(before);
   await replyOnLinear("status?");
   const debug = await waitUntil({ label: `${stage}: status posted to Linear` }, async () => {
-    const dump = await fetchWorkflowDebug(workflowId);
+    const dump = await fetchConversationDebug(conversationId);
     return countOutboxMessages(dump, isStatusReply) > replies ? dump : null;
   });
   const text = outboxText(debug.outbox.filter(isStatusReply).at(-1)!);
   assert(
-    text.includes(`Workflow ${workflowId}: running`),
+    text.includes(`Workflow ${conversationId}: running`),
     `${stage}: status names the workflow and its state`,
     text,
   );
@@ -226,20 +226,20 @@ async function assertStatusNamesStage(workflowId: string, stage: string): Promis
  * next stage's task that starts in a sandbox, once its first harness turn has ended.
  */
 async function completeAndAdvance(options: {
-  workflowId: string;
+  conversationId: string;
   taskId: string;
   stage: string;
   next: string;
   reply: string;
 }): Promise<DebugTask> {
-  const { workflowId, taskId, stage, next, reply } = options;
-  const baseline = await turnBaseline(workflowId);
+  const { conversationId, taskId, stage, next, reply } = options;
+  const baseline = await turnBaseline(conversationId);
 
   await replyOnLinear(reply);
   const advanced = await waitUntil(
     { label: `${stage}: completed and advanced to ${next}` },
     async () => {
-      const dump = await fetchWorkflowDebug(workflowId);
+      const dump = await fetchConversationDebug(conversationId);
       const done = taskById(dump, taskId).status === "done";
       const provisioned = (sandboxedTaskOf(dump, next)?.sandbox?.generation ?? 0) > 0;
       return done && provisioned ? dump : null;
@@ -266,15 +266,15 @@ async function completeAndAdvance(options: {
   const provisioned = await waitUntil(
     { label: `${next}: task provisioned and bridge said hello` },
     async () => {
-      const dump = await fetchWorkflowDebug(workflowId);
+      const dump = await fetchConversationDebug(conversationId);
       return countTaskLogLines(dump, nextTaskId, "hello fresh=true") === 1 ? dump : null;
     },
   );
   assertEqual(taskById(provisioned, nextTaskId).sandbox?.generation, 1, `${next}: task generation`);
   await assertStartsSince(0, 1, `${next}: mock sandbox saw one start`, nextTaskId);
-  await assertStartSpec({ workflowId, taskId: nextTaskId, stage: next, branch, generation: 1 });
+  await assertStartSpec({ conversationId, taskId: nextTaskId, stage: next, branch, generation: 1 });
   await waitForTurns({
-    workflowId,
+    conversationId,
     baseline,
     expected: 1,
     label: `${next}: first harness turn ended`,
@@ -283,10 +283,10 @@ async function completeAndAdvance(options: {
 }
 
 /** Checks the researcher of the model stage. Returns the job id. */
-async function assertResearchStored(workflowId: string, researcherId: string): Promise<string> {
+async function assertResearchStored(conversationId: string, researcherId: string): Promise<string> {
   const stage = MODEL_DOC_STAGE;
   const debug = await waitUntil({ label: `${stage}: research payload stored` }, async () => {
-    const dump = await fetchWorkflowDebug(workflowId);
+    const dump = await fetchConversationDebug(conversationId);
     return taskById(dump, researcherId).status === "done" ? dump : null;
   });
   const jobId = taskById(debug, researcherId).job_id;
@@ -305,12 +305,12 @@ async function assertResearchStored(workflowId: string, researcherId: string): P
 }
 
 /** Waits for the page the model-call author created and checks what the document host received. */
-async function assertModelAuthorPage(workflowId: string, jobId: string): Promise<DebugTask> {
+async function assertModelAuthorPage(conversationId: string, jobId: string): Promise<DebugTask> {
   const stage = MODEL_DOC_STAGE;
   const debug = await waitUntil(
     { label: `${stage}: the model call created the page` },
     async () => {
-      const dump = await fetchWorkflowDebug(workflowId);
+      const dump = await fetchConversationDebug(conversationId);
       return artifactOf(dump, jobId)?.status === "ready" ? dump : null;
     },
   );
@@ -345,18 +345,18 @@ async function assertModelAuthorPage(workflowId: string, jobId: string): Promise
   assertEqual(artifact.kind, "page", `${stage}: artifact kind`);
   assert(artifact.external_url.endsWith(page.id), `${stage}: artifact url`, artifact);
   const url = artifact.external_url;
-  await assertDocumentAnnounced({ workflowId, stage, url, pageId: page.id });
+  await assertDocumentAnnounced({ conversationId, stage, url, pageId: page.id });
   return author;
 }
 
 /** The job of the model stage holds the selection, and the next stage's author worked from it. */
 async function assertSelectionCarried(options: {
-  workflowId: string;
+  conversationId: string;
   jobId: string;
   nextTaskId: string;
 }): Promise<void> {
-  const { workflowId, jobId, nextTaskId } = options;
-  const debug = await fetchWorkflowDebug(workflowId);
+  const { conversationId, jobId, nextTaskId } = options;
+  const debug = await fetchConversationDebug(conversationId);
   assertEqual(
     jobById(debug, jobId).selection,
     SELECTED_OPTION,
@@ -376,26 +376,26 @@ async function assertSelectionCarried(options: {
 }
 
 /** Runs the model stage from its researcher. Returns the next stage's task. */
-async function runModelDocStage(workflowId: string, researcherId: string): Promise<DebugTask> {
+async function runModelDocStage(conversationId: string, researcherId: string): Promise<DebugTask> {
   const stage = MODEL_DOC_STAGE;
   const next = STAGE_NAMES[STAGE_NAMES.indexOf(stage) + 1]!;
-  const jobId = await assertResearchStored(workflowId, researcherId);
-  const author = await assertModelAuthorPage(workflowId, jobId);
-  await waitForHandoverRead(workflowId, jobId);
+  const jobId = await assertResearchStored(conversationId, researcherId);
+  const author = await assertModelAuthorPage(conversationId, jobId);
+  await waitForHandoverRead(conversationId, jobId);
   assertEqual(
-    countTurns(await fetchWorkflowDebug(workflowId)),
+    countTurns(await fetchConversationDebug(conversationId)),
     authorTurnsThrough(stage),
     `${stage}: one harness turn per stage so far`,
   );
-  await assertStatusNamesStage(workflowId, stage);
+  await assertStatusNamesStage(conversationId, stage);
   const nextTask = await completeAndAdvance({
-    workflowId,
+    conversationId,
     taskId: author.task_id,
     stage,
     next,
     reply: `go with ${SELECTED_OPTION}`,
   });
-  await assertSelectionCarried({ workflowId, jobId, nextTaskId: nextTask.task_id });
+  await assertSelectionCarried({ conversationId, jobId, nextTaskId: nextTask.task_id });
   return nextTask;
 }
 
@@ -403,27 +403,27 @@ async function runModelDocStage(workflowId: string, researcherId: string): Promi
 export async function runDocumentStages(
   options: DocumentStagesOptions,
 ): Promise<DocumentStagesResult> {
-  const { workflowId } = options;
+  const { conversationId } = options;
   console.log("\n2. Document stages");
   let task: DebugTask | null = null;
   let taskId = options.taskId;
   for (const [index, stage] of DOC_STAGES.entries()) {
     const next = STAGE_NAMES[index + 1]!;
     if (stage === MODEL_DOC_STAGE) {
-      task = await runModelDocStage(workflowId, taskId);
+      task = await runModelDocStage(conversationId, taskId);
       taskId = task.task_id;
       continue;
     }
     const expectedTurns = authorTurnsThrough(stage);
-    const recorded = await assertDocumentRecorded({ workflowId, taskId, stage, expectedTurns });
-    if (stage === REVIEWED_DOC_STAGE) await assertPageReviewPosted(workflowId, taskId, stage);
-    await waitForHandoverRead(workflowId, taskById(recorded, taskId).job_id);
-    await assertStatusNamesStage(workflowId, stage);
-    task = await completeAndAdvance({ workflowId, taskId, stage, next, reply: ACCEPT_REPLY });
+    const recorded = await assertDocumentRecorded({ conversationId, taskId, stage, expectedTurns });
+    if (stage === REVIEWED_DOC_STAGE) await assertPageReviewPosted(conversationId, taskId, stage);
+    await waitForHandoverRead(conversationId, taskById(recorded, taskId).job_id);
+    await assertStatusNamesStage(conversationId, stage);
+    task = await completeAndAdvance({ conversationId, taskId, stage, next, reply: ACCEPT_REPLY });
     taskId = task.task_id;
   }
   assert(task, "the PR stage has an author task", task);
-  const { branch } = jobById(await fetchWorkflowDebug(workflowId), task.job_id);
+  const { branch } = jobById(await fetchConversationDebug(conversationId), task.job_id);
   assert(branch, "the PR stage job has a branch", task);
   return { taskId, branch };
 }

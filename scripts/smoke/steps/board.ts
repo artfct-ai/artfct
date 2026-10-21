@@ -6,11 +6,11 @@
 import {
   artifactOf,
   countOutboxMessages,
-  fetchWorkflowDebug,
+  fetchConversationDebug,
   isRefinerRun,
   jobById,
   outboxText,
-  type WorkflowDebug,
+  type ConversationDebug,
   waitUntil,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
@@ -20,7 +20,7 @@ import {
   PR_STAGE_NAME,
 } from "../../../packages/orchestrator/test/smoke-config";
 
-type OutboxMessage = WorkflowDebug["outbox"][number];
+type OutboxMessage = ConversationDebug["outbox"][number];
 
 /** The one line the mock sends back on a request. The same text as `ACK_TEXT` in the mock model. */
 const ACK_TEXT = "Got it. Launching an agent now.";
@@ -55,9 +55,9 @@ function reachesHumans(message: OutboxMessage): boolean {
 }
 
 /** Runs step 8 over the whole Slack workflow. */
-export async function runBoardChecks(options: { workflowId: string }): Promise<void> {
+export async function runBoardChecks(options: { conversationId: string }): Promise<void> {
   console.log("\n8. Boards");
-  const debug = await waitForEveryHandover(options.workflowId);
+  const debug = await waitForEveryHandover(options.conversationId);
   const creates = countOutboxMessages(
     debug,
     (message) => message.channel === "board" && message.kind === "create",
@@ -92,11 +92,11 @@ export async function runBoardChecks(options: { workflowId: string }): Promise<v
  * Waits until the thread heard about every artifact of the workflow. Step 11 ends once the pull
  * request exists, while its refiners may still hold it.
  */
-function waitForEveryHandover(workflowId: string): Promise<WorkflowDebug> {
+function waitForEveryHandover(conversationId: string): Promise<ConversationDebug> {
   return waitUntil(
     { label: "the thread heard about every artifact", timeoutMs: 30_000 },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       const announced = debug.artifacts.every((artifact) =>
         debug.outbox.some(
           (message) =>
@@ -110,14 +110,14 @@ function waitForEveryHandover(workflowId: string): Promise<WorkflowDebug> {
 }
 
 /** Reviewers and polishers ran. */
-function assertRefinersRan(debug: WorkflowDebug): void {
+function assertRefinersRan(debug: ConversationDebug): void {
   const roles = new Set(debug.tasks.map((task) => task.role));
   assert(roles.has("reviewer"), "a reviewer run ran", debug.tasks);
   assert(roles.has("polisher"), "a polisher run ran", debug.tasks);
 }
 
 /** Every job a refiner worked on has a board that carries its stage's phase lines. */
-function assertReviewOnChecklist(debug: WorkflowDebug): void {
+function assertReviewOnChecklist(debug: ConversationDebug): void {
   const shown = jobsShowingPhases(debug);
   const reviewed = new Set(debug.tasks.filter(isRefinerRun).map((task) => task.job_id));
   for (const jobId of reviewed) {
@@ -135,7 +135,7 @@ function assertReviewOnChecklist(debug: WorkflowDebug): void {
  * The jobs whose board carried the phases their stage declares. The PR stage declares
  * reviewers and polishers, so it shows `review` and `polish`. The design stage shows `review`.
  */
-function jobsShowingPhases(debug: WorkflowDebug): Set<string> {
+function jobsShowingPhases(debug: ConversationDebug): Set<string> {
   const shown = new Set<string>();
   for (const edit of boardWrites(debug)) {
     const phases =
@@ -147,7 +147,7 @@ function jobsShowingPhases(debug: WorkflowDebug): Set<string> {
 }
 
 /** Every board message written, created or edited, with the job its stamp line names. */
-function boardWrites(debug: WorkflowDebug): Array<{ jobId: string; text: string }> {
+function boardWrites(debug: ConversationDebug): Array<{ jobId: string; text: string }> {
   const writes: Array<{ jobId: string; text: string }> = [];
   for (const message of debug.outbox) {
     if (message.channel !== "board" || !["create", "edit"].includes(message.kind)) continue;
@@ -167,7 +167,7 @@ function checklistLines(text: string): string[] {
 }
 
 /** A reviewer starting says nothing to a channel. The board carries the run on its own. */
-function assertReviewLoopSilent(debug: WorkflowDebug): void {
+function assertReviewLoopSilent(debug: ConversationDebug): void {
   const spoken = debug.outbox.filter(
     (message) => reachesHumans(message) && REVIEW_NARRATION.test(outboxText(message)),
   );
@@ -179,7 +179,7 @@ function assertReviewLoopSilent(debug: WorkflowDebug): void {
 }
 
 /** Every board of the job reached its channel and still holds its message. */
-function assertBoardLive(debug: WorkflowDebug, jobId: string): void {
+function assertBoardLive(debug: ConversationDebug, jobId: string): void {
   const boards = debug.boards.filter((board) => board.job_id === jobId);
   assert(boards.length >= 1, `${jobId}: board posted`, debug.boards);
   for (const board of boards) {
@@ -188,7 +188,7 @@ function assertBoardLive(debug: WorkflowDebug, jobId: string): void {
 }
 
 /** The workflow edited a board in place at least once, and reposted none. */
-function assertBoardEditedInPlace(debug: WorkflowDebug): void {
+function assertBoardEditedInPlace(debug: ConversationDebug): void {
   const edits = countOutboxMessages(
     debug,
     (message) => message.channel === "board" && message.kind === "edit",
@@ -197,7 +197,7 @@ function assertBoardEditedInPlace(debug: WorkflowDebug): void {
 }
 
 /** Before the first board, the requester heard the one line back and nothing else. */
-function assertAckFirst(debug: WorkflowDebug): void {
+function assertAckFirst(debug: ConversationDebug): void {
   const firstBoard = debug.outbox.findIndex((message) => message.channel === "board");
   assert(firstBoard >= 0, "a board was posted", debug.outbox.slice(0, 5));
   const heard = debug.outbox.slice(0, firstBoard).filter(reachesHumans).map(outboxText);
@@ -209,7 +209,10 @@ function assertAckFirst(debug: WorkflowDebug): void {
  * channel at all. The permission line marks the harness at work, after the launch reply. On a
  * stage with research the researcher's harness starts the work.
  */
-function assertQuietWindow(debug: WorkflowDebug, author: WorkflowDebug["tasks"][number]): void {
+function assertQuietWindow(
+  debug: ConversationDebug,
+  author: ConversationDebug["tasks"][number],
+): void {
   const taskId = author.task_id;
   const artifact = artifactOf(debug, author.job_id);
   assert(artifact !== undefined, `${taskId}: artifact recorded`, debug.artifacts);

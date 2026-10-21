@@ -8,7 +8,7 @@ import {
   artifactOf,
   authorTaskOf,
   fetchBindings,
-  fetchWorkflowDebug,
+  fetchConversationDebug,
   hasLogLine,
   hasOutboxMessage,
   taskById,
@@ -17,6 +17,7 @@ import {
 } from "../admin";
 import { assert, assertEqual } from "../assert";
 import { PAGE_PARENT_ID, REPO_FULL_NAME, RUN_ID, SELECTED_OPTION, STAGE_NAMES } from "../config";
+import { conversationIdOf } from "../../../packages/orchestrator/src/db/conversations";
 import { DOC_STAGES, MODEL_DOC_STAGE } from "../../../packages/orchestrator/test/smoke-config";
 import {
   SLACK_BOT_USER_ID,
@@ -32,21 +33,22 @@ const SLACK_CHANNEL = "C1";
 const MENTIONER = "U1";
 const APPROVER = "U2";
 
-/** Mentions the bot in a new thread and returns the workflow id bound to that thread. */
+/** Mentions the bot in a new thread and returns the thread's conversation once it plans a workflow. */
 async function startWorkflowFromMention(threadTs: string, text: string): Promise<string> {
   const reply = await postSlackEvent(
     slackMention({ channel: SLACK_CHANNEL, ts: threadTs, user: MENTIONER, text }),
   );
   assertEqual(reply.ok, true, "slack event acknowledged before processing");
-  const binding = await waitUntil({ label: "slack thread bound to a new workflow" }, async () => {
-    const bindings = await fetchBindings();
-    return (
-      bindings.find(
-        (row) => row.source === "chat_thread" && row.external_id === `${SLACK_CHANNEL}:${threadTs}`,
-      ) ?? null
-    );
+  const conversationId = await conversationIdOf({
+    source: "chat_thread",
+    channel: SLACK_CHANNEL,
+    thread: threadTs,
   });
-  return binding.workflow_id;
+  await waitUntil({ label: "slack thread's conversation planned a workflow" }, async () => {
+    const debug = await fetchConversationDebug(conversationId);
+    return debug.workflow !== null;
+  });
+  return conversationId;
 }
 
 /** The answer that completes a stage in the thread. */
@@ -69,23 +71,23 @@ function completingEvent(stage: string, threadTs: string): Record<string, unknow
 
 /** Answers in the thread once the humans have the document of the stage of `stageIndex`. */
 async function completeInThread(
-  workflowId: string,
+  conversationId: string,
   threadTs: string,
   stageIndex: number,
 ): Promise<void> {
   const stage = STAGE_NAMES[stageIndex]!;
   const next = STAGE_NAMES[stageIndex + 1]!;
   const started = await waitUntil({ label: `${stage} wrote its document` }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     const task = authorTaskOf(debug, stage);
     return task && artifactOf(debug, task.job_id) ? task : null;
   });
   const taskId = started.task_id;
   const jobId = started.job_id;
-  await waitForHandoverRead(workflowId, jobId);
+  await waitForHandoverRead(conversationId, jobId);
   await postSlackEvent(completingEvent(stage, threadTs));
   const accepted = await waitUntil({ label: `thread answer completed ${taskId}` }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     return taskById(debug, taskId).status === "done" ? debug : null;
   });
   assert(hasLogLine(accepted, "event prompt"), "the answer arrived as a prompt", accepted.log);
@@ -95,23 +97,25 @@ async function completeInThread(
     accepted.boards,
   );
   await waitUntil({ label: `workflow started the ${next} stage` }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     return authorTaskOf(debug, next) ?? null;
   });
 }
 
 /** The pull request of the last stage, recorded as the task artifact and bound to the workflow. */
-async function waitForPullRequest(workflowId: string): Promise<void> {
+async function waitForPullRequest(conversationId: string): Promise<void> {
   await waitUntil(
     { label: "slack workflow opened a pull request", timeoutMs: 30_000 },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       return debug.artifacts.find((row) => row.kind === "pull") ?? null;
     },
   );
   await waitUntil({ label: "the pull request is bound to the slack workflow" }, async () => {
     const bindings = await fetchBindings();
-    return bindings.some((row) => row.source === "code_pull" && row.workflow_id === workflowId);
+    return bindings.some(
+      (row) => row.source === "code_pull" && row.conversation_id === conversationId,
+    );
   });
 }
 
@@ -125,13 +129,13 @@ const GIVEN_PAGE_TEXT = "## Design\nThe notification service reads the outbox.";
 async function startRequestFromPage(): Promise<void> {
   const page = await createMockNotionPage("Notification service (design)", GIVEN_PAGE_TEXT);
   const threadTs = `17002${RUN_ID.length}.${Date.now() % 100000}`;
-  const workflowId = await startWorkflowFromMention(
+  const conversationId = await startWorkflowFromMention(
     threadTs,
     `<@${SLACK_BOT_USER_ID}> heres a design doc <${page.url}|design doc> for a new service in <https://github.com/${REPO_FULL_NAME}|acme/app>, please kick off writing a plan for it\nPage parent: ${PAGE_PARENT_ID}`,
   );
   const stage = STAGE_NAMES[1]!;
   const planned = await waitUntil({ label: "page request planned its stages" }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     return debug.stage_plan ? debug : null;
   });
   assertEqual(
@@ -140,7 +144,7 @@ async function startRequestFromPage(): Promise<void> {
     "the plan starts after the page's stage",
   );
   const job = await waitUntil({ label: `job started for ${stage} from the page` }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     return debug.jobs.find((row) => row.stage === stage) ?? null;
   });
   assertEqual(job.input_ref, { kind: "page", page_id: page.id }, "the job works from the page");
@@ -148,7 +152,7 @@ async function startRequestFromPage(): Promise<void> {
   const artifact = await waitUntil(
     { label: `${stage} wrote its page from the given page`, timeoutMs: 30_000 },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       const task = authorTaskOf(debug, stage);
       return task ? artifactOf(debug, task.job_id) : null;
     },
@@ -166,10 +170,10 @@ async function startRequestFromPage(): Promise<void> {
 }
 
 /** Runs step 11. */
-export async function runSlack(): Promise<{ workflowId: string }> {
+export async function runSlack(): Promise<{ conversationId: string }> {
   console.log("\n7. Slack");
   const threadTs = `17000${RUN_ID.length}.${Date.now() % 100000}`;
-  const workflowId = await startWorkflowFromMention(
+  const conversationId = await startWorkflowFromMention(
     threadTs,
     `<@${SLACK_BOT_USER_ID}> fix the flaky checkout test in <https://github.com/${REPO_FULL_NAME}|acme/app>\nPage parent: ${PAGE_PARENT_ID}`,
   );
@@ -178,7 +182,7 @@ export async function runSlack(): Promise<{ workflowId: string }> {
   const withDoc = await waitUntil(
     { label: "slack workflow wrote a document and replied in thread", timeoutMs: 30_000 },
     async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
+      const debug = await fetchConversationDebug(conversationId);
       const hasThreadReply = hasOutboxMessage(
         debug,
         (message) => message.channel === "chat" && message.kind === "artifact_ready",
@@ -201,9 +205,9 @@ export async function runSlack(): Promise<{ workflowId: string }> {
     withDoc.outbox,
   );
 
-  await completeInThread(workflowId, threadTs, 0);
+  await completeInThread(conversationId, threadTs, 0);
 
-  const final = await fetchWorkflowDebug(workflowId);
+  const final = await fetchConversationDebug(conversationId);
   assertEqual(final.reply_targets.length, 1, "slack workflow has one reply target");
   assertEqual(
     final.reply_targets[0],
@@ -212,9 +216,9 @@ export async function runSlack(): Promise<{ workflowId: string }> {
   );
 
   for (let index = 1; index < DOC_STAGES.length; index += 1) {
-    await completeInThread(workflowId, threadTs, index);
+    await completeInThread(conversationId, threadTs, index);
   }
-  await waitForPullRequest(workflowId);
+  await waitForPullRequest(conversationId);
   await startRequestFromPage();
-  return { workflowId };
+  return { conversationId };
 }

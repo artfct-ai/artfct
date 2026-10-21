@@ -2,7 +2,13 @@
  * Step 6. A new workflow's issue moves to Canceled in Linear. The workflow ends, its task is
  * cancelled, the sandbox is destroyed, and the Linear session does not hear about it.
  */
-import { fetchWorkflowDebug, hasOutboxMessage, outboxText, taskById, waitUntil } from "../admin";
+import {
+  fetchConversationDebug,
+  hasOutboxMessage,
+  outboxText,
+  taskById,
+  waitUntil,
+} from "../admin";
 import { assert } from "../assert";
 import { PAGE_PARENT_ID, REPO_FULL_NAME } from "../config";
 import { createWorkflowFromIssue } from "../create";
@@ -32,7 +38,7 @@ const CANCEL_ISSUE = linearIssue(
 /** Runs step 6 on a workflow of its own. */
 export async function runLinearCancel(): Promise<void> {
   console.log("\n6. Linear issue canceled");
-  const { workflowId, taskId } = await createWorkflowFromIssue({
+  const { conversationId, taskId } = await createWorkflowFromIssue({
     sessionId: CANCEL_SESSION,
     issue: CANCEL_ISSUE,
     label: "second workflow",
@@ -52,7 +58,7 @@ export async function runLinearCancel(): Promise<void> {
   assert(!("ignored" in reply), "the issue move was delivered as an event", reply);
 
   const cancelled = await waitUntil({ label: "workflow cancelled from the issue" }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     const done =
       debug.workflow?.status === "ended" &&
       debug.workflow_end?.ends_as === "cancelled" &&

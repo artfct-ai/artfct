@@ -69,10 +69,11 @@ import {
 import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
 import { postToRecipients, releaseChatThreads, showWorking } from "./workflow/posts";
 import { openWorkflowDb } from "./workflow/store/db";
-import { eventRefusalOf, handleEvent, openConversation } from "./workflow/inbound/events";
+import { deliverToConversation } from "./workflow/inbound/events";
 import {
   armWorkflowEndAlarm,
   onIdle,
+  writeRouterWorkflowStatus,
   resumeTaskEnd,
   resumeWorkflowEnd,
   type TaskEndAlarm,
@@ -97,13 +98,7 @@ import {
   settleIdleAuthors,
   TurnCoalescer,
 } from "./workflow/task/harness/turn";
-import type {
-  EventRefusal,
-  ScheduledMethod,
-  Wake,
-  WorkflowRpc,
-  WorkflowRuntime,
-} from "./workflow/types";
+import type { ConversationRpc, ScheduledMethod, Wake, WorkflowRuntime } from "./workflow/types";
 import { debugDump, summarize } from "./workflow/status";
 import { WorkflowStore, type JobRow, type TaskRow } from "./workflow/store/tasks";
 import {
@@ -167,10 +162,10 @@ export const defaultServices: WorkflowServices = {
 };
 
 /**
- * One workflow, one Durable Object. The logic lives in `./agent/*` and `./workflow/*`. This
+ * One conversation, one Durable Object. The logic lives in `./agent/*` and `./workflow/*`. This
  * class is the runtime those modules run against, plus the RPC and alarm entry points.
  */
-export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc {
+export class Conversation extends Agent<Env> implements WorkflowRuntime, ConversationRpc {
   /** Widen the Agent's protected env so the logic modules can read bindings. */
   declare public env: Env;
   store!: WorkflowStore;
@@ -210,31 +205,23 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
     );
     await armLostCallsAlarm(this);
     await armWorkflowEndAlarm(this);
+    await writeRouterWorkflowStatus(this);
     await resumeLostTurn(this);
     await provisionQueuedTasks(this);
     await settleIdleAuthors(this);
     await resumeRefinerTurnEnds(this);
   }
 
-  async create(
-    conversationId: string,
-    event: InboundEvent,
-    endedWorkflowId: string | null,
-  ): Promise<RpcAck> {
+  async handle(conversationId: string, event: InboundEvent): Promise<RpcAck> {
     await this.lifecycle.start();
-    return openConversation(this, { conversationId, event, endedWorkflowId });
+    return this.inSpan(`event ${event.kind}`, null, () => {
+      return deliverToConversation(this, { conversationId, event });
+    });
   }
 
-  async handle(event: InboundEvent): Promise<RpcAck | EventRefusal> {
+  async status(workflowId: string): Promise<WorkflowSummary | null> {
     await this.lifecycle.start();
-    const refusal = eventRefusalOf(this, event);
-    if (refusal) return refusal;
-    return this.inSpan(`event ${event.kind}`, null, () => handleEvent(this, event));
-  }
-
-  async status(): Promise<WorkflowSummary | null> {
-    await this.lifecycle.start();
-    return this.store.workflowRow() ? summarize(this) : null;
+    return this.store.workflowRow()?.workflow_id === workflowId ? summarize(this) : null;
   }
 
   async debug(): Promise<unknown> {
@@ -403,11 +390,16 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
     );
   }
 
-  /** Run one entry point in a span that names the workflow and the task, so a trace is found by either. */
+  /**
+   * Run one entry point in a span that names the conversation, its workflow, and the task, so a
+   * trace is found by any of them.
+   */
   private inSpan<Result>(name: string, taskId: string | null, run: () => Result): Result {
     return tracing.enterSpan(name, (span) => {
       const conversationId = this.store.conversation()?.conversation_id;
-      if (conversationId) span.setAttribute("workflow.id", conversationId);
+      const workflowId = this.store.workflowRow()?.workflow_id;
+      if (conversationId) span.setAttribute("conversation.id", conversationId);
+      if (workflowId) span.setAttribute("workflow.id", workflowId);
       if (taskId) span.setAttribute("task.id", taskId);
       return run();
     });
@@ -507,10 +499,12 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
 
   log(taskId: string | null, line: string): void {
     this.store.appendLog(taskId, line);
-    const workflowId = this.store.conversation()?.conversation_id ?? null;
-    const where = [workflowId, taskId].filter(Boolean).join("/");
+    const conversationId = this.store.conversation()?.conversation_id ?? null;
+    const workflowId = this.store.workflowRow()?.workflow_id ?? null;
+    const where = [conversationId, taskId].filter(Boolean).join("/");
     console.log({
       message: `[${where}] ${line}`,
+      conversation_id: conversationId,
       workflow_id: workflowId,
       task_id: taskId,
     });

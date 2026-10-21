@@ -23,9 +23,6 @@ function runtime(
   const store = new WorkflowStore(openMemoryDb());
   store.openConversation({
     conversation_id: "wf_model",
-    request_title: "",
-    request_text: "",
-    request_links: [],
     origin: null,
   });
   const slice: Pick<WorkflowRuntime, "env" | "store" | "config" | "gateway"> = {

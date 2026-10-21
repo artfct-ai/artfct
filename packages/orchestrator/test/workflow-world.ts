@@ -34,8 +34,8 @@ import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
-import { startJob, type JobIssue } from "../src/workflow/lifecycle";
-import { handleEvent, openConversation } from "../src/workflow/inbound/events";
+import { startJob, writeRouterWorkflowStatus, type JobIssue } from "../src/workflow/lifecycle";
+import { deliverToConversation, handleEvent } from "../src/workflow/inbound/events";
 import { plainText } from "../src/notify/messages";
 import { outbox } from "../src/workflow/store/schema";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
@@ -561,10 +561,9 @@ export class WorkflowWorld {
       (entry) => workflow.store.writeOutbox(entry),
     );
     if (setup.opening === "request") {
-      await openConversation(workflow, {
+      await deliverToConversation(workflow, {
         conversationId: FAKE_WORKFLOW_ID,
         event: requestEvent(ORIGINS[setup.origin]),
-        endedWorkflowId: null,
       });
       return new WorkflowWorld({
         workflow,
@@ -576,13 +575,10 @@ export class WorkflowWorld {
       });
     }
     const stage = STAGE_OF[setup.artifact];
-    workflow.patchConversation({
-      request_title: "Fix login",
-      request_text: "Fix the login redirect.",
-      origin: ORIGINS[setup.origin],
-    });
+    workflow.patchConversation({ origin: ORIGINS[setup.origin] });
     workflow.store.addReplyTarget(ORIGINS[setup.origin]);
-    patchPlan(workflow, { repo: REPO });
+    patchPlan(workflow, { name: "Fix login", request_text: "Fix the login redirect.", repo: REPO });
+    await writeRouterWorkflowStatus(workflow);
     patchStagePlan(workflow, {
       stages: [stage],
       job_slots: SLOTS,
@@ -1484,10 +1480,8 @@ export function stopEvent(
     kind: "stop",
     text: "",
     reply_to: session,
-    bindings: [
-      { source: "tracker_issue", external_id: session.issue_id },
-      { source: "tracker_session", external_id: session.session_id },
-    ],
+    bindings: [{ source: "tracker_issue", external_id: session.issue_id }],
+    place: { source: "tracker_issue", issue_id: session.issue_id },
   };
 }
 

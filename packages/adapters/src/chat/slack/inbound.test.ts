@@ -117,8 +117,9 @@ describe("slack mentions", () => {
       expect(event.links).toEqual(["https://github.com/acme/app"]);
     });
 
-    it("binds to the new thread", () => {
-      expect(event.bindings).toEqual([{ source: "chat_thread", external_id: "C1:1700.1" }]);
+    it("belongs to the conversation of the new thread", () => {
+      expect(event.bindings).toEqual([]);
+      expect(event.place).toEqual({ source: "chat_thread", channel: "C1", thread: "1700.1" });
     });
 
     it("replies in that thread", () => {
@@ -154,8 +155,9 @@ describe("slack mentions", () => {
       expect(event.kind).toBe("start");
     });
 
-    it("binds to the thread root", () => {
-      expect(event.bindings).toEqual([{ source: "chat_thread", external_id: "C1:1700.1" }]);
+    it("belongs to the conversation of the thread root", () => {
+      expect(event.bindings).toEqual([]);
+      expect(event.place).toEqual({ source: "chat_thread", channel: "C1", thread: "1700.1" });
     });
 
     it("acknowledges the mention message, not the root", () => {
@@ -474,8 +476,9 @@ describe("slack reactions", () => {
       expect(event.text).toBe("reacted with :white_check_mark:");
     });
 
-    it("binds to the reacted message", () => {
-      expect(event.bindings).toEqual([{ source: "chat_thread", external_id: "C1:1700.5" }]);
+    it("belongs to the conversation of the reacted message", () => {
+      expect(event.bindings).toEqual([]);
+      expect(event.place).toEqual({ source: "chat_thread", channel: "C1", thread: "1700.5" });
     });
 
     it("acknowledges nothing", () => {
@@ -501,8 +504,9 @@ describe("slack reactions", () => {
       expect(seen.userIds).toEqual(["U2"]);
     });
 
-    it("binds to the thread root", () => {
-      expect(event.bindings).toEqual([{ source: "chat_thread", external_id: "C1:1700.1" }]);
+    it("belongs to the conversation of the thread root", () => {
+      expect(event.bindings).toEqual([]);
+      expect(event.place).toEqual({ source: "chat_thread", channel: "C1", thread: "1700.1" });
     });
 
     it("replies in the thread root", () => {
@@ -518,7 +522,8 @@ describe("slack reactions", () => {
     it("falls back to the reacted message", async () => {
       const { chat } = fakeLookup(null);
       const event = expectEvent(await normalize(reaction, { chat }));
-      expect(event.bindings).toEqual([{ source: "chat_thread", external_id: "C1:1700.5" }]);
+      expect(event.bindings).toEqual([]);
+      expect(event.place).toEqual({ source: "chat_thread", channel: "C1", thread: "1700.5" });
     });
   });
 

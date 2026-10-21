@@ -4,8 +4,8 @@
  */
 import { ADMIN_TOKEN, INGRESS_URL, stageHasRefiners } from "./config";
 
-/** Shape of the Workflow DO debug dump served at `/admin/workflows/:id/debug`. */
-export type WorkflowDebug = {
+/** Shape of the conversation debug dump served at `/admin/conversations/:id/debug`. */
+export type ConversationDebug = {
   conversation: { conversation_id: string };
   workflow: { workflow_id: string; status: string; repo: string | null } | null;
   workflow_end: { ends_as: string } | null;
@@ -55,8 +55,13 @@ export type WorkflowDebug = {
   inbox: Array<{ id: number; at: string; text: string; wake: string }>;
 };
 
-/** One row of `/admin/bindings`. Maps an external id to a workflow. */
-export type Binding = { source: string; external_id: string; workflow_id: string };
+/** One row of `/admin/bindings`. Maps an external id to a workflow and its conversation. */
+export type Binding = {
+  source: string;
+  external_id: string;
+  workflow_id: string;
+  conversation_id: string;
+};
 
 /** Fetches an admin path and parses the JSON body. Throws on a non-2xx status. */
 export async function adminGet<T>(path: string): Promise<T> {
@@ -68,8 +73,8 @@ export async function adminGet<T>(path: string): Promise<T> {
 }
 
 /** Fetches the debug dump for one workflow. */
-export function fetchWorkflowDebug(workflowId: string): Promise<WorkflowDebug> {
-  return adminGet<WorkflowDebug>(`/workflows/${workflowId}/debug`);
+export function fetchConversationDebug(conversationId: string): Promise<ConversationDebug> {
+  return adminGet<ConversationDebug>(`/conversations/${conversationId}/debug`);
 }
 
 /** Fetches every binding row. */
@@ -78,12 +83,12 @@ export function fetchBindings(): Promise<Binding[]> {
 }
 
 /** True when any log line of the dump starts with `prefix`. */
-export function hasLogLine(debug: WorkflowDebug, prefix: string): boolean {
+export function hasLogLine(debug: ConversationDebug, prefix: string): boolean {
   return debug.log.some((entry) => entry.line.startsWith(prefix));
 }
 
 /** Number of log lines of the dump that start with `prefix`. */
-export function countLogLines(debug: WorkflowDebug, prefix: string): number {
+export function countLogLines(debug: ConversationDebug, prefix: string): number {
   return debug.log.filter((entry) => entry.line.startsWith(prefix)).length;
 }
 
@@ -91,7 +96,7 @@ export function countLogLines(debug: WorkflowDebug, prefix: string): number {
  * The log lines between the first line that starts with `from` and the first later line that
  * starts with `to`, both excluded. Throws when either is missing.
  */
-export function logLinesBetween(debug: WorkflowDebug, from: string, to: string): string[] {
+export function logLinesBetween(debug: ConversationDebug, from: string, to: string): string[] {
   const start = debug.log.findIndex((entry) => entry.line.startsWith(from));
   if (start < 0) throw new Error(`no log line starts with "${from}"`);
   const rest = debug.log.slice(start + 1);
@@ -101,18 +106,22 @@ export function logLinesBetween(debug: WorkflowDebug, from: string, to: string):
 }
 
 /** Number of log lines of one task that start with `prefix`. */
-export function countTaskLogLines(debug: WorkflowDebug, taskId: string, prefix: string): number {
+export function countTaskLogLines(
+  debug: ConversationDebug,
+  taskId: string,
+  prefix: string,
+): number {
   return debug.log.filter((entry) => entry.task_id === taskId && entry.line.startsWith(prefix))
     .length;
 }
 
 /** A reviewer or polisher run. */
-export function isRefinerRun(task: WorkflowDebug["tasks"][number]): boolean {
+export function isRefinerRun(task: ConversationDebug["tasks"][number]): boolean {
   return task.role === "reviewer" || task.role === "polisher";
 }
 
 /** Task ids of the refiner runs in the dump: its reviewers and its polishers. */
-function refinerRunIds(debug: WorkflowDebug): string[] {
+function refinerRunIds(debug: ConversationDebug): string[] {
   return debug.tasks.filter(isRefinerRun).map((task) => task.task_id);
 }
 
@@ -121,15 +130,18 @@ function refinerRunIds(debug: WorkflowDebug): string[] {
  * so a stage's task id does not follow from its position in the plan.
  */
 export function authorTaskOf(
-  debug: WorkflowDebug,
+  debug: ConversationDebug,
   stage: string,
-): WorkflowDebug["tasks"][number] | undefined {
+): ConversationDebug["tasks"][number] | undefined {
   const job = debug.jobs.find((row) => row.stage === stage);
   return debug.tasks.find((task) => task.job_id === job?.job_id && task.role === "author");
 }
 
 /** The job row with the given id. Throws when the dump has none. */
-export function jobById(debug: WorkflowDebug, jobId: string): WorkflowDebug["jobs"][number] {
+export function jobById(
+  debug: ConversationDebug,
+  jobId: string,
+): ConversationDebug["jobs"][number] {
   const job = debug.jobs.find((row) => row.job_id === jobId);
   if (!job) throw new Error(`job ${jobId} is not in the dump`);
   return job;
@@ -139,7 +151,7 @@ export function jobById(debug: WorkflowDebug, jobId: string): WorkflowDebug["job
  * Number of harness turns that have ended for the workflow, refiner runs excluded. Every turn
  * assertion in the smoke counts the work the stages did, not the refiners over that work.
  */
-export function countTurns(debug: WorkflowDebug): number {
+export function countTurns(debug: ConversationDebug): number {
   const refinerRuns = new Set(refinerRunIds(debug));
   return debug.log.filter(
     (entry) => entry.line.startsWith("turn ended") && !refinerRuns.has(entry.task_id ?? ""),
@@ -157,9 +169,12 @@ export function handedOverLine(jobId: string): string {
  * model answers only the last event it reads, so a reply read before that note is lost. A note
  * that wakes nobody waits in the inbox ahead of the reply and does no harm.
  */
-export function waitForHandoverRead(workflowId: string, jobId: string): Promise<WorkflowDebug> {
+export function waitForHandoverRead(
+  conversationId: string,
+  jobId: string,
+): Promise<ConversationDebug> {
   return waitUntil({ label: `the agent read the handover of ${jobId}` }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     const handover = debug.log.findLastIndex((entry) => entry.line === handedOverLine(jobId));
     const ready = handover >= 0 && artifactOf(debug, jobId)?.status === "ready";
     const told =
@@ -171,8 +186,8 @@ export function waitForHandoverRead(workflowId: string, jobId: string): Promise<
 }
 
 /** Reads the current turn count. Steps take this baseline before they send an event. */
-export async function turnBaseline(workflowId: string): Promise<number> {
-  return countTurns(await fetchWorkflowDebug(workflowId));
+export async function turnBaseline(conversationId: string): Promise<number> {
+  return countTurns(await fetchConversationDebug(conversationId));
 }
 
 /**
@@ -180,15 +195,15 @@ export async function turnBaseline(workflowId: string): Promise<number> {
  * than expected fail at once, because that means an event woke the harness twice.
  */
 export function waitForTurns(options: {
-  workflowId: string;
+  conversationId: string;
   baseline: number;
   expected: number;
   label: string;
-}): Promise<WorkflowDebug> {
-  const { workflowId, baseline, expected, label } = options;
+}): Promise<ConversationDebug> {
+  const { conversationId, baseline, expected, label } = options;
   const target = baseline + expected;
   return waitUntil({ label: `${label} (turn ${target})`, timeoutMs: 15_000 }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
+    const debug = await fetchConversationDebug(conversationId);
     const turns = countTurns(debug);
     if (turns > target) throw new Error(`${label}: expected ${target} turns, got ${turns}`);
     return turns === target ? debug : null;
@@ -196,7 +211,10 @@ export function waitForTurns(options: {
 }
 
 /** The task row with the given id. Throws when the dump has none. */
-export function taskById(debug: WorkflowDebug, taskId: string): WorkflowDebug["tasks"][number] {
+export function taskById(
+  debug: ConversationDebug,
+  taskId: string,
+): ConversationDebug["tasks"][number] {
   const task = debug.tasks.find((row) => row.task_id === taskId);
   if (!task) throw new Error(`task ${taskId} is not in the dump`);
   return task;
@@ -204,30 +222,30 @@ export function taskById(debug: WorkflowDebug, taskId: string): WorkflowDebug["t
 
 /** The artifact of a job, or undefined when none is recorded. */
 export function artifactOf(
-  debug: WorkflowDebug,
+  debug: ConversationDebug,
   jobId: string,
-): WorkflowDebug["artifacts"][number] | undefined {
+): ConversationDebug["artifacts"][number] | undefined {
   return debug.artifacts.find((row) => row.job_id === jobId);
 }
 
 /** Number of outbox messages matching `predicate`. */
 export function countOutboxMessages(
-  debug: WorkflowDebug,
-  predicate: (message: WorkflowDebug["outbox"][number]) => boolean,
+  debug: ConversationDebug,
+  predicate: (message: ConversationDebug["outbox"][number]) => boolean,
 ): number {
   return debug.outbox.filter(predicate).length;
 }
 
 /** True when the outbox holds a message matching `predicate`. */
 export function hasOutboxMessage(
-  debug: WorkflowDebug,
-  predicate: (message: WorkflowDebug["outbox"][number]) => boolean,
+  debug: ConversationDebug,
+  predicate: (message: ConversationDebug["outbox"][number]) => boolean,
 ): boolean {
   return debug.outbox.some(predicate);
 }
 
 /** The `body` or `text` of an outbox payload as a string. */
-export function outboxText(message: WorkflowDebug["outbox"][number]): string {
+export function outboxText(message: ConversationDebug["outbox"][number]): string {
   const text = message.payload.body ?? message.payload.text;
   return typeof text === "string" ? text : "";
 }

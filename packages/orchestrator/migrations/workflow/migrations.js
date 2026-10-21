@@ -1,5 +1,5 @@
 import journal from './meta/_journal.json';
-import m0000 from './0000_curious_the_initiative.sql';
+import m0000 from './0000_fast_devos.sql';
 
   export default {
     journal,

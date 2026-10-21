@@ -1,146 +1,82 @@
 {
   "invariants": [
-    "messageAfterEndStartsNextWorkflow",
-    "aDeliveryLeavesTheBindingsOfARunningWorkflow",
-    "aWorkflowGetsEventsOnlyOnceCreated",
-    "anAbandonedWorkflowKeepsNoBinding",
-    "anEndedWorkflowKeepsNoCodeHostBinding",
+    "aDeliveryNeverCreatesAWorkflow",
+    "anEventReachesItsBoundOrPlaceConversation",
+    "anEndedWorkflowKeepsNoBinding",
     "oneRunningWorkflowHasAJobOnAnIssue",
-    "aPersonsMessageNeverReachesAnEndedWorkflow",
     "aBaseMoveOnlyHandsTheEventOn",
     "theRouterRowMatchesTheWorkflowEnd",
-    "aPersonsEventCreatesTheWorkflowItFindsUncreated",
-    "aRecordedPullRequestIsBoundToItsWorkflow",
-    "aBindingStaysBoundThroughItsDeliveries",
-    "aWorkflowHearsOfItsPredecessor"
+    "aRecordedPullRequestIsBoundToItsWorkflow"
   ],
   "mainMinutes": {
-    "chatThread": 1.2,
-    "twoSessionsOnOneIssue": 2.6,
+    "chatThread": 1.0,
+    "issueAndThread": 2.0,
     "sessionWithPullRequest": 1.2,
-    "baseMoveFanOut": 2.1
+    "baseMoveFanOut": 2.0
   },
   "witnesses": {
     "chatThread": [
-      "aWorkflowStarted",
-      "aDeliveryJoinsAWorkflow",
-      "aDeliveryReachesAWorkflowBeforeItsCreate",
-      "aDeliveryReachesAnEndedWorkflow",
-      "aMessageAfterEndStartedTheNextWorkflow",
-      "aRetryAfterAFailedCreateFindsTheEndedWorkflow",
-      "aWorkflowWasAbandoned",
-      "aWorkflowEnded",
+      "aConversationWithoutAWorkflowIsOpen",
+      "aConversationRanTwoWorkflows",
+      "aReplyReachedItsPlace",
+      "aReplyWasDropped",
+      "aRouterDeathCutTheFirstCall",
       "aRestartCutTheEndStatusWrite",
-      "aPersonWroteAfterAnEnd",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft",
-      "aRouterDeathCutAnAbandon",
-      "anAbandonFoundATakeover",
-      "aTakeoverNamedThePredecessor"
+      "aRestartCutTheDeletes",
+      "aLateRowWriteFoundTheEnd"
     ],
-    "twoSessionsOnOneIssue": [
-      "aWorkflowStarted",
-      "aDeliveryJoinsAWorkflow",
-      "aDeliveryReachesAWorkflowBeforeItsCreate",
-      "aDeliveryReachesAnEndedWorkflow",
-      "aStartRebindsItsBindings",
-      "aWorkflowWasAbandoned",
-      "aWorkflowEnded",
-      "aRestartCutTheEndStatusWrite",
+    "issueAndThread": [
+      "aConversationWithoutAWorkflowIsOpen",
+      "aBindingLedAnEventAway",
+      "aReplyReachedItsPlace",
+      "aReplyWasDropped",
+      "anEndRemovedAnIssueBinding",
+      "aRestartCutTheDeletes",
+      "aClaimLandedAfterTheEnd",
       "aRunningWorkflowHasAJobOnTheIssue",
+      "aNextWorkflowHasAJobOnTheIssue",
       "aJobStartFindsTheIssueBoundElsewhere",
       "aJobStartFindsTheIssueBindingMoved",
-      "aPersonWroteAfterAnEnd",
-      "aStartWithoutAPersonRebinds",
-      "threeDeliveriesOverlapOnOneSurface",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft",
-      "aRouterDeathCutAnAbandon",
-      "aRouterDeathCutARebind"
+      "aRestartCutTheEndStatusWrite"
     ],
     "sessionWithPullRequest": [
-      "aWorkflowStarted",
-      "aDeliveryJoinsAWorkflow",
-      "aDeliveryReachesAWorkflowBeforeItsCreate",
-      "aDeliveryReachesAnEndedWorkflow",
-      "aStartRebindsItsBindings",
-      "aWorkflowWasAbandoned",
-      "aWorkflowEnded",
-      "aRestartCutTheEndStatusWrite",
-      "aRunningWorkflowHasAJobOnTheIssue",
+      "aBindingLedAnEventAway",
+      "aReplyReachedItsPlace",
       "thePullRequestIsBound",
-      "aPersonWroteAfterAnEnd",
-      "aStartWithoutAPersonRebinds",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft",
       "aRestartCutThePullRequestBind",
-      "aRouterDeathCutAnAbandon",
-      "aRouterDeathCutARebind"
+      "anEndRemovedAnIssueBinding",
+      "aRunningWorkflowHasAJobOnTheIssue"
     ],
     "baseMoveFanOut": [
-      "aWorkflowStarted",
-      "aDeliveryJoinsAWorkflow",
-      "aWorkflowEnded",
-      "aRestartCutTheEndStatusWrite",
       "thePullRequestIsBound",
-      "aBaseMoveFansOutToTwoWorkflows",
-      "aBaseMoveGoesOnPastAFailedCall",
-      "aRestartCutThePullRequestBind"
+      "aBaseMoveFansOutToTwoConversations",
+      "aBaseMoveGoesOnPastAFailedCall"
     ]
   },
   "maxSteps": {
     "baseMoveFanOut": 200,
-    "chatThread": 50,
-    "sessionWithPullRequest": 50,
-    "twoSessionsOnOneIssue": 80
+    "chatThread": 60,
+    "issueAndThread": 100,
+    "sessionWithPullRequest": 60
   },
   "tlc": {
     "ignoredVariables": ["stepWitnesses"],
     "bounds": {
       "chatThread": {
-        "pr": {
-          "eventsArrived": 4,
-          "workflowsCreated": 4,
-          "operationsStarted": 3
-        },
-        "nightly": {
-          "eventsArrived": 5,
-          "workflowsCreated": 5,
-          "operationsStarted": 3
-        }
+        "pr": { "eventsArrived": 3, "workflowsCreated": 2, "operationsStarted": 3 },
+        "nightly": { "eventsArrived": 4, "workflowsCreated": 3, "operationsStarted": 4 }
       },
-      "twoSessionsOnOneIssue": {
-        "pr": {
-          "eventsArrived": 2,
-          "workflowsCreated": 3,
-          "operationsStarted": 3
-        },
-        "nightly": {
-          "eventsArrived": 3,
-          "workflowsCreated": 3,
-          "operationsStarted": 3
-        }
+      "issueAndThread": {
+        "pr": { "eventsArrived": 2, "workflowsCreated": 2, "operationsStarted": 3 },
+        "nightly": { "eventsArrived": 3, "workflowsCreated": 3, "operationsStarted": 4 }
       },
       "sessionWithPullRequest": {
-        "pr": {
-          "eventsArrived": 3,
-          "workflowsCreated": 2,
-          "operationsStarted": 2
-        },
-        "nightly": {
-          "eventsArrived": 4,
-          "workflowsCreated": 4,
-          "operationsStarted": 3
-        }
+        "pr": { "eventsArrived": 3, "workflowsCreated": 2, "operationsStarted": 2 },
+        "nightly": { "eventsArrived": 4, "workflowsCreated": 3, "operationsStarted": 3 }
       },
       "baseMoveFanOut": {
-        "pr": {
-          "eventsArrived": 4,
-          "workflowsCreated": 2,
-          "operationsStarted": 2
-        },
-        "nightly": {
-          "eventsArrived": 4,
-          "workflowsCreated": 2,
-          "operationsStarted": 3
-        }
+        "pr": { "eventsArrived": 3, "workflowsCreated": 2, "operationsStarted": 3 },
+        "nightly": { "eventsArrived": 4, "workflowsCreated": 2, "operationsStarted": 4 }
       }
     }
   }

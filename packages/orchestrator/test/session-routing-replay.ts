@@ -1093,10 +1093,7 @@ export class SessionRoutingReplay {
     return {
       ...SESSION_EVENTS[said],
       reply_to: session,
-      bindings: [
-        { source: "tracker_issue", external_id: session.issue_id },
-        { source: "tracker_session", external_id: session.session_id },
-      ],
+      bindings: [{ source: "tracker_issue", external_id: session.issue_id }],
     };
   }
 

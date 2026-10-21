@@ -5,9 +5,9 @@ import type { IdentityQuery } from "@artfct-ai/contracts/types";
 import { registerConfig } from "../src/config/register-config";
 import Orchestrator from "../src/index";
 import { resolveActor } from "../src/router/identity";
-import type { WorkflowServices } from "../src/workflow";
+import type { WorkflowServices } from "../src/conversation";
 import { SMOKE_CONFIG } from "./smoke-config";
-import { testServices, Workflow as TestWorkflow } from "./worker";
+import { testServices, Conversation as TestConversation } from "./worker";
 
 export { Sandbox, SandboxLarge } from "../src/index";
 
@@ -20,8 +20,8 @@ export default class SmokeOrchestrator extends Orchestrator {
   }
 }
 
-/** The Workflow of the smoke run. Every harness is the bridge's in-process mock. */
-export class Workflow extends TestWorkflow {
+/** The Conversation of the smoke run. Every harness is the bridge's in-process mock. */
+export class Conversation extends TestConversation {
   override services: WorkflowServices = {
     ...testServices,
     harness: (_env, name) => new MockHarness(name),

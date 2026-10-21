@@ -314,10 +314,9 @@ describe("systemPrompt", () => {
     });
 
     describe("a workflow before its first plan", () => {
-      it("carries the request title", () =>
+      it("does not carry a name", () =>
         unstartedRuntime((workflow) => {
-          workflow.patchConversation({ request_title: "fix the flaky test" });
-          expect(systemPrompt(workflow, NOBODY_WROTE)).toContain("\nName: fix the flaky test\n");
+          expect(systemPrompt(workflow, NOBODY_WROTE)).toContain("\nName: none\n");
         }));
     });
   });

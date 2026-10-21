@@ -154,8 +154,11 @@ export class Notifier {
     return this.chat.permalink(channel.channel, messageId);
   }
 
-  /** Mark a chat message as received by putting the thread in its processing state. Never throws. */
-  async acknowledge(target: ChatTarget, ack: Acknowledge, title: string): Promise<void> {
+  /**
+   * Mark a chat message as received by putting the thread in its processing state. Without a
+   * title, the thread keeps the one it has. Never throws.
+   */
+  async acknowledge(target: ChatTarget, ack: Acknowledge, title?: string): Promise<void> {
     this.outbox({
       channel: "chat",
       kind: "acknowledge",
@@ -175,8 +178,11 @@ export class Notifier {
     await this.setChatSession(target, "processing", { title: text });
   }
 
-  /** Take a chat thread out of its working status after a turn with nothing to say. Never throws. */
-  async release(target: ChatTarget, finished: boolean, title: string): Promise<void> {
+  /**
+   * Take a chat thread out of its working status after a turn with nothing to say. Without a
+   * title, the thread keeps the one it has. Never throws.
+   */
+  async release(target: ChatTarget, finished: boolean, title?: string): Promise<void> {
     this.outbox({ channel: "chat", kind: "release", target, payload: { finished } });
     await this.setChatSession(target, finished ? "closed" : "active", { title });
   }

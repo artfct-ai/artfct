@@ -1,5 +1,4 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { Binding } from "@artfct-ai/contracts/sources";
 import type { ExternalUser } from "@artfct-ai/contracts/types";
 import { classifyPrompt } from "../../classify";
 import { extractLinks } from "../../links";
@@ -10,10 +9,11 @@ import type { TrackerInbound, TrackerInboundContext } from "../types";
 /** The signal Linear puts on the prompt a person sends with the Stop button. */
 const LINEAR_STOP_SIGNAL = "stop";
 
-type SessionBase = Pick<InboundEvent, "id" | "actor" | "bindings" | "reply_to">;
+type SessionBase = Pick<InboundEvent, "id" | "actor" | "bindings" | "place" | "reply_to">;
 
 /**
- * Agent session events. `created` starts a workflow and `prompted` carries a reply. A session
+ * Agent session events. `created` starts the conversation of the session's issue, or of the
+ * session when it has no issue, and `prompted` carries a reply. A session
  * the agent opened itself has no creator, so it carries no actor. An event from a user who is
  * not authorized is ignored.
  */
@@ -27,13 +27,13 @@ export async function linearAgentSessionEvent(
   const author = eventAuthor(payload);
   const actor = author ? await context.resolveActor(author) : null;
   if (author && !actor) return { ignore: "session event from a user who is not authorized" };
-  const bindings: Binding[] = [{ source: "tracker_session", external_id: session.id }];
-  if (issue?.id) bindings.push({ source: "tracker_issue", external_id: issue.id });
-
   const base: SessionBase = {
     id: await linearEventId(payload, context.deliveryId),
     actor,
-    bindings,
+    bindings: issue?.id ? [{ source: "tracker_issue", external_id: issue.id }] : [],
+    place: issue?.id
+      ? { source: "tracker_issue", issue_id: issue.id }
+      : { source: "tracker_session", session_id: session.id },
     reply_to: {
       source: "tracker",
       session_id: session.id,

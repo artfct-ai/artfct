@@ -3,8 +3,8 @@ import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { describe, expect, it } from "vitest";
 import { listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
-import { createWorkflow } from "../db/workflows";
 import {
+  FAKE_PLANNED_WORKFLOW_ID,
   FakeRuntime,
   type SeedTaskPatch,
   seedTask,
@@ -24,6 +24,7 @@ import {
   resumeTaskEnd,
   startAuthorAfterResearch,
   startJob,
+  writeRouterWorkflowStatus,
   type TaskEndAlarm,
 } from "./lifecycle";
 import { jobInputKey } from "./store/input-key";
@@ -584,9 +585,8 @@ describe("startJob", () => {
   describe("a stage the config names", () => {
     const started = acting(async (workflow) => {
       planned(workflow);
-      patchPlan(workflow, { repo: "acme/app" });
-      workflow.patchConversation({ request_title: "Fix it", request_text: "Fix it please" });
-      await createWorkflow(db, workflow.store.requireConversation().conversation_id);
+      patchPlan(workflow, { name: "Fix it", request_text: "Fix it please", repo: "acme/app" });
+      await writeRouterWorkflowStatus(workflow);
       return startJob(workflow, {
         stage: "implement",
         brief: "Make the test pass.",
@@ -652,7 +652,7 @@ describe("startJob", () => {
       started(async () => {
         const bindings = await listBindings(db);
         expect(bindings.map((row) => [row.source, row.external_id, row.workflow_id])).toEqual([
-          ["code_branch", "acme/app:artfct/wf_x-1-fix-it", "wf_x"],
+          ["code_branch", "acme/app:artfct/wf_x-1-fix-it", FAKE_PLANNED_WORKFLOW_ID],
         ]);
       }));
   });

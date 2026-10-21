@@ -43,9 +43,8 @@ export type FakeOrchestratorOptions = {
 
 /** The delivery the fake answers when a test does not choose one. */
 export const DEFAULT_DELIVERY: Delivery = {
-  workflow_id: "wf_test",
-  created: true,
-  result: { ok: true, workflow_id: "wf_test" },
+  conversation_id: "cv_test",
+  result: { ok: true },
 };
 
 /** Bindings the fake lists for admins. */
@@ -54,6 +53,7 @@ export const FAKE_BINDINGS: BindingRecord[] = [
     source: "tracker_issue",
     external_id: "iss1",
     workflow_id: "wf_test",
+    conversation_id: "cv_test",
     created_at: "2026-09-03T10:00:00.000Z",
   },
 ];
@@ -105,9 +105,9 @@ export function fakeOrchestrator(options: FakeOrchestratorOptions = {}): FakeOrc
       fake.statusIds.push(workflowId);
       return workflowId === UNCREATED_WORKFLOW_ID ? null : summaryFor(workflowId);
     },
-    async debug(workflowId) {
-      fake.debugIds.push(workflowId);
-      return { workflow_id: workflowId, debug: true };
+    async debug(conversationId) {
+      fake.debugIds.push(conversationId);
+      return { conversation_id: conversationId, debug: true };
     },
     async bindings() {
       return FAKE_BINDINGS;

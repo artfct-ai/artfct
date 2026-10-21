@@ -222,8 +222,9 @@ function validateStagesKnown(definition: WorkflowDefinition, planned: string[]):
 }
 
 async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<string> {
-  const ended = validateWorkflowRunning(workflow);
-  if (ended) return ended;
+  if (workflowEnding(workflow)) {
+    return "The workflow is ending. Once it ended, a set_plan call that names a workflow definition starts the next workflow.";
+  }
   const definitions = workflow.workflowDefinitions();
   const definition = definitions.find((declared) => declared.name === input.definition);
   if (!definition) {
@@ -274,8 +275,9 @@ function planSubject(workflow: WorkflowRuntime): Subject | null {
 }
 
 /**
- * Create the running workflow from the plan that names its definition, with the subject its origin
- * gives it, and start its idle clock. The tracker issue moves to started.
+ * Create the running workflow from the plan that names its definition, with what the turn was
+ * asked as its request and the subject its origin gives it, and start its idle clock. The tracker
+ * issue moves to started.
  */
 async function startWorkflow(
   workflow: WorkflowRuntime,
@@ -283,12 +285,15 @@ async function startWorkflow(
   input: PlanInput,
 ): Promise<void> {
   const { origin } = workflow.store.requireConversation();
+  const request = workflow.transcript.takenRequest();
   workflow.store.createWorkflow({
     workflow_id: newWorkflowId(),
     definition: definition.name,
     name: input.name,
     reason: input.reason,
     repo: input.repo ?? null,
+    request_text: request.text,
+    request_links: request.links,
     subject: originSubject(origin),
   });
   await writeRouterWorkflowStatus(workflow);

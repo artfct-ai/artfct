@@ -13,10 +13,18 @@ import { now, type ChatMessageRef } from "../../workflow/store/state";
 export type InboxRow = typeof agentInbox.$inferSelect;
 
 /**
- * What a person wrote an inbox row from: their own words, where they wait for the answer, and
- * their chat message.
+ * What a person wrote an inbox row from: their own words, the links they sent, where they wait for
+ * the answer, and their chat message.
  */
-export type WroteFrom = { body: string; reply_to?: ReplyTarget; chat_message?: ChatMessageRef };
+export type WroteFrom = {
+  body: string;
+  links: string[];
+  reply_to?: ReplyTarget;
+  chat_message?: ChatMessageRef;
+};
+
+/** What the running turn was asked, and the links people sent with it. */
+export type TurnRequest = { text: string; links: string[] };
 
 /** One persisted model message with its row id. Compaction cuts on ids. */
 export type TranscriptRow = { id: number; at: string; message: ModelMessage };
@@ -45,6 +53,7 @@ export class TranscriptStore {
         at: now(),
         text,
         body: from?.body ?? null,
+        links: from?.links ?? null,
         wake,
         reply_to: from?.reply_to ?? null,
         chat_message: from?.chat_message ?? null,
@@ -94,6 +103,17 @@ export class TranscriptStore {
   /** Where the people the running turn answers wrote from. */
   answering(): ReplyTarget[] {
     return this.takenMessages().flatMap((row) => (row.reply_to ? [row.reply_to] : []));
+  }
+
+  /** The words people wrote in the running turn's rows, else the text of every row it took. */
+  takenRequest(): TurnRequest {
+    const messages = this.takenMessages();
+    const words = messages.flatMap((row) => (row.body === null ? [] : [row.body]));
+    const prompts = words.length ? words : this.taken().map((row) => row.text);
+    return {
+      text: prompts.join("\n"),
+      links: [...new Set(messages.flatMap((row) => row.links ?? []))],
+    };
   }
 
   /** The messages people wrote that the running turn owes a reply. */

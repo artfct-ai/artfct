@@ -15,10 +15,10 @@ import type { GatewayProvider } from "../config/gateway";
 import { McpServers } from "../config/mcp-servers";
 import { createDb } from "../db/client";
 import { saveLinearInstall } from "../db/linear-installs";
-import { createWorkflow } from "../db/workflows";
 import { WORKER_SECRETS } from "../env";
 import { FakeBridge } from "../../test/fake-bridge";
 import { FakeRuntime, seedTask, patchPlan } from "../../test/fake-runtime";
+import { writeRouterWorkflowStatus } from "./lifecycle";
 import { openMemoryDb } from "../../test/memory-db";
 import {
   DEV_VAR_HANDLING,
@@ -177,7 +177,7 @@ async function startDeployment(
   const env = { ...testEnv(), ...secrets, CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", DB: d1 };
   const db = openMemoryDb();
   const workflow = new DeploymentRuntime(db, env);
-  await createWorkflow(createDb(d1), workflow.store.requireConversation().conversation_id);
+  await writeRouterWorkflowStatus(workflow);
   if (setup.linearInstalled) {
     await saveLinearInstall(createDb(d1), {
       access_token: LINEAR_ACCESS_TOKEN,

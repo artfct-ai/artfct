@@ -13,9 +13,9 @@ function randomBase32(length: number): string {
 
 /** Workflow ID. Format `wf_<base32>`. */
 export type WorkflowId = string;
-/** Task ID. Format `<workflowId>.<sequence>`. */
+/** Task ID. Format `<conversationId>.<sequence>`. */
 export type TaskId = string;
-/** Job ID. Format `<workflowId>-<sequence>`. */
+/** Job ID. Format `<conversationId>-<sequence>`. */
 export type JobId = string;
 
 /** New random workflow ID. */
@@ -23,25 +23,19 @@ export function newWorkflowId(): WorkflowId {
   return `wf_${randomBase32(10)}`;
 }
 
-/** Task IDs embed the workflow ID and a sequence number. */
-export function taskId(workflowId: WorkflowId, seq: number): TaskId {
-  return `${workflowId}.${seq}`;
+/** Task IDs embed the conversation ID and a sequence number. */
+export function taskId(conversationId: string, seq: number): TaskId {
+  return `${conversationId}.${seq}`;
 }
 
-/** The workflow ID embedded in a task ID. Null when the text is not a task ID. */
-export function workflowIdFromTaskId(id: TaskId): WorkflowId | null {
-  const match = /^(wf_[a-z2-7]+)\.\d+$/.exec(id);
-  return match?.[1] ?? null;
-}
-
-/** Job IDs embed the workflow ID and a sequence number of their own. */
-export function jobId(workflowId: WorkflowId, seq: number): JobId {
-  return `${workflowId}-${seq}`;
+/** Job IDs embed the conversation ID and a sequence number of their own. */
+export function jobId(conversationId: string, seq: number): JobId {
+  return `${conversationId}-${seq}`;
 }
 
 /** The sequence number embedded in a job ID. Null when the text is not a job ID. */
 export function sequenceFromJobId(id: JobId): number | null {
-  const match = /^wf_[a-z2-7]+-(\d+)$/.exec(id);
+  const match = /^[a-z]+_[a-z2-7]+-(\d+)$/.exec(id);
   return match?.[1] ? Number(match[1]) : null;
 }
 
@@ -70,6 +64,6 @@ export function branchName(id: JobId, title: string): string {
 /** The job ID encoded in a branch name. Null when the branch is not ours. */
 export function jobIdFromBranch(branch: string): JobId | null {
   if (!branch.startsWith(ORCHESTRATOR_BRANCH_PREFIX)) return null;
-  const match = /^(wf_[a-z2-7]+-\d+)-/.exec(branch.slice(ORCHESTRATOR_BRANCH_PREFIX.length));
+  const match = /^([a-z]+_[a-z2-7]+-\d+)-/.exec(branch.slice(ORCHESTRATOR_BRANCH_PREFIX.length));
   return match?.[1] ?? null;
 }

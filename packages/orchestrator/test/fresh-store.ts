@@ -12,9 +12,6 @@ export const plannedStore: Scenario<WorkflowStore> = (run) =>
   freshStore(async (store) => {
     store.openConversation({
       conversation_id: "wf_store",
-      request_title: "Fix the login redirect",
-      request_text: "Fix the login redirect.",
-      request_links: [],
       origin: null,
     });
     store.createWorkflow({
@@ -23,6 +20,8 @@ export const plannedStore: Scenario<WorkflowStore> = (run) =>
       name: "Login redirect",
       reason: "asked",
       repo: null,
+      request_text: "Fix the login redirect.",
+      request_links: [],
       subject: null,
     });
     await run(store);

@@ -8,7 +8,6 @@ import {
   sequenceFromJobId,
   slugify,
   taskId,
-  workflowIdFromTaskId,
 } from "./ids";
 
 describe("id generators", () => {
@@ -26,39 +25,21 @@ describe("id generators", () => {
 });
 
 describe("taskId", () => {
-  describe("a task id built from a workflow id and a sequence", () => {
-    const id = taskId("wf_abcdefghij", 3);
+  describe("a task id built from a conversation id and a sequence", () => {
+    const id = taskId("cv_abcdefghij", 3);
 
     it("joins them with a dot", () => {
-      expect(id).toBe("wf_abcdefghij.3");
-    });
-
-    it("gives the workflow id back", () => {
-      expect(workflowIdFromTaskId(id)).toBe("wf_abcdefghij");
-    });
-  });
-
-  describe("text that is not a task id", () => {
-    it("rejects a workflow id on its own", () => {
-      expect(workflowIdFromTaskId("wf_abcdefghij")).toBeNull();
-    });
-
-    it("rejects another prefix", () => {
-      expect(workflowIdFromTaskId("p_abcdefghij.1")).toBeNull();
-    });
-
-    it("rejects a sequence that is not a number", () => {
-      expect(workflowIdFromTaskId("wf_abc.x")).toBeNull();
+      expect(id).toBe("cv_abcdefghij.3");
     });
   });
 });
 
 describe("jobId", () => {
-  describe("a job id built from a workflow id and a sequence", () => {
-    const id = jobId("wf_abcdefghij", 3);
+  describe("a job id built from a conversation id and a sequence", () => {
+    const id = jobId("cv_abcdefghij", 3);
 
     it("joins them with a dash", () => {
-      expect(id).toBe("wf_abcdefghij-3");
+      expect(id).toBe("cv_abcdefghij-3");
     });
 
     it("gives the sequence back", () => {
@@ -68,7 +49,7 @@ describe("jobId", () => {
 
   describe("text that is not a job id", () => {
     it("has no sequence for a task id", () => {
-      expect(sequenceFromJobId("wf_abcdefghij.3")).toBeNull();
+      expect(sequenceFromJobId("cv_abcdefghij.3")).toBeNull();
     });
 
     it("has no sequence that is not a number", () => {
@@ -109,11 +90,11 @@ describe("slugify", () => {
 
 describe("branchName", () => {
   describe("a branch built from a job id and a title", () => {
-    const id = jobId("wf_abcdefghij", 3);
+    const id = jobId("cv_abcdefghij", 3);
     const branch = branchName(id, "Fix the Login Bug!");
 
     it("carries our prefix, the job id, and the slug", () => {
-      expect(branch).toBe("artfct/wf_abcdefghij-3-fix-the-login-bug");
+      expect(branch).toBe("artfct/cv_abcdefghij-3-fix-the-login-bug");
     });
 
     it("gives the job id back", () => {
@@ -127,15 +108,15 @@ describe("branchName", () => {
     });
 
     it("rejects our prefix with no sequence", () => {
-      expect(jobIdFromBranch("artfct/wf_abcdefghij-fix")).toBeNull();
+      expect(jobIdFromBranch("artfct/cv_abcdefghij-fix")).toBeNull();
     });
 
     it("rejects the retired ao prefix", () => {
-      expect(jobIdFromBranch("ao/wf_abcdefghij-3-fix")).toBeNull();
+      expect(jobIdFromBranch("ao/cv_abcdefghij-3-fix")).toBeNull();
     });
 
     it("rejects another prefix", () => {
-      expect(jobIdFromBranch("feature/wf_abcdefghij-3-fix")).toBeNull();
+      expect(jobIdFromBranch("feature/cv_abcdefghij-3-fix")).toBeNull();
     });
   });
 });
