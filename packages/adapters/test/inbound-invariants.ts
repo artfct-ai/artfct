@@ -40,7 +40,7 @@ export type NamedEventOutcome =
   | { step: "config_load"; name: string; conversational: boolean; accepted: boolean };
 
 /** Why a vendor pass-through must drop a delivery, as the generator built it. */
-export type IgnoredVendorEventCause = "caused_by_the_app" | "fork" | "no_causer";
+export type IgnoredVendorEventCause = "caused_by_the_app" | "fork" | "no_causer" | "shared_channel";
 
 const MESSAGE_KINDS = new Set(["start", "prompt", "feedback"]);
 
@@ -74,8 +74,8 @@ export function aConversationalEventNeverFires(outcome: NamedEventOutcome): void
 }
 
 /**
- * A pass-through drops an event the app caused, a fork's pull request, and an event without a
- * causer. Another App's event passes.
+ * A pass-through drops an event the app caused, a fork's pull request, an event without a causer,
+ * and an event from a shared chat channel. Another App's event passes.
  */
 export function anIgnoredVendorEventNeverFires(
   cause: IgnoredVendorEventCause,

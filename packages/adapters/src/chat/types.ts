@@ -4,13 +4,16 @@
  * Callers write Markdown. An implementation converts it to the markup its vendor renders.
  */
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { ChatUser } from "@artfct-ai/contracts/types";
+import type { ChatUser, VendorEvent } from "@artfct-ai/contracts/types";
 
 /** Resolves a chat user to a person the orchestrator trusts, or to null. */
 type ChatActorResolver = (user: ChatUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the callback is ignored. */
 export type ChatInbound = { event: InboundEvent } | { ignore: string };
+
+/** What the chat vendor's pass-through makes of a verified delivery: a vendor event, or a drop with its reason. */
+export type ChatVendorEvent = { event: VendorEvent } | { drop: string };
 
 /** The chat lookups a webhook mapper needs. Null when no bot token is configured. */
 export type ChatLookup = Pick<Chat, "user" | "threadRootTs"> | null;

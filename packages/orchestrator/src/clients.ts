@@ -15,6 +15,7 @@ import { isGithubPullRequestEventName } from "@artfct-ai/adapters/code/github/ve
 import { githubConversationalEvents } from "@artfct-ai/adapters/code/github/conversational-events";
 import { SlackChat } from "@artfct-ai/adapters/chat/slack/chat";
 import { slackConversationalEvents } from "@artfct-ai/adapters/chat/slack/conversational-events";
+import { isSlackJoinedChannelEventName } from "@artfct-ai/adapters/chat/slack/vendor-event-name";
 import type { Chat } from "@artfct-ai/adapters/chat/types";
 import { LinearDocuments } from "@artfct-ai/adapters/documents/linear/documents";
 import { NotionDocuments } from "@artfct-ai/adapters/documents/notion/documents";
@@ -339,6 +340,18 @@ export function vendorEventIsAboutPull(adapters: Adapters, eventName: string): b
     default: {
       const unreachable: never = adapters.code.provider;
       throw new Error(`unhandled code provider ${String(unreachable)}`);
+    }
+  }
+}
+
+/** True when the chat vendor names the channel of the event, so a trigger on it may leave out its own. */
+export function vendorEventNamesAChannel(adapters: Adapters, eventName: string): boolean {
+  switch (adapters.chat.provider) {
+    case "slack":
+      return isSlackJoinedChannelEventName(eventName);
+    default: {
+      const unreachable: never = adapters.chat.provider;
+      throw new Error(`unhandled chat provider ${String(unreachable)}`);
     }
   }
 }

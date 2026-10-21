@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { fakeChat, harness, slackPost, type Harness } from "../test/app-harness";
 import { slackMemberJoined, slackMention, slackThreadReply } from "../test/webhook-fixtures";
-import { GREETING } from "./slack-greeting";
 
 describe("slack webhook", () => {
   const TEXT = "<@UBOT> fix the flaky test in <https://github.com/acme/app|acme/app>";
@@ -134,7 +133,8 @@ describe("slack webhook", () => {
     beforeEach(async () => {
       chat = fakeChat();
       app = harness({ clients: { chat } });
-      response = await app.request(await slackPost(JSON.stringify(slackMemberJoined("UBOT"))));
+      const joined = slackMemberJoined("UBOT", "U1");
+      response = await app.request(await slackPost(JSON.stringify(joined)));
       await app.settle();
     });
 
@@ -142,43 +142,55 @@ describe("slack webhook", () => {
       expect(response.status).toBe(200);
     });
 
-    it("posts the greeting in the channel, outside any thread", () => {
-      expect(chat.calls).toEqual([{ method: "postChannelMessage", args: ["C1", GREETING] }]);
+    it("posts nothing itself, since the orchestrator greets unless a trigger fires", () => {
+      expect(chat.calls).toEqual([]);
     });
 
-    it("delivers nothing to the orchestrator", () => {
+    it("hands the join over as a vendor event about the app, caused by its inviter", () => {
+      expect(app.rpc.vendorEvents).toEqual([
+        {
+          delivery_id: "Ev1",
+          name: "slack.member_joined_channel",
+          payload: { type: "member_joined_channel", user: "UBOT", channel: "C1", inviter: "U1" },
+          causer: { source: "chat", user_id: "U1" },
+          about_app: true,
+          enrichment: { kind: "channel", channel: "C1" },
+        },
+      ]);
+    });
+
+    it("delivers nothing to a conversation", () => {
       expect(app.rpc.deliveries).toEqual([]);
     });
   });
 
-  describe("another member being added to the same channel", () => {
-    let app: Harness;
-    let chat: ReturnType<typeof fakeChat>;
-
-    beforeEach(async () => {
-      chat = fakeChat();
-      app = harness({ clients: { chat } });
+  describe("another member joining the same channel", () => {
+    it("hands the join over as a vendor event that is not about the app", async () => {
+      const app = harness({ clients: { chat: fakeChat() } });
       await app.request(await slackPost(JSON.stringify(slackMemberJoined("U2"))));
       await app.settle();
+      expect(app.rpc.vendorEvents.map(({ about_app, causer }) => ({ about_app, causer }))).toEqual([
+        { about_app: false, causer: { source: "chat", user_id: "U2" } },
+      ]);
     });
+  });
 
-    it("posts nothing", () => {
-      expect(chat.calls).toEqual([]);
-    });
-
-    it("delivers nothing to the orchestrator", () => {
-      expect(app.rpc.deliveries).toEqual([]);
+  describe("a channel mention", () => {
+    it("never reaches the orchestrator as a vendor event", async () => {
+      const app = harness({ clients: { chat: fakeChat() } });
+      await app.request(await slackPost(JSON.stringify(slackMention(TEXT))));
+      await app.settle();
+      expect(app.rpc.vendorEvents).toEqual([]);
     });
   });
 
   describe("a second delivery of the join, which Slack marks as a retry", () => {
-    it("posts nothing, so the channel gets one greeting", async () => {
-      const chat = fakeChat();
-      const app = harness({ clients: { chat } });
-      const body = JSON.stringify(slackMemberJoined("UBOT"));
+    it("hands nothing over, so the channel gets one greeting", async () => {
+      const app = harness({ clients: { chat: fakeChat() } });
+      const body = JSON.stringify(slackMemberJoined("UBOT", "U1"));
       await app.request(await slackPost(body, { "x-slack-retry-num": "1" }));
       await app.settle();
-      expect(chat.calls).toEqual([]);
+      expect(app.rpc.vendorEvents).toEqual([]);
     });
   });
 
