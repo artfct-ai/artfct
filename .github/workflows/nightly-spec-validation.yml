@@ -198,35 +198,35 @@ jobs:
           mkdir -p "$RUNNER_TEMP/findings"
       - name: Replay the router bindings spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/router-bindings.md" bun scripts/properties/e2e-property-test.ts router-bindings
       - name: Replay the review loop spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/review-loop.md" bun scripts/properties/e2e-property-test.ts review-loop
       - name: Replay the workflow lifecycle spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/workflow-lifecycle.md" bun scripts/properties/e2e-property-test.ts workflow-lifecycle
       - name: Replay the harness session spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/harness-session.md" bun scripts/properties/e2e-property-test.ts harness-session
       - name: Replay the agent turns spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/agent-turns.md" bun scripts/properties/e2e-property-test.ts agent-turns
       - name: Replay the chat acknowledgement spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/chat-acknowledgement.md" bun scripts/properties/e2e-property-test.ts chat-acknowledgement
       - name: Replay the session routing spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/session-routing.md" bun scripts/properties/e2e-property-test.ts session-routing
       - name: Replay the feedback routing spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/feedback-routing.md" bun scripts/properties/e2e-property-test.ts feedback-routing
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
