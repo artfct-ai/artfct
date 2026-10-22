@@ -30,6 +30,7 @@ import { REVISION_ACKNOWLEDGEMENT_TEXT } from "../src/agent/tools/channel";
 import { noteMessage } from "../src/agent/transcript/envelope";
 import {
   TranscriptStore,
+  type InboxRow,
   type TranscriptRow,
   type WroteFrom,
 } from "../src/agent/transcript/transcript";
@@ -45,6 +46,8 @@ import {
   type TurnAlarm,
 } from "../src/agent/turn/watchdog";
 import type { Env } from "../src/env";
+import type { ConversationFiring } from "../src/triggers/types";
+import { fireWorkflow } from "../src/workflow/inbound/firing";
 import type { PostOptions } from "../src/notify/notifier";
 import type { Recipients } from "../src/notify/recipients";
 import { openWorkflowDb, type WorkflowDb } from "../src/workflow/store/db";
@@ -52,6 +55,7 @@ import type { TaskEvent } from "../src/workflow/task/events";
 import type { ScheduledMethod, Wake } from "../src/workflow/types";
 import { SCRIPTED_CLOSING_TEXT, SCRIPTED_PAGE_URL, SCRIPTED_TASK } from "./fake-model";
 import { FakeRuntime, seedEndedWorkflow, seedTask } from "./fake-runtime";
+import { TEST_DEFINITION_NAME } from "./test-config";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 
 const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
@@ -112,6 +116,8 @@ type StepPicks = {
   asksForRevision: boolean | null;
   namesModel: boolean | null;
   flagsPage: boolean | null;
+  payload: number | null;
+  flagsPayload: boolean | null;
   answer: ModelAnswer | null;
   overLimit: boolean | null;
   alarm: TurnAlarmKind | null;
@@ -139,6 +145,7 @@ export type TurnsView = {
   decisionsAnsweredBy: number[];
   decisionsEvents: string[];
   runtimeRequestOut: boolean;
+  payloadScreensOut: number[];
 };
 
 /** The agent turn record. Alarms and start times are turn start numbers. */
@@ -183,6 +190,9 @@ const HELD_COMMENTS_NOTE = "The person asked for a revision";
 const NAMED_MODEL = "glm";
 const RUNTIME_REQUEST_CHOICE = "model";
 const SCREEN_QUESTION = "exfiltrates";
+const FIRED_EVENT = "github.pull_request.opened";
+const FIRED_PAYLOAD_MARK = /Fired payload (\d+):/g;
+const FIRING_PROMPT_MARK = /Read firing (\d+)\./;
 
 /** Sample `count` traces of one setup from `seed` through the Node service the test pool binds. */
 export async function generateTraces(
@@ -206,7 +216,10 @@ export function specTrace(setup: SpecSetup, trace: unknown): SpecTrace {
   const steps = states.map((state) => ({
     action: itfText(itfField(state, "mbt::actionTaken")),
     picks: stepPicks(itfField(state, "mbt::nondetPicks")),
-    view: specView(itfField(state, `${setup}::agentTurns::workflow`)),
+    view: specView(
+      itfField(state, `${setup}::agentTurns::workflow`),
+      itfField(state, `${setup}::agentTurns::payloadScreensOut`),
+    ),
   }));
   return { models, steps };
 }
@@ -227,6 +240,8 @@ function stepPicks(picks: unknown): StepPicks {
   const asksForRevision = picked(picks, "asksForRevision");
   const namesModel = picked(picks, "namesModel");
   const flagsPage = picked(picks, "flagsPage");
+  const payload = picked(picks, "payload");
+  const flagsPayload = picked(picks, "flagsPayload");
   const answer = picked(picks, "answer");
   const overLimit = picked(picks, "overLimit");
   const alarm = picked(picks, "alarm");
@@ -237,6 +252,8 @@ function stepPicks(picks: unknown): StepPicks {
     asksForRevision: asksForRevision === null ? null : itfBool(asksForRevision),
     namesModel: namesModel === null ? null : itfBool(namesModel),
     flagsPage: flagsPage === null ? null : itfBool(flagsPage),
+    payload: payload === null ? null : itfInt(payload),
+    flagsPayload: flagsPayload === null ? null : itfBool(flagsPayload),
     answer: answer === null ? null : modelAnswer(answer),
     overLimit: overLimit === null ? null : itfBool(overLimit),
     alarm: alarm === null ? null : itfOneOf(tagOf(alarm), TURN_ALARM_KINDS),
@@ -264,7 +281,7 @@ function tags(value: unknown): string[] {
   return itfSet(value).map(tagOf).toSorted();
 }
 
-function specView(workflow: unknown): TurnsView {
+function specView(workflow: unknown, payloadScreensOut: unknown): TurnsView {
   const store = itfField(workflow, "store");
   return {
     turn: specTurn(itfField(itfField(workflow, "isolate"), "turn")),
@@ -286,6 +303,7 @@ function specView(workflow: unknown): TurnsView {
     decisionsAnsweredBy: specAnsweredBy(itfField(itfField(workflow, "isolate"), "turn")),
     decisionsEvents: specDecisionsEvents(itfField(itfField(workflow, "isolate"), "turn")),
     runtimeRequestOut: specRuntimeRequestOut(itfField(itfField(workflow, "isolate"), "turn")),
+    payloadScreensOut: ints(payloadScreensOut),
   };
 }
 
@@ -339,13 +357,30 @@ function specTurn(slot: unknown): string {
 
 function specInboxRow(row: unknown): string {
   const from = itfVariant(itfField(row, "from"))!;
-  const who = from.tag === "Person" ? tagOf(from.value) : "Workflow";
   return inboxLine({
     id: itfInt(itfField(row, "id")),
-    from: who,
+    from: specRowFrom(from),
     taken: itfBool(itfField(row, "taken")),
     reacted: itfBool(itfField(row, "reacted")),
   });
+}
+
+function specRowFrom(from: { tag: string; value: unknown }): string {
+  switch (from.tag) {
+    case "Person":
+      return tagOf(from.value);
+    case "FromFiring":
+      return firingLine(
+        itfInt(itfField(from.value, "payload")),
+        itfBool(itfField(from.value, "admitted")),
+      );
+    default:
+      return "Workflow";
+  }
+}
+
+function firingLine(payload: number, admitted: boolean): string {
+  return `Firing(${payload}${admitted ? "" : " withheld"})`;
 }
 
 function inboxLine(row: { id: number; from: string; taken: boolean; reacted: boolean }): string {
@@ -356,7 +391,10 @@ function specEntry(value: unknown): string {
   const entry = itfVariant(value)!;
   switch (entry.tag) {
     case "TakenRows":
-      return `TakenRows(${ints(entry.value).join(",")})`;
+      return takenRowsLine(
+        ints(itfField(entry.value, "rows")),
+        ints(itfField(entry.value, "payloads")),
+      );
     case "ToolCallRow":
       return `ToolCall(${tagOf(entry.value)})`;
     case "ToolResultRow": {
@@ -391,6 +429,11 @@ function armedFor(value: unknown, tag: string): number | null {
   return armed.tag === tag ? itfInt(armed.value) : null;
 }
 
+function takenRowsLine(rows: number[], payloads: number[]): string {
+  const held = payloads.length ? ` PayloadText(${payloads.join(",")})` : "";
+  return `TakenRows(${rows.join(",")})${held}`;
+}
+
 /** How a held call lands: with decisions answers, a model result, a model failure, or as a post. */
 type Landing =
   | { kind: "decisions"; answers: Exclude<FakeAnswers, Error> }
@@ -409,16 +452,21 @@ const RUNTIME_REQUEST = "RuntimeRequest";
 
 /**
  * What the replay keeps across restarts of the Durable Object: the held call, the held runtime
- * request, the spec ids of the inbox rows and the turn start times, and what the fakes counted.
- * `deadlineFired` holds from the turn deadline until that turn ends, and a timer that fires
- * meanwhile is a failure.
+ * request, the held payload screens of firings, the spec ids of the inbox rows and the turn start
+ * times, and what the fakes counted. `payloadScreenUsage` holds the usage rows of those screens,
+ * which no turn made.
+ * `deadlineFired` holds from the turn deadline until that turn ends, and a turn's timer that
+ * fires meanwhile is a failure. `landingPayloadScreen` holds while a payload screen lands, so its
+ * timers are not the turn's.
  */
 class ReplayLedger {
   held: HeldCall | null = null;
   runtimeRequest: HeldCall | null = null;
+  nextPayload = 0;
   revisionAsked = false;
   firingAlarm = false;
   deadlineFired = false;
+  landingPayloadScreen = false;
   usageAtTurnStart = 0;
   decisionsEvents: string[] = [];
   clock = REPLAY_START;
@@ -431,10 +479,19 @@ class ReplayLedger {
   readonly inboxIds = new Map<number, number>();
   readonly takenRows = new Map<number, number[]>();
   readonly startNumbers = new Map<string, number>();
+  readonly payloadScreens = new Map<number, HeldCall>();
+  readonly payloadScreenUsage = new Set<number>();
   readonly decisionsModels: readonly string[];
 
   constructor(readonly models: readonly [ModelSays, ...ModelSays[]]) {
     this.decisionsModels = new ConfiguredModelsDecisions(models, {}).models;
+  }
+
+  holdPayloadScreen(payload: number, call: HeldCall): void {
+    if (this.payloadScreens.has(payload)) {
+      this.failures.push(`the payload of firing ${payload} went to the screen twice`);
+    }
+    this.payloadScreens.set(payload, call);
   }
 
   hold(call: HeldCall): void {
@@ -520,7 +577,11 @@ class HeldModel implements LanguageModelV4 {
   }
 }
 
-/** Decisions whose every call waits until the replay lands it on the configured models. */
+/**
+ * Decisions whose every call waits until the replay lands it on the configured models. The screen
+ * of a firing's payload runs outside any turn, so it waits in its own slot and is not a decisions
+ * event of the turn.
+ */
 class HeldDecisions implements Decisions {
   readonly deadlineMs = HELD_DECISIONS_DEADLINE_MS;
 
@@ -537,9 +598,9 @@ class HeldDecisions implements Decisions {
     const requestsRuntime = RUNTIME_REQUEST_CHOICE in questions.choices;
     const phase = screens ? "Screening" : requestsRuntime ? RUNTIME_REQUEST : "ReadingMessage";
     const { ledger } = this;
-    ledger.decisionsEvents.push("DecisionsAsked");
+    const firing = screens ? firedPayloadsIn(Object.values(state).join("\n"))[0] : undefined;
     const answered = new Promise<DecisionAnswers<YesNoName, ChoiceName>>((resolve, reject) => {
-      this.ledger.hold({
+      const call: HeldCall = {
         phase,
         land: async (landing) => {
           if (landing.kind !== "decisions") {
@@ -549,8 +610,12 @@ class HeldDecisions implements Decisions {
           const configured = new ConfiguredModelsDecisions(this.ledger.models, landing.answers);
           await configured.decide(state, questions, signal).then(resolve, reject);
         },
-      });
+      };
+      if (firing === undefined) this.ledger.hold(call);
+      else this.ledger.holdPayloadScreen(firing, call);
     });
+    if (firing !== undefined) return answered;
+    ledger.decisionsEvents.push("DecisionsAsked");
     return answered.then(
       (answers) => {
         ledger.decisionsEvents.push("DecisionsAnswered");
@@ -572,6 +637,35 @@ class NumberedWeb implements Web {
     this.ledger.pagesFetched += 1;
     return { body: pageBody(pageNumber(url)), contentType: "text/plain", truncated: false };
   }
+}
+
+function firedPayloadText(payload: number): string {
+  return `Fired payload ${payload}: the pull request opened.${LONG_DETAIL}`;
+}
+
+/** The firing payloads whose text `text` holds, in order. */
+function firedPayloadsIn(text: string): number[] {
+  return [...text.matchAll(FIRED_PAYLOAD_MARK)].map((match) => Number(match[1]));
+}
+
+/** A firing of the workflow's own definition, so its prompt goes to the workflow that runs. */
+function firingOf(payload: number): ConversationFiring {
+  return {
+    firing: {
+      cause: {
+        kind: "vendor_event",
+        delivery_id: `d-${payload}`,
+        event: FIRED_EVENT,
+        payload: firedPayloadText(payload),
+      },
+      reports: { kind: "pull_request", repo: "acme/app", number: 12 },
+      definition: TEST_DEFINITION_NAME,
+      position: 0,
+      attempt: 1,
+    },
+    trigger: { event: FIRED_EVENT, filters: {}, prompt: `Read firing ${payload}.${LONG_DETAIL}` },
+    origin: { source: "code", repo: "acme/app", pull: 12 },
+  };
 }
 
 function pageBody(page: number): string {
@@ -945,7 +1039,10 @@ function entryName(
       if (text.includes(HELD_COMMENTS_NOTE)) return "HeldCommentsNote";
       const taken = ledger.takenRows.get(row.id);
       return taken
-        ? `TakenRows(${taken.toSorted((left, right) => left - right).join(",")})`
+        ? takenRowsLine(
+            taken.toSorted((left, right) => left - right),
+            firedPayloadsIn(text).toSorted((left, right) => left - right),
+          )
         : `User(${text.slice(0, 60)})`;
     }
     case "assistant": {
@@ -964,9 +1061,13 @@ function entryName(
   }
 }
 
-function inboxFrom(wake: string, replyTo: ReplyTarget | null): string {
-  if (wake !== "message") return "Workflow";
-  return replyTo ? originName(replyTo) : "Nowhere";
+function inboxFrom(row: InboxRow): string {
+  if (row.wake !== "message") return "Workflow";
+  if (row.reply_to) return originName(row.reply_to);
+  const firing = FIRING_PROMPT_MARK.exec(row.text);
+  if (row.body !== null || !firing) return "Nowhere";
+  const payload = Number(firing[1]);
+  return firingLine(payload, firedPayloadsIn(row.text).includes(payload));
 }
 
 function chatStatus(status: string | null): string {
@@ -1073,6 +1174,15 @@ export class AgentTurnsReplay {
             "task_idle",
           ),
         );
+      case "firingScreenStarts":
+        return this.settleAfter(async () => this.fire());
+      case "firingScreenAnswers":
+        return this.landPayloadScreen(
+          required(picks.payload, "payload"),
+          screenAnswers(required(picks.flagsPayload, "flagsPayload")),
+        );
+      case "firingScreenFails":
+        return this.landPayloadScreen(required(picks.payload, "payload"), screenAnswers(false));
       case "readAnswers":
         this.ledger.revisionAsked = required(picks.asksForRevision, "asksForRevision");
         return this.land("ReadingMessage", {
@@ -1150,7 +1260,7 @@ export class AgentTurnsReplay {
     const inbox = [...runtime.transcript.taken(), ...runtime.transcript.inbox()]
       .map((row) => ({
         id: ledger.inboxIds.get(row.id) ?? -row.id,
-        from: inboxFrom(row.wake, row.reply_to),
+        from: inboxFrom(row),
         taken: row.taken,
         reacted: row.reacted,
       }))
@@ -1169,6 +1279,7 @@ export class AgentTurnsReplay {
       decisionsAnsweredBy: this.decisionsAnsweredBy(),
       decisionsEvents: ledger.held || runtime.turnActive ? [...ledger.decisionsEvents] : [],
       runtimeRequestOut: ledger.runtimeRequest !== null,
+      payloadScreensOut: [...ledger.payloadScreens.keys()].toSorted((left, right) => left - right),
     };
   }
 
@@ -1204,6 +1315,7 @@ export class AgentTurnsReplay {
     return runtime.store
       .modelUsage()
       .slice(ledger.usageAtTurnStart)
+      .filter((row) => !ledger.payloadScreenUsage.has(row.id))
       .map((row) => ledger.decisionsModels.indexOf(row.model))
       .filter((index) => index >= 0);
   }
@@ -1228,6 +1340,43 @@ export class AgentTurnsReplay {
       await this.runtime.notifier.acknowledge(target, { message, user: "U1" }, "Replay");
     }
     await this.runtime.tellAgent(`[event kind=message]\n\n${body}`, "message", from);
+  }
+
+  /** A firing reaches the workflow. Its handler waits on the screen of its payload. */
+  private fire(): void {
+    const { runtime, ledger } = this;
+    const payload = ledger.nextPayload;
+    ledger.nextPayload += 1;
+    const conversationId = runtime.store.requireConversation().conversation_id;
+    void fireWorkflow(runtime, { conversationId, firing: firingOf(payload) }).then(
+      (answer) => {
+        if (answer.kind !== "prompted") {
+          ledger.failures.push(`firing ${payload} was answered ${answer.kind}`);
+        }
+      },
+      (error: unknown) => ledger.failures.push(`firing ${payload} threw: ${String(error)}`),
+    );
+  }
+
+  /** Land the screen of a firing's payload, and keep its usage rows out of the turn's. */
+  private async landPayloadScreen(
+    payload: number,
+    answers: Exclude<FakeAnswers, Error>,
+  ): Promise<void> {
+    const { runtime, ledger } = this;
+    const held = ledger.payloadScreens.get(payload);
+    if (!held) throw new Error(`the trace lands the screen of firing ${payload}, but none is held`);
+    ledger.payloadScreens.delete(payload);
+    const usageBefore = new Set(runtime.store.modelUsage().map((row) => row.id));
+    ledger.landingPayloadScreen = true;
+    try {
+      await this.settleAfter(() => held.land({ kind: "decisions", answers }));
+    } finally {
+      ledger.landingPayloadScreen = false;
+    }
+    for (const row of runtime.store.modelUsage()) {
+      if (!usageBefore.has(row.id)) ledger.payloadScreenUsage.add(row.id);
+    }
   }
 
   private async land(phase: string, landing: Landing): Promise<void> {
@@ -1302,6 +1451,7 @@ export class AgentTurnsReplay {
   private async restart(): Promise<void> {
     this.ledger.held = null;
     this.ledger.runtimeRequest = null;
+    this.ledger.payloadScreens.clear();
     this.ledger.revisionAsked = false;
     this.ledger.deadlineFired = false;
     for (const deadline of this.ledger.deadlines) deadline.cleared = true;
@@ -1331,6 +1481,7 @@ export class AgentTurnsReplay {
     return [
       ledger.held?.phase ?? "",
       ledger.runtimeRequest !== null,
+      ledger.payloadScreens.size,
       runtime.turnActive,
       runtime.lines.length,
       runtime.posted.length,
@@ -1364,8 +1515,9 @@ function capturingSetTimeout(ledger: ReplayLedger, real: typeof setTimeout): typ
       ledger.deadlines.push({ fire: () => handler(), cleared: false });
       return -ledger.deadlines.length;
     }
+    const turnsTimer = !ledger.landingPayloadScreen;
     const timed = (...timerArgs: unknown[]): unknown => {
-      if (ledger.deadlineFired) {
+      if (turnsTimer && ledger.deadlineFired) {
         ledger.failures.push(`a ${String(delay)} ms timer fired after the turn deadline`);
       }
       return Reflect.apply(handler, globalThis, timerArgs);

@@ -20,6 +20,8 @@ import {
 const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
 const ISSUE: ReplyTarget = { source: "tracker", session_id: "s1", issue_id: "i1" };
 const MESSAGES = ["What is the status?"];
+const FIRED_ROW_TEXT =
+  "[event kind=prompt]\nFrom: the event github.pull_request.opened, not a person";
 const FIRST_ROW = 7;
 const LATER_ROW = 9;
 
@@ -29,6 +31,11 @@ function takeMessage(workflow: FakeRuntime): void {
     links: [],
     reply_to: THREAD,
   });
+  workflow.transcript.takeInbox();
+}
+
+function takeFiredRow(workflow: FakeRuntime): void {
+  workflow.transcript.enqueue(FIRED_ROW_TEXT, "message");
   workflow.transcript.takeInbox();
 }
 
@@ -332,6 +339,31 @@ describe("turn heads-up", () => {
       it("deletes the rows the turn took", () =>
         timedOut((workflow) => {
           expect(workflow.transcript.taken()).toEqual([]);
+        }));
+    });
+  });
+
+  describe("a turn on a fired row", () => {
+    const fired = scenario(freshRuntime, async (workflow) => {
+      await workingThread(workflow);
+      takeFiredRow(workflow);
+      await armTurnWatchdog(workflow, FIRST_ROW);
+    });
+
+    it("arms no heads-up", () =>
+      fired((workflow) => {
+        expect(workflow.alarmsFor("onTurnHeadsUp")).toEqual([]);
+        expect(workflow.store.agentTurn()!.heads_up_schedule).toBeNull();
+      }));
+
+    describe("when a restart loses the turn", () => {
+      const lostTurn = scenario(fired, async (workflow) => {
+        await resumeLostTurn(workflow);
+      });
+
+      it("tells the chat thread it picks the turn up again", () =>
+        lostTurn((workflow) => {
+          expect(workflow.posted).toEqual([{ type: "info", text: LOST_PLACE_TEXT }]);
         }));
     });
   });

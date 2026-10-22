@@ -2,17 +2,21 @@
   "#meta": {
     "format": "ITF",
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
-    "source": "/Users/matt/code/artfct-wt/replay-fidelity-9/spec/agent-turns/chatThread.qnt",
+    "source": "../../../../spec/agent-turns/chatThread.qnt",
     "status": "violation",
-    "description": "Created by Quint on Mon Oct 19 2026 11:04:02 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792422242240
+    "description": "Created by Quint on Thu Oct 22 2026 12:41:53 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792687313793
   },
   "vars": [
-    "chatThread::agentTurns::models",
+    "chatThread::agentTurns::payloadScreensOut",
+    "chatThread::agentTurns::actionsTaken",
     "chatThread::agentTurns::workflow",
+    "chatThread::agentTurns::staleAlarmsTaken",
+    "chatThread::agentTurns::lastStepKept",
+    "chatThread::agentTurns::models",
+    "chatThread::agentTurns::lastStepReached",
     "chatThread::agentTurns::lastTurnEnd",
     "chatThread::agentTurns::backupAlarmStep",
-    "chatThread::agentTurns::actionsTaken",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -25,11 +29,23 @@
         "firedDuringItsTurn": false,
         "kept": false
       },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
       "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
       "chatThread::agentTurns::models": [
         { "tag": "Hangs", "value": { "#tup": [] } },
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
       "chatThread::agentTurns::workflow": {
         "isolate": { "rerun": false, "turn": { "tag": "Idle", "value": { "#tup": [] } } },
         "store": {
@@ -42,6 +58,7 @@
           "nextRowId": { "#bigint": "1" },
           "nextStart": { "#bigint": "1" },
           "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "0" },
           "posts": [],
           "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
@@ -52,13 +69,17 @@
       },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
         "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
         "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
         "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
         "namesModel": { "tag": "None", "value": { "#tup": [] } },
         "origin": { "tag": "None", "value": { "#tup": [] } },
         "overLimit": { "tag": "None", "value": { "#tup": [] } },
         "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
         "said": {
           "tag": "Some",
           "value": [
@@ -76,105 +97,57 @@
         "firedDuringItsTurn": false,
         "kept": false
       },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
       "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
       "chatThread::agentTurns::models": [
         { "tag": "Hangs", "value": { "#tup": [] } },
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [{ "#bigint": "0" }] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
       "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "1" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [],
-                "inboxRows": { "#set": [{ "#bigint": "1" }] },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [{ "answered": false, "ran": { "#set": [] } }],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "1" }
-            }
-          }
-        },
+        "isolate": { "rerun": false, "turn": { "tag": "Idle", "value": { "#tup": [] } } },
         "store": {
-          "backupAlarm": true,
+          "backupAlarm": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
+          "inbox": [],
           "lastInputOverLimit": false,
           "messagesRead": { "#bigint": "0" },
-          "nextInboxId": { "#bigint": "2" },
-          "nextRowId": { "#bigint": "2" },
-          "nextStart": { "#bigint": "2" },
+          "nextInboxId": { "#bigint": "1" },
+          "nextRowId": { "#bigint": "1" },
+          "nextStart": { "#bigint": "1" },
           "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "1" },
           "posts": [],
           "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "1" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
-            }
-          },
+          "transcript": [],
+          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
           "workflowEnded": false
         }
       },
-      "mbt::actionTaken": "workflowEventArrives",
+      "mbt::actionTaken": "firingScreenStarts",
       "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
         "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
         "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
         "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
         "namesModel": { "tag": "None", "value": { "#tup": [] } },
         "origin": { "tag": "None", "value": { "#tup": [] } },
         "overLimit": { "tag": "None", "value": { "#tup": [] } },
         "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
         "said": { "tag": "None", "value": { "#tup": [] } }
       }
     },
@@ -186,14 +159,90 @@
         "firedDuringItsTurn": false,
         "kept": false
       },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
       "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
       "chatThread::agentTurns::models": [
         { "tag": "Hangs", "value": { "#tup": [] } },
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
+      "chatThread::agentTurns::payloadScreensOut": {
+        "#set": [{ "#bigint": "0" }, { "#bigint": "1" }]
+      },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
+      "chatThread::agentTurns::workflow": {
+        "isolate": { "rerun": false, "turn": { "tag": "Idle", "value": { "#tup": [] } } },
+        "store": {
+          "backupAlarm": false,
+          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
+          "inbox": [],
+          "lastInputOverLimit": false,
+          "messagesRead": { "#bigint": "0" },
+          "nextInboxId": { "#bigint": "1" },
+          "nextRowId": { "#bigint": "1" },
+          "nextStart": { "#bigint": "1" },
+          "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
+          "posts": [],
+          "restarts": { "#bigint": "0" },
+          "runAgentAlarms": { "#bigint": "0" },
+          "transcript": [],
+          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
+          "workflowEnded": false
+        }
+      },
+      "mbt::actionTaken": "firingScreenStarts",
+      "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
+        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
+        "namesModel": { "tag": "None", "value": { "#tup": [] } },
+        "origin": { "tag": "None", "value": { "#tup": [] } },
+        "overLimit": { "tag": "None", "value": { "#tup": [] } },
+        "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
+        "said": { "tag": "None", "value": { "#tup": [] } }
+      }
+    },
+    {
+      "#meta": { "index": 3 },
+      "chatThread::agentTurns::actionsTaken": { "#bigint": "3" },
+      "chatThread::agentTurns::backupAlarmStep": {
+        "cancelled": false,
+        "firedDuringItsTurn": false,
+        "kept": false
+      },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
+      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
+      "chatThread::agentTurns::models": [
+        { "tag": "Hangs", "value": { "#tup": [] } },
+        { "tag": "Fails", "value": { "#tup": [] } }
+      ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [{ "#bigint": "0" }] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
       "chatThread::agentTurns::workflow": {
         "isolate": {
-          "rerun": true,
+          "rerun": false,
           "turn": {
             "tag": "Running",
             "value": {
@@ -204,6 +253,7 @@
               "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
+              "headsUpPosted": false,
               "olderRows": [],
               "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
               "pass": { "#bigint": "1" },
@@ -220,15 +270,16 @@
                 "callHung": false,
                 "closingTextsPosted": { "#bigint": "0" },
                 "decisionsEvents": [],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
                 "inboxRows": { "#set": [{ "#bigint": "1" }] },
                 "lostTurnOwed": false,
                 "messagesRead": { "#set": [] },
                 "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
                 "posts": [],
                 "quarantinedPages": { "#set": [] },
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
                 "reads": [],
                 "rowsBefore": [],
-                "sentHeldComments": false,
                 "steps": [{ "answered": false, "ran": { "#set": [] } }],
                 "timedOut": false
               },
@@ -242,7 +293,625 @@
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
           "inbox": [
             {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "1" } }
+              },
+              "id": { "#bigint": "1" },
+              "reacted": false,
+              "taken": true
+            }
+          ],
+          "lastInputOverLimit": false,
+          "messagesRead": { "#bigint": "0" },
+          "nextInboxId": { "#bigint": "2" },
+          "nextRowId": { "#bigint": "2" },
+          "nextStart": { "#bigint": "2" },
+          "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
+          "posts": [],
+          "restarts": { "#bigint": "0" },
+          "runAgentAlarms": { "#bigint": "0" },
+          "transcript": [
+            {
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
+              "id": { "#bigint": "1" }
+            }
+          ],
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
+            }
+          },
+          "workflowEnded": false
+        }
+      },
+      "mbt::actionTaken": "firingScreenFails",
+      "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
+        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
+        "namesModel": { "tag": "None", "value": { "#tup": [] } },
+        "origin": { "tag": "None", "value": { "#tup": [] } },
+        "overLimit": { "tag": "None", "value": { "#tup": [] } },
+        "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "Some", "value": { "#bigint": "1" } },
+        "said": { "tag": "None", "value": { "#tup": [] } }
+      }
+    },
+    {
+      "#meta": { "index": 4 },
+      "chatThread::agentTurns::actionsTaken": { "#bigint": "4" },
+      "chatThread::agentTurns::backupAlarmStep": {
+        "cancelled": false,
+        "firedDuringItsTurn": false,
+        "kept": false
+      },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
+      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
+      "chatThread::agentTurns::models": [
+        { "tag": "Hangs", "value": { "#tup": [] } },
+        { "tag": "Fails", "value": { "#tup": [] } }
+      ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [{ "#bigint": "0" }] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
+      "chatThread::agentTurns::workflow": {
+        "isolate": {
+          "rerun": false,
+          "turn": {
+            "tag": "Running",
+            "value": {
+              "aborted": false,
+              "acknowledged": false,
+              "answering": { "#set": [] },
+              "attempt": { "#bigint": "1" },
+              "boardChanged": false,
+              "decisionsFailed": false,
+              "firstReplied": false,
+              "headsUpPosted": false,
+              "olderRows": [],
+              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+              "pass": { "#bigint": "1" },
+              "passEndedByTool": false,
+              "pastTimeout": false,
+              "phase": {
+                "tag": "Screening",
+                "value": {
+                  "overLimit": true,
+                  "screened": {
+                    "tag": "ScreensChannelRead",
+                    "value": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] }
+                  }
+                }
+              },
+              "reactable": false,
+              "record": {
+                "admittedMessages": { "#set": [] },
+                "answeredBy": [],
+                "answering": { "#set": [] },
+                "askedAgain": false,
+                "boardChanged": false,
+                "callHung": false,
+                "closingTextsPosted": { "#bigint": "0" },
+                "decisionsEvents": [{ "tag": "DecisionsAsked", "value": { "#tup": [] } }],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": { "#set": [{ "#bigint": "1" }] },
+                "lostTurnOwed": false,
+                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
+                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+                "posts": [],
+                "quarantinedPages": { "#set": [] },
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+                "reads": [],
+                "rowsBefore": [],
+                "steps": [
+                  {
+                    "answered": false,
+                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
+                  }
+                ],
+                "timedOut": false
+              },
+              "runtimeRequestOut": false,
+              "startedAt": { "#bigint": "1" }
+            }
+          }
+        },
+        "store": {
+          "backupAlarm": true,
+          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
+          "inbox": [
+            {
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "1" } }
+              },
+              "id": { "#bigint": "1" },
+              "reacted": false,
+              "taken": true
+            }
+          ],
+          "lastInputOverLimit": false,
+          "messagesRead": { "#bigint": "2" },
+          "nextInboxId": { "#bigint": "2" },
+          "nextRowId": { "#bigint": "2" },
+          "nextStart": { "#bigint": "2" },
+          "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
+          "posts": [],
+          "restarts": { "#bigint": "0" },
+          "runAgentAlarms": { "#bigint": "0" },
+          "transcript": [
+            {
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
+              "id": { "#bigint": "1" }
+            }
+          ],
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
+            }
+          },
+          "workflowEnded": false
+        }
+      },
+      "mbt::actionTaken": "modelAnswers",
+      "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
+        "answer": {
+          "tag": "Some",
+          "value": {
+            "tag": "CallsTool",
+            "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
+          }
+        },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
+        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
+        "namesModel": { "tag": "None", "value": { "#tup": [] } },
+        "origin": { "tag": "None", "value": { "#tup": [] } },
+        "overLimit": { "tag": "Some", "value": true },
+        "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
+        "said": { "tag": "None", "value": { "#tup": [] } }
+      }
+    },
+    {
+      "#meta": { "index": 5 },
+      "chatThread::agentTurns::actionsTaken": { "#bigint": "5" },
+      "chatThread::agentTurns::backupAlarmStep": {
+        "cancelled": false,
+        "firedDuringItsTurn": false,
+        "kept": false
+      },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
+      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
+      "chatThread::agentTurns::models": [
+        { "tag": "Hangs", "value": { "#tup": [] } },
+        { "tag": "Fails", "value": { "#tup": [] } }
+      ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [{ "#bigint": "0" }] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
+      "chatThread::agentTurns::workflow": {
+        "isolate": {
+          "rerun": false,
+          "turn": {
+            "tag": "Running",
+            "value": {
+              "aborted": false,
+              "acknowledged": false,
+              "answering": { "#set": [] },
+              "attempt": { "#bigint": "1" },
+              "boardChanged": false,
+              "decisionsFailed": true,
+              "firstReplied": false,
+              "headsUpPosted": false,
+              "olderRows": [],
+              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+              "pass": { "#bigint": "1" },
+              "passEndedByTool": false,
+              "pastTimeout": false,
+              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
+              "reactable": false,
+              "record": {
+                "admittedMessages": { "#set": [] },
+                "answeredBy": [],
+                "answering": { "#set": [] },
+                "askedAgain": false,
+                "boardChanged": false,
+                "callHung": false,
+                "closingTextsPosted": { "#bigint": "0" },
+                "decisionsEvents": [
+                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
+                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
+                ],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": { "#set": [{ "#bigint": "1" }] },
+                "lostTurnOwed": false,
+                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
+                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+                "posts": [],
+                "quarantinedPages": { "#set": [] },
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+                "reads": [{ "admitted": { "#set": [] }, "result": { "#set": [] } }],
+                "rowsBefore": [],
+                "steps": [
+                  {
+                    "answered": false,
+                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
+                  },
+                  { "answered": false, "ran": { "#set": [] } }
+                ],
+                "timedOut": false
+              },
+              "runtimeRequestOut": false,
+              "startedAt": { "#bigint": "1" }
+            }
+          }
+        },
+        "store": {
+          "backupAlarm": true,
+          "chat": { "tag": "Processing", "value": { "#tup": [] } },
+          "inbox": [
+            {
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "1" } }
+              },
+              "id": { "#bigint": "1" },
+              "reacted": false,
+              "taken": true
+            }
+          ],
+          "lastInputOverLimit": true,
+          "messagesRead": { "#bigint": "2" },
+          "nextInboxId": { "#bigint": "2" },
+          "nextRowId": { "#bigint": "4" },
+          "nextStart": { "#bigint": "2" },
+          "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
+          "posts": [],
+          "restarts": { "#bigint": "0" },
+          "runAgentAlarms": { "#bigint": "0" },
+          "transcript": [
+            {
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
+              "id": { "#bigint": "1" }
+            },
+            {
+              "entry": {
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
+              },
+              "id": { "#bigint": "2" }
+            },
+            {
+              "entry": {
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
+              },
+              "id": { "#bigint": "3" }
+            }
+          ],
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
+            }
+          },
+          "workflowEnded": false
+        }
+      },
+      "mbt::actionTaken": "screenFails",
+      "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
+        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
+        "namesModel": { "tag": "None", "value": { "#tup": [] } },
+        "origin": { "tag": "None", "value": { "#tup": [] } },
+        "overLimit": { "tag": "None", "value": { "#tup": [] } },
+        "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
+        "said": { "tag": "None", "value": { "#tup": [] } }
+      }
+    },
+    {
+      "#meta": { "index": 6 },
+      "chatThread::agentTurns::actionsTaken": { "#bigint": "6" },
+      "chatThread::agentTurns::backupAlarmStep": {
+        "cancelled": false,
+        "firedDuringItsTurn": true,
+        "kept": false
+      },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
+      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
+      "chatThread::agentTurns::models": [
+        { "tag": "Hangs", "value": { "#tup": [] } },
+        { "tag": "Fails", "value": { "#tup": [] } }
+      ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [{ "#bigint": "0" }] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
+      "chatThread::agentTurns::workflow": {
+        "isolate": {
+          "rerun": false,
+          "turn": {
+            "tag": "Running",
+            "value": {
+              "aborted": false,
+              "acknowledged": false,
+              "answering": { "#set": [] },
+              "attempt": { "#bigint": "1" },
+              "boardChanged": false,
+              "decisionsFailed": true,
+              "firstReplied": false,
+              "headsUpPosted": false,
+              "olderRows": [],
+              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+              "pass": { "#bigint": "1" },
+              "passEndedByTool": false,
+              "pastTimeout": false,
+              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
+              "reactable": false,
+              "record": {
+                "admittedMessages": { "#set": [] },
+                "answeredBy": [],
+                "answering": { "#set": [] },
+                "askedAgain": false,
+                "boardChanged": false,
+                "callHung": false,
+                "closingTextsPosted": { "#bigint": "0" },
+                "decisionsEvents": [
+                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
+                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
+                ],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": { "#set": [{ "#bigint": "1" }] },
+                "lostTurnOwed": false,
+                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
+                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+                "posts": [],
+                "quarantinedPages": { "#set": [] },
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+                "reads": [{ "admitted": { "#set": [] }, "result": { "#set": [] } }],
+                "rowsBefore": [],
+                "steps": [
+                  {
+                    "answered": false,
+                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
+                  },
+                  { "answered": false, "ran": { "#set": [] } }
+                ],
+                "timedOut": false
+              },
+              "runtimeRequestOut": false,
+              "startedAt": { "#bigint": "1" }
+            }
+          }
+        },
+        "store": {
+          "backupAlarm": false,
+          "chat": { "tag": "Processing", "value": { "#tup": [] } },
+          "inbox": [
+            {
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "1" } }
+              },
+              "id": { "#bigint": "1" },
+              "reacted": false,
+              "taken": true
+            }
+          ],
+          "lastInputOverLimit": true,
+          "messagesRead": { "#bigint": "2" },
+          "nextInboxId": { "#bigint": "2" },
+          "nextRowId": { "#bigint": "4" },
+          "nextStart": { "#bigint": "2" },
+          "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
+          "posts": [],
+          "restarts": { "#bigint": "0" },
+          "runAgentAlarms": { "#bigint": "0" },
+          "transcript": [
+            {
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
+              "id": { "#bigint": "1" }
+            },
+            {
+              "entry": {
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
+              },
+              "id": { "#bigint": "2" }
+            },
+            {
+              "entry": {
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
+              },
+              "id": { "#bigint": "3" }
+            }
+          ],
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
+            }
+          },
+          "workflowEnded": false
+        }
+      },
+      "mbt::actionTaken": "runAgentAlarmFires",
+      "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
+        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
+        "namesModel": { "tag": "None", "value": { "#tup": [] } },
+        "origin": { "tag": "None", "value": { "#tup": [] } },
+        "overLimit": { "tag": "None", "value": { "#tup": [] } },
+        "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
+        "said": { "tag": "None", "value": { "#tup": [] } }
+      }
+    },
+    {
+      "#meta": { "index": 7 },
+      "chatThread::agentTurns::actionsTaken": { "#bigint": "7" },
+      "chatThread::agentTurns::backupAlarmStep": {
+        "cancelled": false,
+        "firedDuringItsTurn": false,
+        "kept": false
+      },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
+      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
+      "chatThread::agentTurns::models": [
+        { "tag": "Hangs", "value": { "#tup": [] } },
+        { "tag": "Fails", "value": { "#tup": [] } }
+      ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [{ "#bigint": "0" }] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
+      "chatThread::agentTurns::workflow": {
+        "isolate": {
+          "rerun": true,
+          "turn": {
+            "tag": "Running",
+            "value": {
+              "aborted": false,
+              "acknowledged": false,
+              "answering": { "#set": [] },
+              "attempt": { "#bigint": "1" },
+              "boardChanged": false,
+              "decisionsFailed": true,
+              "firstReplied": false,
+              "headsUpPosted": false,
+              "olderRows": [],
+              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+              "pass": { "#bigint": "1" },
+              "passEndedByTool": false,
+              "pastTimeout": false,
+              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
+              "reactable": false,
+              "record": {
+                "admittedMessages": { "#set": [] },
+                "answeredBy": [],
+                "answering": { "#set": [] },
+                "askedAgain": false,
+                "boardChanged": false,
+                "callHung": false,
+                "closingTextsPosted": { "#bigint": "0" },
+                "decisionsEvents": [
+                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
+                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
+                ],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": { "#set": [{ "#bigint": "1" }] },
+                "lostTurnOwed": false,
+                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
+                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+                "posts": [],
+                "quarantinedPages": { "#set": [] },
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+                "reads": [{ "admitted": { "#set": [] }, "result": { "#set": [] } }],
+                "rowsBefore": [],
+                "steps": [
+                  {
+                    "answered": false,
+                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
+                  },
+                  { "answered": false, "ran": { "#set": [] } }
+                ],
+                "timedOut": false
+              },
+              "runtimeRequestOut": false,
+              "startedAt": { "#bigint": "1" }
+            }
+          }
+        },
+        "store": {
+          "backupAlarm": false,
+          "chat": { "tag": "Processing", "value": { "#tup": [] } },
+          "inbox": [
+            {
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "1" } }
+              },
               "id": { "#bigint": "1" },
               "reacted": false,
               "taken": true
@@ -254,19 +923,37 @@
               "taken": false
             }
           ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "0" },
+          "lastInputOverLimit": true,
+          "messagesRead": { "#bigint": "2" },
           "nextInboxId": { "#bigint": "3" },
-          "nextRowId": { "#bigint": "2" },
+          "nextRowId": { "#bigint": "4" },
           "nextStart": { "#bigint": "2" },
           "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
           "posts": [],
           "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
           "transcript": [
             {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
               "id": { "#bigint": "1" }
+            },
+            {
+              "entry": {
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
+              },
+              "id": { "#bigint": "2" }
+            },
+            {
+              "entry": {
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
+              },
+              "id": { "#bigint": "3" }
             }
           ],
           "turn": {
@@ -284,731 +971,17 @@
       },
       "mbt::actionTaken": "workflowEventArrives",
       "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
         "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
         "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
         "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
         "namesModel": { "tag": "None", "value": { "#tup": [] } },
         "origin": { "tag": "None", "value": { "#tup": [] } },
         "overLimit": { "tag": "None", "value": { "#tup": [] } },
         "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 3 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "3" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": true
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "1" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [],
-                "inboxRows": {
-                  "#set": [{ "#bigint": "1" }, { "#bigint": "2" }, { "#bigint": "3" }]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [{ "answered": false, "ran": { "#set": [] } }],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "2" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": true,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "0" },
-          "nextInboxId": { "#bigint": "4" },
-          "nextRowId": { "#bigint": "3" },
-          "nextStart": { "#bigint": "3" },
-          "pagesFetched": { "#bigint": "0" },
-          "posts": [],
-          "restarts": { "#bigint": "1" },
-          "runAgentAlarms": { "#bigint": "1" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "2" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
-            }
-          },
-          "workflowEnded": false
-        }
-      },
-      "mbt::actionTaken": "durableObjectRestarts",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 4 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "4" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": true,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "1" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [],
-                "inboxRows": {
-                  "#set": [{ "#bigint": "1" }, { "#bigint": "2" }, { "#bigint": "3" }]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [{ "answered": false, "ran": { "#set": [] } }],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "2" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": true,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": false
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "0" },
-          "nextInboxId": { "#bigint": "5" },
-          "nextRowId": { "#bigint": "3" },
-          "nextStart": { "#bigint": "3" },
-          "pagesFetched": { "#bigint": "0" },
-          "posts": [],
-          "restarts": { "#bigint": "1" },
-          "runAgentAlarms": { "#bigint": "1" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "2" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
-            }
-          },
-          "workflowEnded": false
-        }
-      },
-      "mbt::actionTaken": "workflowEventArrives",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 5 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "5" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": true,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [],
-                "inboxRows": {
-                  "#set": [{ "#bigint": "1" }, { "#bigint": "2" }, { "#bigint": "3" }]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  { "answered": false, "ran": { "#set": [] } },
-                  { "answered": false, "ran": { "#set": [] } }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "2" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": true,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": false
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "0" },
-          "nextInboxId": { "#bigint": "5" },
-          "nextRowId": { "#bigint": "3" },
-          "nextStart": { "#bigint": "3" },
-          "pagesFetched": { "#bigint": "0" },
-          "posts": [],
-          "restarts": { "#bigint": "1" },
-          "runAgentAlarms": { "#bigint": "1" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "2" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
-            }
-          },
-          "workflowEnded": false
-        }
-      },
-      "mbt::actionTaken": "modelThrows",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 6 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "6" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": true,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": {
-                "tag": "Screening",
-                "value": {
-                  "overLimit": true,
-                  "screened": {
-                    "tag": "ScreensChannelRead",
-                    "value": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] }
-                  }
-                }
-              },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [{ "tag": "DecisionsAsked", "value": { "#tup": [] } }],
-                "inboxRows": {
-                  "#set": [{ "#bigint": "1" }, { "#bigint": "2" }, { "#bigint": "3" }]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  { "answered": false, "ran": { "#set": [] } },
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
-                  }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "2" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": true,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": false
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "5" },
-          "nextRowId": { "#bigint": "3" },
-          "nextStart": { "#bigint": "3" },
-          "pagesFetched": { "#bigint": "0" },
-          "posts": [],
-          "restarts": { "#bigint": "1" },
-          "runAgentAlarms": { "#bigint": "1" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "2" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
-            }
-          },
-          "workflowEnded": false
-        }
-      },
-      "mbt::actionTaken": "modelAnswers",
-      "mbt::nondetPicks": {
-        "answer": {
-          "tag": "Some",
-          "value": {
-            "tag": "CallsTool",
-            "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
-          }
-        },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "Some", "value": true },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 7 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "7" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": true,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": {
-                "tag": "Screening",
-                "value": {
-                  "overLimit": true,
-                  "screened": {
-                    "tag": "ScreensChannelRead",
-                    "value": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] }
-                  }
-                }
-              },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [{ "tag": "DecisionsAsked", "value": { "#tup": [] } }],
-                "inboxRows": {
-                  "#set": [{ "#bigint": "1" }, { "#bigint": "2" }, { "#bigint": "3" }]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  { "answered": false, "ran": { "#set": [] } },
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
-                  }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "2" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": true,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": false
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "5" },
-          "nextRowId": { "#bigint": "3" },
-          "nextStart": { "#bigint": "3" },
-          "pagesFetched": { "#bigint": "0" },
-          "posts": [],
-          "restarts": { "#bigint": "1" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "2" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
-            }
-          },
-          "workflowEnded": false
-        }
-      },
-      "mbt::actionTaken": "runAgentAlarmFires",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
         "said": { "tag": "None", "value": { "#tup": [] } }
       }
     },
@@ -1017,14 +990,26 @@
       "chatThread::agentTurns::actionsTaken": { "#bigint": "8" },
       "chatThread::agentTurns::backupAlarmStep": {
         "cancelled": false,
-        "firedDuringItsTurn": true,
+        "firedDuringItsTurn": false,
         "kept": false
+      },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
       },
       "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
       "chatThread::agentTurns::models": [
         { "tag": "Hangs", "value": { "#tup": [] } },
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
       "chatThread::agentTurns::workflow": {
         "isolate": {
           "rerun": true,
@@ -1034,25 +1019,17 @@
               "aborted": false,
               "acknowledged": false,
               "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
+              "attempt": { "#bigint": "1" },
               "boardChanged": false,
-              "decisionsFailed": false,
+              "decisionsFailed": true,
               "firstReplied": false,
+              "headsUpPosted": false,
               "olderRows": [],
               "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
               "pass": { "#bigint": "1" },
               "passEndedByTool": false,
               "pastTimeout": false,
-              "phase": {
-                "tag": "Screening",
-                "value": {
-                  "overLimit": true,
-                  "screened": {
-                    "tag": "ScreensChannelRead",
-                    "value": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] }
-                  }
-                }
-              },
+              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
               "reactable": false,
               "record": {
                 "admittedMessages": { "#set": [] },
@@ -1062,38 +1039,43 @@
                 "boardChanged": false,
                 "callHung": false,
                 "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [{ "tag": "DecisionsAsked", "value": { "#tup": [] } }],
-                "inboxRows": {
-                  "#set": [{ "#bigint": "1" }, { "#bigint": "2" }, { "#bigint": "3" }]
-                },
+                "decisionsEvents": [
+                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
+                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
+                ],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": { "#set": [{ "#bigint": "1" }] },
                 "lostTurnOwed": false,
                 "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
                 "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
                 "posts": [],
                 "quarantinedPages": { "#set": [] },
-                "reads": [],
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+                "reads": [{ "admitted": { "#set": [] }, "result": { "#set": [] } }],
                 "rowsBefore": [],
-                "sentHeldComments": false,
                 "steps": [
-                  { "answered": false, "ran": { "#set": [] } },
                   {
                     "answered": false,
                     "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
-                  }
+                  },
+                  { "answered": false, "ran": { "#set": [] } }
                 ],
                 "timedOut": false
               },
               "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "2" }
+              "startedAt": { "#bigint": "1" }
             }
           }
         },
         "store": {
           "backupAlarm": false,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
+          "chat": { "tag": "Processing", "value": { "#tup": [] } },
           "inbox": [
             {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "1" } }
+              },
               "id": { "#bigint": "1" },
               "reacted": false,
               "taken": true
@@ -1102,41 +1084,49 @@
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
               "id": { "#bigint": "2" },
               "reacted": false,
-              "taken": true
+              "taken": false
             },
             {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "0" } }
+              },
               "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
               "reacted": false,
               "taken": false
             }
           ],
-          "lastInputOverLimit": false,
+          "lastInputOverLimit": true,
           "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "5" },
-          "nextRowId": { "#bigint": "3" },
-          "nextStart": { "#bigint": "3" },
+          "nextInboxId": { "#bigint": "4" },
+          "nextRowId": { "#bigint": "4" },
+          "nextStart": { "#bigint": "2" },
           "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
           "posts": [],
-          "restarts": { "#bigint": "1" },
+          "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
           "transcript": [
             {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
               "id": { "#bigint": "1" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "2" }
+            },
+            {
+              "entry": {
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
+              },
+              "id": { "#bigint": "3" }
             }
           ],
           "turn": {
@@ -1145,22 +1135,26 @@
               "boardChanged": false,
               "firstRow": { "#bigint": "1" },
               "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "2" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
             }
           },
           "workflowEnded": false
         }
       },
-      "mbt::actionTaken": "runAgentAlarmFires",
+      "mbt::actionTaken": "firingScreenFails",
       "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
         "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
         "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
         "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
         "namesModel": { "tag": "None", "value": { "#tup": [] } },
         "origin": { "tag": "None", "value": { "#tup": [] } },
         "overLimit": { "tag": "None", "value": { "#tup": [] } },
         "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "Some", "value": { "#bigint": "0" } },
         "said": { "tag": "None", "value": { "#tup": [] } }
       }
     },
@@ -1172,14 +1166,26 @@
         "firedDuringItsTurn": false,
         "kept": false
       },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
       "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
       "chatThread::agentTurns::models": [
         { "tag": "Hangs", "value": { "#tup": [] } },
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
       "chatThread::agentTurns::workflow": {
         "isolate": {
-          "rerun": false,
+          "rerun": true,
           "turn": {
             "tag": "Running",
             "value": {
@@ -1188,8 +1194,9 @@
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
               "boardChanged": false,
-              "decisionsFailed": false,
+              "decisionsFailed": true,
               "firstReplied": false,
+              "headsUpPosted": false,
               "olderRows": [],
               "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
               "pass": { "#bigint": "1" },
@@ -1205,38 +1212,43 @@
                 "boardChanged": false,
                 "callHung": false,
                 "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
+                "decisionsEvents": [
+                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
+                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
+                ],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": { "#set": [{ "#bigint": "1" }] },
                 "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
+                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
                 "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
                 "posts": [],
                 "quarantinedPages": { "#set": [] },
-                "reads": [],
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+                "reads": [{ "admitted": { "#set": [] }, "result": { "#set": [] } }],
                 "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [{ "answered": false, "ran": { "#set": [] } }],
+                "steps": [
+                  {
+                    "answered": false,
+                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
+                  },
+                  { "answered": false, "ran": { "#set": [] } }
+                ],
                 "timedOut": false
               },
               "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
+              "startedAt": { "#bigint": "1" }
             }
           }
         },
         "store": {
-          "backupAlarm": true,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
+          "backupAlarm": false,
+          "chat": { "tag": "Processing", "value": { "#tup": [] } },
           "inbox": [
             {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "1" } }
+              },
               "id": { "#bigint": "1" },
               "reacted": false,
               "taken": true
@@ -1245,52 +1257,53 @@
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
               "id": { "#bigint": "2" },
               "reacted": false,
-              "taken": true
+              "taken": false
             },
             {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "0" } }
+              },
               "id": { "#bigint": "3" },
               "reacted": false,
-              "taken": true
+              "taken": false
             },
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
               "id": { "#bigint": "4" },
               "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "5" },
-              "reacted": false,
-              "taken": true
+              "taken": false
             }
           ],
-          "lastInputOverLimit": false,
+          "lastInputOverLimit": true,
           "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
+          "nextInboxId": { "#bigint": "5" },
           "nextRowId": { "#bigint": "4" },
-          "nextStart": { "#bigint": "4" },
+          "nextStart": { "#bigint": "2" },
           "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
           "posts": [],
-          "restarts": { "#bigint": "2" },
+          "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
           "transcript": [
             {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
               "id": { "#bigint": "1" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "2" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
               },
               "id": { "#bigint": "3" }
             }
@@ -1301,22 +1314,26 @@
               "boardChanged": false,
               "firstRow": { "#bigint": "1" },
               "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "3" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
             }
           },
           "workflowEnded": false
         }
       },
-      "mbt::actionTaken": "durableObjectRestarts",
+      "mbt::actionTaken": "workflowEventArrives",
       "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
         "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
         "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
         "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
         "namesModel": { "tag": "None", "value": { "#tup": [] } },
         "origin": { "tag": "None", "value": { "#tup": [] } },
         "overLimit": { "tag": "None", "value": { "#tup": [] } },
         "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
         "said": { "tag": "None", "value": { "#tup": [] } }
       }
     },
@@ -1328,518 +1345,26 @@
         "firedDuringItsTurn": false,
         "kept": false
       },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "1" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": {
-                "tag": "Screening",
-                "value": {
-                  "overLimit": false,
-                  "screened": { "tag": "ScreensPage", "value": { "#bigint": "0" } }
-                }
-              },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [{ "tag": "DecisionsAsked", "value": { "#tup": [] } }],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": true,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "5" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "4" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "3" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
-            }
-          },
-          "workflowEnded": false
-        }
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
       },
-      "mbt::actionTaken": "modelAnswers",
-      "mbt::nondetPicks": {
-        "answer": {
-          "tag": "Some",
-          "value": { "tag": "CallsTool", "value": { "tag": "FetchUrl", "value": { "#tup": [] } } }
-        },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "Some", "value": false },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 11 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "11" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": true,
-        "kept": false
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
       },
       "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
       "chatThread::agentTurns::models": [
         { "tag": "Hangs", "value": { "#tup": [] } },
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
       "chatThread::agentTurns::workflow": {
         "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "1" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": {
-                "tag": "Screening",
-                "value": {
-                  "overLimit": false,
-                  "screened": { "tag": "ScreensPage", "value": { "#bigint": "0" } }
-                }
-              },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [{ "tag": "DecisionsAsked", "value": { "#tup": [] } }],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": false,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "5" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "4" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "3" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
-            }
-          },
-          "workflowEnded": false
-        }
-      },
-      "mbt::actionTaken": "runAgentAlarmFires",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 12 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "12" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "1" },
-              "boardChanged": false,
-              "decisionsFailed": false,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": {
-                "tag": "Screening",
-                "value": {
-                  "overLimit": false,
-                  "screened": { "tag": "ScreensPage", "value": { "#bigint": "0" } }
-                }
-              },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [{ "tag": "DecisionsAsked", "value": { "#tup": [] } }],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": false,
-          "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "5" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "4" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "3" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
-            }
-          },
-          "workflowEnded": true
-        }
-      },
-      "mbt::actionTaken": "workflowFinishes",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 13 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "13" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
+          "rerun": true,
           "turn": {
             "tag": "Running",
             "value": {
@@ -1849,831 +1374,13 @@
               "attempt": { "#bigint": "1" },
               "boardChanged": false,
               "decisionsFailed": true,
-              "firstReplied": false,
+              "firstReplied": true,
+              "headsUpPosted": false,
               "olderRows": [],
               "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
               "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
+              "passEndedByTool": true,
               "pastTimeout": false,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [
-                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
-                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
-                ],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [{ "#bigint": "0" }] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  },
-                  { "answered": false, "ran": { "#set": [] } }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": false,
-          "chat": { "tag": "Processing", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "5" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "6" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            },
-            {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
-              "id": { "#bigint": "4" }
-            },
-            {
-              "entry": {
-                "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
-              },
-              "id": { "#bigint": "5" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "3" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
-            }
-          },
-          "workflowEnded": true
-        }
-      },
-      "mbt::actionTaken": "screenFails",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 14 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "14" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": true,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": false,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": false,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [
-                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
-                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
-                ],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [{ "#bigint": "0" }] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  },
-                  { "answered": false, "ran": { "#set": [] } },
-                  { "answered": false, "ran": { "#set": [] } }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": false,
-          "chat": { "tag": "Processing", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "5" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "6" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            },
-            {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
-              "id": { "#bigint": "4" }
-            },
-            {
-              "entry": {
-                "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
-              },
-              "id": { "#bigint": "5" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "3" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
-            }
-          },
-          "workflowEnded": true
-        }
-      },
-      "mbt::actionTaken": "modelThrows",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 15 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "15" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": true,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": true,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": true,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [
-                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
-                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
-                ],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [{ "#bigint": "0" }] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  },
-                  { "answered": false, "ran": { "#set": [] } },
-                  { "answered": false, "ran": { "#set": [] } }
-                ],
-                "timedOut": false
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": false,
-          "chat": { "tag": "Processing", "value": { "#tup": [] } },
-          "inbox": [
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "1" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "2" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "3" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "4" },
-              "reacted": false,
-              "taken": true
-            },
-            {
-              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
-              "id": { "#bigint": "5" },
-              "reacted": false,
-              "taken": true
-            }
-          ],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "6" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            },
-            {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
-              "id": { "#bigint": "4" }
-            },
-            {
-              "entry": {
-                "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
-              },
-              "id": { "#bigint": "5" }
-            }
-          ],
-          "turn": {
-            "tag": "TurnRunning",
-            "value": {
-              "boardChanged": false,
-              "firstRow": { "#bigint": "1" },
-              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
-              "startedAt": { "#bigint": "3" },
-              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
-            }
-          },
-          "workflowEnded": true
-        }
-      },
-      "mbt::actionTaken": "timeoutPasses",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 16 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "16" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": false,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": true,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": true,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": true,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [
-                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
-                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
-                ],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [{ "#bigint": "0" }] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  },
-                  { "answered": false, "ran": { "#set": [] } },
-                  { "answered": false, "ran": { "#set": [] } }
-                ],
-                "timedOut": true
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": false,
-          "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "inbox": [],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "6" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            },
-            {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
-              "id": { "#bigint": "4" }
-            },
-            {
-              "entry": {
-                "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
-              },
-              "id": { "#bigint": "5" }
-            }
-          ],
-          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
-          "workflowEnded": true
-        }
-      },
-      "mbt::actionTaken": "watchdogFires",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 17 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "17" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": true,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": true,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": true,
-              "phase": { "tag": "AwaitingModel", "value": { "#tup": [] } },
-              "reactable": false,
-              "record": {
-                "admittedMessages": { "#set": [] },
-                "answeredBy": [],
-                "answering": { "#set": [] },
-                "askedAgain": false,
-                "boardChanged": false,
-                "callHung": true,
-                "closingTextsPosted": { "#bigint": "0" },
-                "decisionsEvents": [
-                  { "tag": "DecisionsAsked", "value": { "#tup": [] } },
-                  { "tag": "DecisionsFailed", "value": { "#tup": [] } }
-                ],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
-                "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
-                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [{ "#bigint": "0" }] },
-                "reads": [],
-                "rowsBefore": [],
-                "sentHeldComments": false,
-                "steps": [
-                  {
-                    "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
-                  },
-                  { "answered": false, "ran": { "#set": [] } },
-                  { "answered": false, "ran": { "#set": [] } }
-                ],
-                "timedOut": true
-              },
-              "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
-            }
-          }
-        },
-        "store": {
-          "backupAlarm": false,
-          "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "inbox": [],
-          "lastInputOverLimit": false,
-          "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "6" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
-          "runAgentAlarms": { "#bigint": "0" },
-          "transcript": [
-            {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
-              "id": { "#bigint": "1" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
-              },
-              "id": { "#bigint": "2" }
-            },
-            {
-              "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
-              },
-              "id": { "#bigint": "3" }
-            },
-            {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
-              "id": { "#bigint": "4" }
-            },
-            {
-              "entry": {
-                "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
-              },
-              "id": { "#bigint": "5" }
-            }
-          ],
-          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
-          "workflowEnded": true
-        }
-      },
-      "mbt::actionTaken": "deadlineFires",
-      "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
-        "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
-        "flagsPage": { "tag": "None", "value": { "#tup": [] } },
-        "namesModel": { "tag": "None", "value": { "#tup": [] } },
-        "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
-        "owed": { "tag": "None", "value": { "#tup": [] } },
-        "said": { "tag": "None", "value": { "#tup": [] } }
-      }
-    },
-    {
-      "#meta": { "index": 18 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "18" },
-      "chatThread::agentTurns::backupAlarmStep": {
-        "cancelled": false,
-        "firedDuringItsTurn": false,
-        "kept": false
-      },
-      "chatThread::agentTurns::lastTurnEnd": { "tag": "NoTurnEnd", "value": { "#tup": [] } },
-      "chatThread::agentTurns::models": [
-        { "tag": "Hangs", "value": { "#tup": [] } },
-        { "tag": "Fails", "value": { "#tup": [] } }
-      ],
-      "chatThread::agentTurns::workflow": {
-        "isolate": {
-          "rerun": false,
-          "turn": {
-            "tag": "Running",
-            "value": {
-              "aborted": true,
-              "acknowledged": false,
-              "answering": { "#set": [] },
-              "attempt": { "#bigint": "2" },
-              "boardChanged": false,
-              "decisionsFailed": true,
-              "firstReplied": false,
-              "olderRows": [],
-              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-              "pass": { "#bigint": "1" },
-              "passEndedByTool": false,
-              "pastTimeout": true,
               "phase": {
                 "tag": "Concluding",
                 "value": { "tag": "Releases", "value": { "#tup": [] } }
@@ -2685,119 +1392,166 @@
                 "answering": { "#set": [] },
                 "askedAgain": false,
                 "boardChanged": false,
-                "callHung": true,
+                "callHung": false,
                 "closingTextsPosted": { "#bigint": "0" },
                 "decisionsEvents": [
                   { "tag": "DecisionsAsked", "value": { "#tup": [] } },
                   { "tag": "DecisionsFailed", "value": { "#tup": [] } }
                 ],
-                "inboxRows": {
-                  "#set": [
-                    { "#bigint": "1" },
-                    { "#bigint": "2" },
-                    { "#bigint": "3" },
-                    { "#bigint": "4" },
-                    { "#bigint": "5" }
-                  ]
-                },
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": { "#set": [{ "#bigint": "1" }] },
                 "lostTurnOwed": false,
-                "messagesRead": { "#set": [] },
+                "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
                 "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-                "posts": [],
-                "quarantinedPages": { "#set": [{ "#bigint": "0" }] },
-                "reads": [],
+                "posts": [
+                  {
+                    "answering": { "#set": [] },
+                    "targets": { "#set": [{ "tag": "ToChatThread", "value": { "#tup": [] } }] },
+                    "text": { "tag": "QuestionText", "value": { "#tup": [] } }
+                  }
+                ],
+                "quarantinedPages": { "#set": [] },
+                "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+                "reads": [{ "admitted": { "#set": [] }, "result": { "#set": [] } }],
                 "rowsBefore": [],
-                "sentHeldComments": false,
                 "steps": [
                   {
                     "answered": false,
-                    "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
+                    "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
                   },
-                  { "answered": false, "ran": { "#set": [] } },
-                  { "answered": false, "ran": { "#set": [] } }
+                  {
+                    "answered": true,
+                    "ran": { "#set": [{ "tag": "Ask", "value": { "#tup": [] } }] }
+                  }
                 ],
-                "timedOut": true
+                "timedOut": false
               },
               "runtimeRequestOut": false,
-              "startedAt": { "#bigint": "3" }
+              "startedAt": { "#bigint": "1" }
             }
           }
         },
         "store": {
           "backupAlarm": false,
-          "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "inbox": [],
-          "lastInputOverLimit": false,
+          "chat": { "tag": "Processing", "value": { "#tup": [] } },
+          "inbox": [
+            {
+              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "id": { "#bigint": "2" },
+              "reacted": false,
+              "taken": false
+            },
+            {
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "0" } }
+              },
+              "id": { "#bigint": "3" },
+              "reacted": false,
+              "taken": false
+            },
+            {
+              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "id": { "#bigint": "4" },
+              "reacted": false,
+              "taken": false
+            }
+          ],
+          "lastInputOverLimit": true,
           "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
+          "nextInboxId": { "#bigint": "5" },
           "nextRowId": { "#bigint": "6" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
+          "nextStart": { "#bigint": "2" },
+          "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
+          "posts": [
+            {
+              "answering": { "#set": [] },
+              "targets": { "#set": [{ "tag": "ToChatThread", "value": { "#tup": [] } }] },
+              "text": { "tag": "QuestionText", "value": { "#tup": [] } }
+            }
+          ],
+          "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
           "transcript": [
             {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
               "id": { "#bigint": "1" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "2" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
               },
               "id": { "#bigint": "3" }
             },
             {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
+              "entry": { "tag": "ToolCallRow", "value": { "tag": "Ask", "value": { "#tup": [] } } },
               "id": { "#bigint": "4" }
             },
             {
               "entry": {
                 "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
+                "value": { "tag": "ToolRan", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "5" }
             }
           ],
           "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
-          "workflowEnded": true
+          "workflowEnded": false
         }
       },
-      "mbt::actionTaken": "modelThrows",
+      "mbt::actionTaken": "modelAnswers",
       "mbt::nondetPicks": {
-        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
+        "answer": {
+          "tag": "Some",
+          "value": { "tag": "CallsTool", "value": { "tag": "Ask", "value": { "#tup": [] } } }
+        },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
         "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
         "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
         "namesModel": { "tag": "None", "value": { "#tup": [] } },
         "origin": { "tag": "None", "value": { "#tup": [] } },
-        "overLimit": { "tag": "None", "value": { "#tup": [] } },
+        "overLimit": { "tag": "Some", "value": true },
         "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
         "said": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
-      "#meta": { "index": 19 },
-      "chatThread::agentTurns::actionsTaken": { "#bigint": "19" },
+      "#meta": { "index": 11 },
+      "chatThread::agentTurns::actionsTaken": { "#bigint": "11" },
       "chatThread::agentTurns::backupAlarmStep": {
         "cancelled": false,
         "firedDuringItsTurn": false,
         "kept": false
       },
+      "chatThread::agentTurns::lastStepKept": {
+        "aPersonsMessageLeavesTheInboxOnlyWithItsTurn": true,
+        "aStaleTurnAlarmChangesNothing": true,
+        "theHeadsUpPostsOnceToChatInAPersonsTurn": true
+      },
+      "chatThread::agentTurns::lastStepReached": {
+        "aStaleAlarmFiresAfterARestart": false,
+        "aStaleAlarmFiresAfterItsTurnEnded": false,
+        "aStaleAlarmFiresDuringALaterTurn": false
+      },
       "chatThread::agentTurns::lastTurnEnd": {
         "tag": "TurnEnded",
         "value": {
-          "chat": { "tag": "Closed", "value": { "#tup": [] } },
+          "chat": { "tag": "Active", "value": { "#tup": [] } },
           "chatMessageWaits": false,
           "record": {
             "admittedMessages": { "#set": [] },
@@ -2805,142 +1559,320 @@
             "answering": { "#set": [] },
             "askedAgain": false,
             "boardChanged": false,
-            "callHung": true,
+            "callHung": false,
             "closingTextsPosted": { "#bigint": "0" },
             "decisionsEvents": [
               { "tag": "DecisionsAsked", "value": { "#tup": [] } },
               { "tag": "DecisionsFailed", "value": { "#tup": [] } }
             ],
-            "inboxRows": {
-              "#set": [
-                { "#bigint": "1" },
-                { "#bigint": "2" },
-                { "#bigint": "3" },
-                { "#bigint": "4" },
-                { "#bigint": "5" }
-              ]
-            },
+            "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+            "inboxRows": { "#set": [{ "#bigint": "1" }] },
             "lostTurnOwed": false,
-            "messagesRead": { "#set": [] },
+            "messagesRead": { "#set": [{ "#bigint": "0" }, { "#bigint": "1" }] },
             "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
-            "posts": [],
-            "quarantinedPages": { "#set": [{ "#bigint": "0" }] },
-            "reads": [],
+            "posts": [
+              {
+                "answering": { "#set": [] },
+                "targets": { "#set": [{ "tag": "ToChatThread", "value": { "#tup": [] } }] },
+                "text": { "tag": "QuestionText", "value": { "#tup": [] } }
+              }
+            ],
+            "quarantinedPages": { "#set": [] },
+            "quarantinedPayloads": { "#set": [{ "#bigint": "1" }] },
+            "reads": [{ "admitted": { "#set": [] }, "result": { "#set": [] } }],
             "rowsBefore": [],
-            "sentHeldComments": false,
             "steps": [
               {
                 "answered": false,
-                "ran": { "#set": [{ "tag": "FetchUrl", "value": { "#tup": [] } }] }
+                "ran": { "#set": [{ "tag": "ReadChannel", "value": { "#tup": [] } }] }
               },
-              { "answered": false, "ran": { "#set": [] } },
-              { "answered": false, "ran": { "#set": [] } }
+              { "answered": true, "ran": { "#set": [{ "tag": "Ask", "value": { "#tup": [] } }] } }
             ],
-            "timedOut": true
+            "timedOut": false
           },
           "transcript": [
             {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
               "id": { "#bigint": "1" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "2" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
               },
               "id": { "#bigint": "3" }
             },
             {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
+              "entry": { "tag": "ToolCallRow", "value": { "tag": "Ask", "value": { "#tup": [] } } },
               "id": { "#bigint": "4" }
             },
             {
               "entry": {
                 "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
+                "value": { "tag": "ToolRan", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "5" }
             }
           ],
-          "waiting": { "#set": [] }
+          "waiting": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }, { "#bigint": "4" }] }
         }
       },
       "chatThread::agentTurns::models": [
         { "tag": "Hangs", "value": { "#tup": [] } },
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
+      "chatThread::agentTurns::payloadScreensOut": { "#set": [] },
+      "chatThread::agentTurns::staleAlarmsTaken": { "#bigint": "0" },
       "chatThread::agentTurns::workflow": {
-        "isolate": { "rerun": false, "turn": { "tag": "Idle", "value": { "#tup": [] } } },
+        "isolate": {
+          "rerun": false,
+          "turn": {
+            "tag": "Running",
+            "value": {
+              "aborted": false,
+              "acknowledged": false,
+              "answering": { "#set": [] },
+              "attempt": { "#bigint": "1" },
+              "boardChanged": false,
+              "decisionsFailed": false,
+              "firstReplied": false,
+              "headsUpPosted": false,
+              "olderRows": [
+                {
+                  "entry": {
+                    "tag": "TakenRows",
+                    "value": {
+                      "payloads": { "#set": [] },
+                      "rows": { "#set": [{ "#bigint": "1" }] }
+                    }
+                  },
+                  "id": { "#bigint": "1" }
+                },
+                {
+                  "entry": {
+                    "tag": "ToolCallRow",
+                    "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
+                  },
+                  "id": { "#bigint": "2" }
+                },
+                {
+                  "entry": {
+                    "tag": "ToolResultRow",
+                    "value": { "tag": "ChannelRead", "value": { "#set": [] } }
+                  },
+                  "id": { "#bigint": "3" }
+                },
+                {
+                  "entry": {
+                    "tag": "ToolCallRow",
+                    "value": { "tag": "Ask", "value": { "#tup": [] } }
+                  },
+                  "id": { "#bigint": "4" }
+                },
+                {
+                  "entry": {
+                    "tag": "ToolResultRow",
+                    "value": { "tag": "ToolRan", "value": { "#tup": [] } }
+                  },
+                  "id": { "#bigint": "5" }
+                }
+              ],
+              "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+              "pass": { "#bigint": "1" },
+              "passEndedByTool": false,
+              "pastTimeout": false,
+              "phase": { "tag": "Compacting", "value": { "#tup": [] } },
+              "reactable": false,
+              "record": {
+                "admittedMessages": { "#set": [] },
+                "answeredBy": [],
+                "answering": { "#set": [] },
+                "askedAgain": false,
+                "boardChanged": false,
+                "callHung": false,
+                "closingTextsPosted": { "#bigint": "0" },
+                "decisionsEvents": [],
+                "heldComments": { "tag": "HeldCommentsNotRead", "value": { "#tup": [] } },
+                "inboxRows": {
+                  "#set": [{ "#bigint": "2" }, { "#bigint": "3" }, { "#bigint": "4" }]
+                },
+                "lostTurnOwed": false,
+                "messagesRead": { "#set": [] },
+                "owed": { "tag": "NotOwed", "value": { "#tup": [] } },
+                "posts": [],
+                "quarantinedPages": { "#set": [] },
+                "quarantinedPayloads": { "#set": [{ "#bigint": "0" }] },
+                "reads": [],
+                "rowsBefore": [
+                  {
+                    "entry": {
+                      "tag": "TakenRows",
+                      "value": {
+                        "payloads": { "#set": [] },
+                        "rows": { "#set": [{ "#bigint": "1" }] }
+                      }
+                    },
+                    "id": { "#bigint": "1" }
+                  },
+                  {
+                    "entry": {
+                      "tag": "ToolCallRow",
+                      "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
+                    },
+                    "id": { "#bigint": "2" }
+                  },
+                  {
+                    "entry": {
+                      "tag": "ToolResultRow",
+                      "value": { "tag": "ChannelRead", "value": { "#set": [] } }
+                    },
+                    "id": { "#bigint": "3" }
+                  },
+                  {
+                    "entry": {
+                      "tag": "ToolCallRow",
+                      "value": { "tag": "Ask", "value": { "#tup": [] } }
+                    },
+                    "id": { "#bigint": "4" }
+                  },
+                  {
+                    "entry": {
+                      "tag": "ToolResultRow",
+                      "value": { "tag": "ToolRan", "value": { "#tup": [] } }
+                    },
+                    "id": { "#bigint": "5" }
+                  }
+                ],
+                "steps": [],
+                "timedOut": false
+              },
+              "runtimeRequestOut": false,
+              "startedAt": { "#bigint": "2" }
+            }
+          }
+        },
         "store": {
           "backupAlarm": false,
-          "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "inbox": [],
-          "lastInputOverLimit": false,
+          "chat": { "tag": "Active", "value": { "#tup": [] } },
+          "inbox": [
+            {
+              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "id": { "#bigint": "2" },
+              "reacted": false,
+              "taken": true
+            },
+            {
+              "from": {
+                "tag": "FromFiring",
+                "value": { "admitted": false, "payload": { "#bigint": "0" } }
+              },
+              "id": { "#bigint": "3" },
+              "reacted": false,
+              "taken": true
+            },
+            {
+              "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
+              "id": { "#bigint": "4" },
+              "reacted": false,
+              "taken": true
+            }
+          ],
+          "lastInputOverLimit": true,
           "messagesRead": { "#bigint": "2" },
-          "nextInboxId": { "#bigint": "6" },
-          "nextRowId": { "#bigint": "6" },
-          "nextStart": { "#bigint": "4" },
-          "pagesFetched": { "#bigint": "1" },
-          "posts": [],
-          "restarts": { "#bigint": "2" },
+          "nextInboxId": { "#bigint": "5" },
+          "nextRowId": { "#bigint": "7" },
+          "nextStart": { "#bigint": "3" },
+          "pagesFetched": { "#bigint": "0" },
+          "payloadsScreened": { "#bigint": "2" },
+          "posts": [
+            {
+              "answering": { "#set": [] },
+              "targets": { "#set": [{ "tag": "ToChatThread", "value": { "#tup": [] } }] },
+              "text": { "tag": "QuestionText", "value": { "#tup": [] } }
+            }
+          ],
+          "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
           "transcript": [
             {
-              "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
+              "entry": {
+                "tag": "TakenRows",
+                "value": { "payloads": { "#set": [] }, "rows": { "#set": [{ "#bigint": "1" }] } }
+              },
               "id": { "#bigint": "1" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }] }
+                "tag": "ToolCallRow",
+                "value": { "tag": "ReadChannel", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "2" }
             },
             {
               "entry": {
-                "tag": "TakenRows",
-                "value": { "#set": [{ "#bigint": "4" }, { "#bigint": "5" }] }
+                "tag": "ToolResultRow",
+                "value": { "tag": "ChannelRead", "value": { "#set": [] } }
               },
               "id": { "#bigint": "3" }
             },
             {
-              "entry": {
-                "tag": "ToolCallRow",
-                "value": { "tag": "FetchUrl", "value": { "#tup": [] } }
-              },
+              "entry": { "tag": "ToolCallRow", "value": { "tag": "Ask", "value": { "#tup": [] } } },
               "id": { "#bigint": "4" }
             },
             {
               "entry": {
                 "tag": "ToolResultRow",
-                "value": { "tag": "PageWithheld", "value": { "#bigint": "0" } }
+                "value": { "tag": "ToolRan", "value": { "#tup": [] } }
               },
               "id": { "#bigint": "5" }
+            },
+            {
+              "entry": {
+                "tag": "TakenRows",
+                "value": {
+                  "payloads": { "#set": [] },
+                  "rows": { "#set": [{ "#bigint": "2" }, { "#bigint": "3" }, { "#bigint": "4" }] }
+                }
+              },
+              "id": { "#bigint": "6" }
             }
           ],
-          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
-          "workflowEnded": true
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "6" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "2" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+            }
+          },
+          "workflowEnded": false
         }
       },
       "mbt::actionTaken": "conclusionLands",
       "mbt::nondetPicks": {
+        "alarm": { "tag": "None", "value": { "#tup": [] } },
         "answer": { "tag": "None", "value": { "#tup": [] } },
+        "armedFor": { "tag": "None", "value": { "#tup": [] } },
         "asksForRevision": { "tag": "None", "value": { "#tup": [] } },
         "flagsPage": { "tag": "None", "value": { "#tup": [] } },
+        "flagsPayload": { "tag": "None", "value": { "#tup": [] } },
         "namesModel": { "tag": "None", "value": { "#tup": [] } },
         "origin": { "tag": "None", "value": { "#tup": [] } },
         "overLimit": { "tag": "None", "value": { "#tup": [] } },
         "owed": { "tag": "None", "value": { "#tup": [] } },
+        "payload": { "tag": "None", "value": { "#tup": [] } },
         "said": { "tag": "None", "value": { "#tup": [] } }
       }
     }

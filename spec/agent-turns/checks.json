@@ -36,6 +36,7 @@
       "aPersonHearsBackThenWorkRuns",
       "aPageIsWithheld",
       "aPageIsAdmitted",
+      "aTriggeredPayloadIsQuarantined",
       "aWorkingTurnEnds",
       "theWatchdogFiresOnARunningTurn",
       "aResumedTurnEnds",
@@ -68,6 +69,7 @@
       "aPersonHearsBackThenWorkRuns",
       "aPageIsWithheld",
       "aPageIsAdmitted",
+      "aTriggeredPayloadIsQuarantined",
       "theWatchdogFiresOnARunningTurn",
       "aResumedTurnEnds",
       "aTurnPostsTheStuckText",
@@ -97,6 +99,7 @@
       "aPersonHearsBackThenWorkRuns",
       "aPageIsWithheld",
       "aPageIsAdmitted",
+      "aTriggeredPayloadIsQuarantined",
       "aWorkingTurnEnds",
       "theWatchdogFiresOnARunningTurn",
       "aResumedTurnEnds",
@@ -130,14 +133,16 @@
           "rowsArrived": 2,
           "restartsTaken": 1,
           "rowsWritten": 5,
-          "staleAlarmsFired": 1
+          "staleAlarmsFired": 1,
+          "firingsScreened": 1
         },
         "nightly": {
           "actionsTaken": 12,
           "rowsArrived": 2,
           "restartsTaken": 2,
           "rowsWritten": 6,
-          "staleAlarmsFired": 2
+          "staleAlarmsFired": 2,
+          "firingsScreened": 2
         }
       },
       "trackerOnly": {
@@ -146,14 +151,16 @@
           "rowsArrived": 2,
           "restartsTaken": 1,
           "rowsWritten": 5,
-          "staleAlarmsFired": 1
+          "staleAlarmsFired": 1,
+          "firingsScreened": 1
         },
         "nightly": {
           "actionsTaken": 12,
           "rowsArrived": 2,
           "restartsTaken": 2,
           "rowsWritten": 6,
-          "staleAlarmsFired": 2
+          "staleAlarmsFired": 2,
+          "firingsScreened": 2
         }
       },
       "chatAndSession": {
@@ -162,14 +169,16 @@
           "rowsArrived": 2,
           "restartsTaken": 1,
           "rowsWritten": 5,
-          "staleAlarmsFired": 1
+          "staleAlarmsFired": 1,
+          "firingsScreened": 1
         },
         "nightly": {
           "actionsTaken": 12,
           "rowsArrived": 2,
           "restartsTaken": 2,
           "rowsWritten": 6,
-          "staleAlarmsFired": 2
+          "staleAlarmsFired": 2,
+          "firingsScreened": 2
         }
       }
     }

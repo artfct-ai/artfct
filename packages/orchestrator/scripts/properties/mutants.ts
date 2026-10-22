@@ -554,7 +554,7 @@ export const MUTANTS: Mutant[] = [
     id: "W252",
     invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (a turn nobody wrote in)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  const headsUp = workflow.transcript.takenMessages().length\n",
+    find: "  const headsUp = workflow.transcript.takenMessages().some((row) => row.body !== null)\n",
     replace: "  const headsUp = true\n",
   },
   {
@@ -594,6 +594,13 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/refiner/held-comments.ts",
     find: "    if (carried === null) {\n      sent.notes.push(\n",
     replace: "    if (carried === null) {\n      continue;\n      sent.notes.push(\n",
+  },
+  {
+    id: "W258",
+    invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (a turn on a fired row)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  const headsUp = workflow.transcript.takenMessages().some((row) => row.body !== null)\n",
+    replace: "  const headsUp = workflow.transcript.takenMessages().length\n",
   },
   {
     id: "R4",
@@ -2915,6 +2922,13 @@ export const MUTANTS: Mutant[] = [
     find: "  const payload = renderedPayload(event.payload);\n",
     replace: "  const payload = JSON.stringify(event.payload);\n",
     propertyFile: "src/router/vendor-event.property.ts",
+  },
+  {
+    id: "W491",
+    invariant: "agentTurns::quarantinedTextNeverEntersTheTranscript (a triggered payload)",
+    path: "src/workflow/inbound/firing.ts",
+    find: '      const payload = screened === "admitted" ? cause.payload : unadmittedPayloadText(screened);\n',
+    replace: "      const payload = cause.payload;\n",
   },
   {
     id: "W492",

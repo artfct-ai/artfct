@@ -13,6 +13,7 @@ import aDecisionsCallFallsBack from "../../../test/agent-turns-traces/a-decision
 import aFetchedPageIsAdmitted from "../../../test/agent-turns-traces/a-fetched-page-is-admitted.itf.json";
 import aPersonHearsBackThenWorkRuns from "../../../test/agent-turns-traces/a-person-hears-back-then-work-runs.itf.json";
 import aRestartKeepsTheBackupAlarm from "../../../test/agent-turns-traces/a-restart-keeps-the-backup-alarm.itf.json";
+import aTriggeredPayloadIsQuarantined from "../../../test/agent-turns-traces/a-triggered-payload-is-quarantined.itf.json";
 import aTurnIsCompacted from "../../../test/agent-turns-traces/a-turn-is-compacted.itf.json";
 import theBackupAlarmFiresDuringItsTurn from "../../../test/agent-turns-traces/the-backup-alarm-fires-during-its-turn.itf.json";
 
@@ -36,6 +37,11 @@ const PINNED_TRACES: { name: string; setup: SpecSetup; trace: unknown }[] = [
     trace: aPersonHearsBackThenWorkRuns,
   },
   {
+    name: "keeps a payload the screen did not admit out of the transcript",
+    setup: "chatThread",
+    trace: aTriggeredPayloadIsQuarantined,
+  },
+  {
     name: "keeps the backup alarm on a restart",
     setup: "chatThread",
     trace: aRestartKeepsTheBackupAlarm,
@@ -51,6 +57,8 @@ const PICKS_READ: Record<string, (keyof TraceStep["picks"])[]> = {
   personWrites: ["origin"],
   readAnswers: ["owed", "asksForRevision", "namesModel"],
   screenAnswers: ["flagsPage"],
+  firingScreenAnswers: ["payload", "flagsPayload"],
+  firingScreenFails: ["payload"],
   modelAnswers: ["answer", "overLimit"],
   staleAlarmFires: ["alarm", "armedFor"],
 };

@@ -1,6 +1,7 @@
 /// The orchestrator agent's turns in one workflow: the inbox each turn takes, messages that arrive
-/// while a turn runs, one turn at a time, the turn deadline and its watchdog, compaction, restarts
-/// of the Durable Object, and where each post goes. Prompt text and model output are left out.
+/// while a turn runs, firings whose payload the screen reads before their row arrives, one turn at
+/// a time, the turn deadline and its watchdog, compaction, restarts of the Durable Object, and
+/// where each post goes. Prompt text and model output are left out.
 /// Each action is one stretch of code between two awaits. A model call, a decisions call, a
 /// summarization call, the closing post and the post that concludes a turn each take two
 /// actions: one sends the call, a later one lands it. Tool posts, reactions, alarms and the
@@ -12,8 +13,13 @@ module agentTurnsTypes {
   /// Where a person wrote from.
   type Origin = ChatThread | StartingSession | JobSession
 
-  /// Who an inbox row is from: a person, or the workflow itself, such as a task event or a note.
-  type RowFrom = Person(Origin) | FromWorkflow
+  /// A firing's payload, by number, and whether the screen admitted it into the firing's row.
+  type FiredPayload = { payload: int, admitted: bool }
+
+  /// Who an inbox row is from: a person, the workflow itself, such as a task event or a note, or a
+  /// firing. A firing's row wakes the agent as a message, but no person wrote it, so it has no
+  /// words to read and no reply target.
+  type RowFrom = Person(Origin) | FromWorkflow | FromFiring(FiredPayload)
 
   /// One row of the agent inbox. `taken` once a turn took it. `reacted` once its chat message has
   /// the thumbs-up.
@@ -34,9 +40,12 @@ module agentTurnsTypes {
     | PageWithheld(int)
     | ChannelRead(Set[int])
 
+  /// The user row that joins the inbox rows a turn took, and the firing payloads whose text it holds.
+  type TakenEntry = { rows: Set[int], payloads: Set[int] }
+
   /// One transcript row. `TakenRows` is the user row that joins the inbox rows a turn took.
   type Entry =
-    | TakenRows(Set[int])
+    | TakenRows(TakenEntry)
     | Recap
     | ToolCallRow(Tool)
     | ToolResultRow(ToolOutput)
@@ -96,6 +105,8 @@ module agentTurnsTypes {
     posts: List[Post],
     pagesFetched: int,
     messagesRead: int,
+    // The firings whose payload went to the screen. It numbers their payloads.
+    payloadsScreened: int,
     restarts: int,
     workflowEnded: bool,
   }
@@ -153,6 +164,7 @@ module agentTurnsTypes {
     inboxRows: Set[int],
     rowsBefore: List[Row],
     quarantinedPages: Set[int],
+    quarantinedPayloads: Set[int],
     messagesRead: Set[int],
     admittedMessages: Set[int],
     timedOut: bool,
@@ -266,6 +278,9 @@ module agentTurns {
   /// The most turns that start in a run. Each one takes a row that arrived or a restart's note.
   pure val MAX_TURN_STARTS: int = MAX_ARRIVALS + MAX_RESTARTS
 
+  /// How many firings send their payload to the screen in a run.
+  pure val MAX_FIRINGS: int = 2
+
   pure val HAS_CHAT_THREAD: bool = SURFACE != TrackerOnly
 
   pure val ORIGINS: Set[Origin] = match SURFACE {
@@ -306,6 +321,7 @@ module agentTurns {
     posts: [],
     pagesFetched: 0,
     messagesRead: 0,
+    payloadsScreened: 0,
     restarts: 0,
     workflowEnded: false,
   }
@@ -320,6 +336,7 @@ module agentTurns {
     inboxRows: Set(),
     rowsBefore: [],
     quarantinedPages: Set(),
+    quarantinedPayloads: Set(),
     messagesRead: Set(),
     admittedMessages: Set(),
     timedOut: false,
@@ -343,11 +360,24 @@ module agentTurns {
   var staleAlarmsTaken: int
   var lastStepKept: KeptRules
   var lastStepReached: ReachedWitnesses
+  /// The payloads whose screen a firing's handler waits on, outside any turn. A restart drops them.
+  var payloadScreensOut: Set[int]
 
-  pure def isPerson(from: RowFrom): bool = match from { | Person(_) => true | FromWorkflow => false }
+  /// A person wrote the row, so it has their words and a reply target.
+  pure def isPerson(from: RowFrom): bool = match from { | Person(_) => true | _ => false }
+
+  /// The row wakes the agent as a message: a person's row or a firing's row.
+  pure def wakesAsMessage(from: RowFrom): bool = match from { | FromWorkflow => false | _ => true }
 
   pure def originOf(from: RowFrom): Set[Origin] =
-    match from { | Person(origin) => Set(origin) | FromWorkflow => Set() }
+    match from { | Person(origin) => Set(origin) | _ => Set() }
+
+  /// The payloads of the firing rows among `rows` that the screen admitted, or withheld.
+  pure def payloadsOf(rows: List[InboxRow], admitted: bool): Set[int] =
+    rows.foldl(Set(), (payloads, row) => match row.from {
+      | FromFiring(fired) => if (fired.admitted == admitted) payloads.union(Set(fired.payload)) else payloads
+      | _ => payloads
+    })
 
   pure def isSessionOrigin(origin: Origin): bool = origin != ChatThread
 
@@ -358,6 +388,10 @@ module agentTurns {
 
   pure def takenPersonRows(store: Store): List[InboxRow] =
     store.inbox.select(row => row.taken and isPerson(row.from))
+
+  /// The taken rows that woke the agent as a message: the transcript's `takenMessages()`.
+  pure def takenMessageRows(store: Store): List[InboxRow] =
+    store.inbox.select(row => row.taken and wakesAsMessage(row.from))
 
   /// Where the people the running turn answers wrote from: the transcript's `answering()`.
   pure def answeringNow(store: Store): Set[Origin] =
@@ -453,7 +487,8 @@ module agentTurns {
     else awaitModel(store, turnRun)
 
   /// `runAgentTurn` takes the inbox, arms the watchdog, and runs until its first call. Null when
-  /// the inbox is empty.
+  /// the inbox is empty. The heads-up is armed only when a person's row was taken. Only a person's
+  /// words go to the decisions model.
   pure def startTurn(store: Store, carried: Carried, said: List[ModelSays]): { store: Store, turn: TurnSlot } =
     val waiting = waitingRows(store)
     if (waiting.length() == 0) { store: store, turn: Idle }
@@ -463,7 +498,7 @@ module agentTurns {
       val lostTurnOwed = takenPersonRows(store).length() > 0
       val took = appendRows(
         { ...store, inbox: store.inbox.foldl([], (rows, row) => rows.append({ ...row, taken: true })) },
-        [TakenRows(takenIds)],
+        [TakenRows({ rows: takenIds, payloads: payloadsOf(waiting, true) })],
       )
       val lost = match store.turn {
         | TurnLost(lostTurn) => lostTurn
@@ -490,6 +525,7 @@ module agentTurns {
         ...base,
         owed: NotOwed,
         inboxRows: idsOf(took.inbox.select(row => row.taken)),
+        quarantinedPayloads: payloadsOf(took.inbox.select(row => row.taken), false),
         lostTurnOwed: carried != Fresh and lostTurnOwed,
         callHung: false,
         decisionsEvents: if (people.length() > 0) [DecisionsAsked] else [],
@@ -769,11 +805,12 @@ module agentTurns {
       callModel(store, { ...turnRun, attempt: 2, pass: 1, passEndedByTool: false }, rerun, said)
     else attemptEnds(store, turnRun, if (turnRun.aborted) TimedOut else Failed, rerun, said)
 
-  /// The new instance resumes the lost turn: a person who waited hears that it starts again, and
-  /// an agent note wakes the turn that resumes. `tellAgent` arms the backup alarm of its lane.
+  /// The new instance resumes the lost turn: the chat threads of a lost turn on a message hear
+  /// that it starts again, and an agent note wakes the turn that resumes. `tellAgent` arms the
+  /// backup alarm of its lane.
   pure def resumed(store: Store, forgotten: Store, lost: TurnSlot, said: List[ModelSays]): Next =
     val lostRecord = match lost { | Running(turnRun) => turnRun.record | Idle => FRESH_RECORD }
-    val noticed = takenPersonRows(store).length() > 0 and HAS_CHAT_THREAD
+    val noticed = takenMessageRows(store).length() > 0 and HAS_CHAT_THREAD
     val told = if (noticed) landPost(forgotten, LostPlaceText, CHAT_THREADS, true) else forgotten
     val carried = if (noticed) recordPost(lostRecord, LostPlaceText, CHAT_THREADS) else lostRecord
     val woken = { ...told,
@@ -786,9 +823,9 @@ module agentTurns {
 
   /// `resumeLostTurn` on the new instance, and the turn its wake starts. The backup alarm of the
   /// lost turn lane stays armed, since no lane cancels it now. With no lost turn, rows that wait
-  /// get the `runAgent` alarm. A finished workflow drops a lost turn that took no person's
-  /// message, releases the threads, and arms the `runAgent` alarm for rows that wait. It resumes a
-  /// lost turn a person waits on.
+  /// get the `runAgent` alarm. A finished workflow drops a lost turn that took no message,
+  /// releases the threads, and arms the `runAgent` alarm for rows that wait. It resumes a lost turn
+  /// on a message.
   pure def restarted(store: Store, lost: TurnSlot, said: List[ModelSays]): Next =
     val counted = { ...store,
       restarts: store.restarts + 1,
@@ -804,7 +841,7 @@ module agentTurns {
             chat: chatSetTo(forgotten, Closed),
           }
           val woken = if (waitingRows(dropped).length() > 0) { ...dropped, runAgentAlarms: dropped.runAgentAlarms + 1 } else dropped
-          if (store.workflowEnded and takenPersonRows(store).length() == 0)
+          if (store.workflowEnded and takenMessageRows(store).length() == 0)
             { workflow: { store: woken, isolate: { turn: Idle, rerun: false } }, turnEnd: NoTurnEnd }
           else resumed(store, forgotten, lost, said)
       | _ =>
@@ -825,7 +862,11 @@ module agentTurns {
   pure val NO_BACKUP_ALARM_STEP: BackupAlarmStep = { kept: false, firedDuringItsTurn: false, cancelled: false }
 
   /// Take a step of `kind` to `after`, and record which rules over one step it kept.
-  action stepTo(after: Next, kind: StepKind): bool = all {
+  action stepTo(after: Next, kind: StepKind): bool = stepWithScreens(after, kind, payloadScreensOut)
+
+  /// Take a step of `kind` to `after` that leaves `screens` as the payload screens out.
+  action stepWithScreens(after: Next, kind: StepKind, screens: Set[int]): bool = all {
+    payloadScreensOut' = screens,
     workflow' = after.workflow,
     models' = models,
     lastTurnEnd' = after.turnEnd,
@@ -854,6 +895,7 @@ module agentTurns {
     staleAlarmsTaken' = 0,
     lastStepKept' = ALL_RULES_KEPT,
     lastStepReached' = NO_WITNESS_REACHED,
+    payloadScreensOut' = Set(),
   }
 
   /// A row lands in the inbox and wakes the agent. The isolate runs the turn now in a lane that
@@ -887,6 +929,44 @@ module agentTurns {
     workflow.store.nextInboxId <= MAX_ARRIVALS,
     not(workflow.store.workflowEnded),
     move(arrive(workflow, FromWorkflow, models)),
+  }
+
+  /// A firing reaches the workflow, and its handler sends the payload to the screen before the
+  /// row exists, outside any turn. The firing of a workflow that finished starts the next
+  /// workflow, which this spec leaves out.
+  action firingScreenStarts: bool = all {
+    workflow.store.payloadsScreened < MAX_FIRINGS,
+    workflow.store.nextInboxId + payloadScreensOut.size() <= MAX_ARRIVALS,
+    not(workflow.store.workflowEnded),
+    val payload = workflow.store.payloadsScreened
+    stepWithScreens(
+      { workflow: { ...workflow, store: { ...workflow.store, payloadsScreened: payload + 1 } }, turnEnd: NoTurnEnd },
+      OtherStep,
+      payloadScreensOut.union(Set(payload)),
+    ),
+  }
+
+  /// The screen of a firing's payload lands, and the handler queues the firing's row. The row
+  /// holds the payload only when the screen admitted it, and the fixed line otherwise.
+  action firingScreenLands(payload: int, admitted: bool): bool = all {
+    payloadScreensOut.contains(payload),
+    stepWithScreens(
+      arrive(workflow, FromFiring({ payload: payload, admitted: admitted }), models),
+      OtherStep,
+      payloadScreensOut.exclude(Set(payload)),
+    ),
+  }
+
+  /// The screen answers for a firing's payload. It may flag it.
+  action firingScreenAnswers(payload: int, flagsPayload: bool): bool = all {
+    firstAnswering(models) >= 0,
+    firingScreenLands(payload, not(flagsPayload)),
+  }
+
+  /// The screen of a firing's payload fails, and the payload stays unchecked.
+  action firingScreenFails(payload: int): bool = all {
+    firstAnswering(models) < 0,
+    firingScreenLands(payload, false),
   }
 
   /// The decisions model reads the person's message.
@@ -1086,8 +1166,10 @@ module agentTurns {
   })
 
   /// The workflow finishes: its last job completes, or a person stops it. A turn that runs goes on.
+  /// A firing whose screen is out would land on the next workflow, which this spec leaves out.
   action workflowFinishes: bool = all {
     not(workflow.store.workflowEnded),
+    payloadScreensOut.size() == 0,
     move({ workflow: { ...workflow, store: { ...workflow.store, workflowEnded: true } }, turnEnd: NoTurnEnd }),
   }
 
@@ -1115,10 +1197,11 @@ module agentTurns {
   }
 
   /// A deploy resets the Durable Object. The isolate and its turn are gone, with every call it
-  /// had out. The new instance resumes a turn the store still holds as running.
+  /// had out, the payload screens of firings among them. The new instance resumes a turn the
+  /// store still holds as running.
   action durableObjectRestarts: bool = all {
     workflow.store.restarts < MAX_RESTARTS,
-    move(restarted(workflow.store, workflow.isolate.turn, models)),
+    stepWithScreens(restarted(workflow.store, workflow.isolate.turn, models), OtherStep, Set()),
   }
 
   /// The oldest `runAgent` alarm fires: the backup alarm only after every other one. Like
@@ -1150,11 +1233,15 @@ module agentTurns {
   /// The alarms that fired for a turn that no longer runs.
   val staleAlarmsFired: int = staleAlarmsTaken
 
-  /// The workflow finished, every restart and stale alarm happened, no turn runs and no
-  /// `runAgent` alarm is armed. These negate the guards of every other step, so each of them is
-  /// blocked here. A run where no turn started has no alarm to fire late.
+  /// The firings whose payload went to the screen.
+  val firingsScreened: int = workflow.store.payloadsScreened
+
+  /// The workflow finished, every restart and stale alarm happened, no turn runs, no payload
+  /// screen is out and no `runAgent` alarm is armed. These negate the guards of every other step,
+  /// so each of them is blocked here. A run where no turn started has no alarm to fire late.
   val theTurnsEnd: bool = and {
     workflow.store.workflowEnded,
+    payloadScreensOut.size() == 0,
     workflow.store.restarts >= MAX_RESTARTS,
     staleAlarmsTaken >= MAX_STALE_ALARMS or workflow.store.nextStart == 1,
     workflow.isolate.turn == Idle,
@@ -1173,6 +1260,7 @@ module agentTurns {
     staleAlarmsTaken' = staleAlarmsTaken,
     lastStepKept' = lastStepKept,
     lastStepReached' = lastStepReached,
+    payloadScreensOut' = payloadScreensOut,
   }
 
   /// Each step picks only the values its action reads, so TLC does not generate one copy of a
@@ -1183,6 +1271,16 @@ module agentTurns {
       personWrites(origin)
     },
     workflowEventArrives,
+    firingScreenStarts,
+    {
+      nondet payload = 0.to(MAX_FIRINGS - 1).oneOf()
+      nondet flagsPayload = Set(true, false).oneOf()
+      firingScreenAnswers(payload, flagsPayload)
+    },
+    {
+      nondet payload = 0.to(MAX_FIRINGS - 1).oneOf()
+      firingScreenFails(payload)
+    },
     {
       nondet owed = Set(OwedAnswer, OwedBoard).oneOf()
       nondet asksForRevision = Set(true, false).oneOf()
@@ -1251,7 +1349,7 @@ module agentTurns {
   /// Every inbox row a turn took is in the transcript once after the turn, and no longer waits.
   val everyInboxRowReachesTheTranscriptOnce: bool = match lastTurnEnd {
     | TurnEnded(ended) => ended.record.inboxRows.forall(id => and {
-        ended.transcript.select(row => match row.entry { | TakenRows(ids) => ids.contains(id) | _ => false }).length() == 1,
+        ended.transcript.select(row => match row.entry { | TakenRows(taken) => taken.rows.contains(id) | _ => false }).length() == 1,
         not(ended.waiting.contains(id)),
       })
     | NoTurnEnd => true
@@ -1301,7 +1399,8 @@ module agentTurns {
       match record.heldComments { | HeldCommentsSent(sent) => sent.afterTheFirstReply | _ => true },
     })
 
-  pure def holdsText(entry: Entry, pages: Set[int], messages: Set[int]): bool = match entry {
+  pure def holdsText(entry: Entry, pages: Set[int], messages: Set[int], payloads: Set[int]): bool = match entry {
+    | TakenRows(taken) => taken.payloads.intersect(payloads).size() > 0
     | ToolResultRow(output) => match output {
         | PageText(page) => pages.contains(page)
         | ChannelRead(read) => read.intersect(messages).size() > 0
@@ -1310,11 +1409,13 @@ module agentTurns {
     | _ => false
   }
 
-  /// A page or chat message the screen did not admit is in no row of the transcript.
+  /// A page, chat message or firing payload the screen did not admit is in no row of the
+  /// transcript.
   val quarantinedTextNeverEntersTheTranscript: bool = match lastTurnEnd {
     | TurnEnded(ended) =>
-        val messages = ended.record.messagesRead.exclude(ended.record.admittedMessages)
-        not(anyOf(ended.transcript, row => holdsText(row.entry, ended.record.quarantinedPages, messages)))
+        val record = ended.record
+        val messages = record.messagesRead.exclude(record.admittedMessages)
+        not(anyOf(ended.transcript, row => holdsText(row.entry, record.quarantinedPages, messages, record.quarantinedPayloads)))
     | NoTurnEnd => true
   }
 
@@ -1534,6 +1635,10 @@ module agentTurns {
     | ToolResultRow(output) => match output { | PageText(_) => true | _ => false }
     | _ => false
   })
+
+  /// Witness for `quarantinedTextNeverEntersTheTranscript`: a turn took a firing's row whose
+  /// payload the screen flagged or could not check.
+  val aTriggeredPayloadIsQuarantined: bool = endedTurnWhere(lastTurnEnd, record => record.quarantinedPayloads.size() > 0)
 
   /// Witness for `aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`: a turn read the chat
   /// history.
