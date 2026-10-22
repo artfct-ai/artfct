@@ -1,5 +1,5 @@
 import {
-  PROPERTY_FILE_TIMEOUT_MINUTES,
+  PROPERTY_PROCESS_TIMEOUT_MINUTES,
   propertyReplayCommand,
   type PropertyFile,
   type PropertyRun,
@@ -48,12 +48,17 @@ export function propertyFailures(output: string): PropertyFailure[] {
   return [...failures.values()];
 }
 
+/** The heading of the step summary of a run that did not pass, which names each setup that hung. */
+function propertyFailureHeading(file: PropertyFile, seed: number, run: PropertyRun): string {
+  if (run.outcome !== "timed_out") return `### The ${file.title} failed on seed ${seed}`;
+  const hungSetups = run.hungParts.flatMap((part) => (part.kind === "setup" ? [part.setup] : []));
+  const where = hungSetups.length ? ` on ${hungSetups.join(", ")}` : "";
+  return `### The ${file.title} timed out${where} after ${PROPERTY_PROCESS_TIMEOUT_MINUTES} minutes on seed ${seed}`;
+}
+
 /** The step summary of an e2e property test run that did not pass. */
 export function propertyFailureReport(file: PropertyFile, seed: number, run: PropertyRun): string {
-  const heading =
-    run.outcome === "timed_out"
-      ? `### The ${file.title} timed out after ${PROPERTY_FILE_TIMEOUT_MINUTES} minutes on seed ${seed}`
-      : `### The ${file.title} failed on seed ${seed}`;
+  const heading = propertyFailureHeading(file, seed, run);
   const failures = propertyFailures(run.output);
   const table = failures.length
     ? [

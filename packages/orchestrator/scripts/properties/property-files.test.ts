@@ -5,6 +5,7 @@ import {
   SPEC_REPLAY_FILES,
   STANDALONE_PROPERTY_FILES,
   propertyParts,
+  type PropertyPart,
 } from "./property-files";
 
 const PACKAGES_DIR = join(import.meta.dirname, "../../..");
@@ -39,33 +40,30 @@ describe("E2E_RUNS_BY_FILE", () => {
   });
 });
 
+function setupParts(parts: PropertyPart[]) {
+  return parts.flatMap((part) => (part.kind === "setup" ? [part] : []));
+}
+
 describe("propertyParts", () => {
   it("runs a file without setups in one process", () => {
-    expect(propertyParts(SPEC_REPLAY_FILES["session-routing"]!, [])).toEqual([
-      { label: "session routing spec replay", args: [] },
-    ]);
+    expect(propertyParts([])).toEqual([{ kind: "file" }]);
   });
 
   it("runs a replay of one setup in one process", () => {
-    expect(propertyParts(SPEC_REPLAY_FILES["review-loop"]!, ["judgeThenPolisher"])).toEqual([
-      { label: "review loop spec replay", args: [] },
-    ]);
+    expect(propertyParts(["judgeThenPolisher"])).toEqual([{ kind: "file" }]);
   });
 
   it("runs each setup in its own process, and the tests outside a setup with the first", () => {
-    const parts = propertyParts(SPEC_REPLAY_FILES["harness-session"]!, [
+    const parts = setupParts(
+      propertyParts(["harnessDefaultEffort", "stageAsksForEffort", "agentPausesRunningTurns"]),
+    );
+    expect(parts.map((part) => part.setup)).toEqual([
       "harnessDefaultEffort",
       "stageAsksForEffort",
       "agentPausesRunningTurns",
     ]);
-    expect(parts.map((part) => part.label)).toEqual([
-      "harnessDefaultEffort",
-      "stageAsksForEffort",
-      "agentPausesRunningTurns",
-    ]);
-    const patterns = parts.map((part) => new RegExp(part.args[1] ?? ""));
     const takenBy = (name: string) =>
-      parts.flatMap((part, index) => (patterns[index]?.test(name) ? [part.label] : []));
+      parts.flatMap((part) => (new RegExp(part.testNamePattern).test(name) ? [part.setup] : []));
     const spec = "harness session spec";
     expect(
       takenBy(`${spec} replays its traces through the workflow on harnessDefaultEffort`),
@@ -82,13 +80,9 @@ describe("propertyParts", () => {
   });
 
   it("keeps a setup apart from another whose name ends with it", () => {
-    const parts = propertyParts(SPEC_REPLAY_FILES["review-loop"]!, [
-      "reviewerThenPolisher",
-      "pageReviewerThenPolisher",
-    ]);
-    const patterns = parts.map((part) => new RegExp(part.args[1] ?? ""));
+    const parts = setupParts(propertyParts(["reviewerThenPolisher", "pageReviewerThenPolisher"]));
     const name =
       "review loop spec replays its traces through the workflow on pageReviewerThenPolisher";
-    expect(patterns.map((pattern) => pattern.test(name))).toEqual([false, true]);
+    expect(parts.map((part) => new RegExp(part.testNamePattern).test(name))).toEqual([false, true]);
   });
 });
