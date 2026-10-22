@@ -1897,9 +1897,21 @@ export class WorkflowLifecycleReplay {
     this.answeredModelCall = call.kind === "ModelCall" ? call : null;
     await this.runStep(async () => {
       call.answer(decisions);
-      await rest;
+      await this.stepUntilItWaitsAgain(rest);
     });
     this.answeredModelCall = null;
+  }
+
+  /**
+   * The step of a returned call, until it ends. A step that still waits on another call out cannot
+   * end, so its returned branch runs until it waits again, as it would in the instance.
+   */
+  private stepUntilItWaitsAgain(step: Promise<unknown> | null): Promise<unknown> {
+    const stillHolds =
+      step !== null &&
+      (this.calls.some((other) => other.step === step) || this.endCall?.step === step);
+    if (!stillHolds) return Promise.resolve(step);
+    return Promise.race([step, new Promise((settled) => setTimeout(settled, 0))]);
   }
 
   private async failModelTurnCall(callId: number): Promise<void> {
@@ -1908,7 +1920,7 @@ export class WorkflowLifecycleReplay {
     const { fail, step: rest } = call;
     await this.runStep(async () => {
       fail();
-      await rest;
+      await this.stepUntilItWaitsAgain(rest);
     });
   }
 
@@ -2030,7 +2042,7 @@ export class WorkflowLifecycleReplay {
     this.endCall = null;
     await this.runStep(async () => {
       call.release();
-      await call.step;
+      await this.stepUntilItWaitsAgain(call.step);
     });
   }
 

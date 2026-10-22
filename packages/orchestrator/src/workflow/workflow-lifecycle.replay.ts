@@ -160,6 +160,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pagesFromModelCalls", traceSteps("pagesFromModelCalls", trace));
   });
 
+  it("returns one failure post of a restart alarm while the other is still out", async () => {
+    const path = join(PINNED_TRACES, "a-failure-post-returns-beside-another.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesFromModelCalls", traceSteps("pagesFromModelCalls", trace));
+  });
+
   it("keeps a stopped author quiet when its lost model turn's run-again alarm fires", async () => {
     const path = join(PINNED_TRACES, "a-stop-before-a-lost-turn-runs-again.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
