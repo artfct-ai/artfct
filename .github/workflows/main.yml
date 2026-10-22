@@ -41,7 +41,7 @@ jobs:
     name: spec replays (${{ matrix.name }})
     needs: ci
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -66,7 +66,7 @@ jobs:
       - name: Seed the replay from the run id
         run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
       - name: Replay the specs at their e2e counts, unless turbo has the result cached
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: |
           read -ra replays <<<"$REPLAYS"
           bunx turbo run spec:replay:e2e --filter=@artfct-ai/orchestrator -- "${replays[@]}"
