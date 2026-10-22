@@ -38,7 +38,7 @@ export async function armTurnWatchdog(
   const seconds = Math.ceil(workflow.config().orchestrator.turn_timeout_minutes * 60);
   const alarm: TurnAlarm = { started_at: startedAt };
   const watchdog = await workflow.scheduleAlarm(seconds, "onTurnTimeout", alarm);
-  const headsUp = workflow.transcript.takenMessages().length
+  const headsUp = workflow.transcript.takenMessages().some((row) => row.body !== null)
     ? await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm)
     : null;
   const start: TurnStart = {
