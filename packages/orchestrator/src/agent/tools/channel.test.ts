@@ -115,7 +115,7 @@ describe("channel tools", () => {
 
       it("answers that the line went out", () =>
         acknowledged(() => {
-          expect(result).toBe("Acknowledged.");
+          expect(result).toBe("Acknowledged. Your other tools are now offered.");
         }));
 
       it("sends an info event to the channels", () =>
@@ -168,7 +168,7 @@ describe("channel tools", () => {
 
       it("answers that the reaction went out", () =>
         reacted(() => {
-          expect(result).toBe("Reacted with a thumbs-up.");
+          expect(result).toBe("Reacted with a thumbs-up. Your other tools are now offered.");
         }));
 
       it("puts the thumbs-up on every message", () =>
@@ -224,7 +224,7 @@ describe("channel tools", () => {
 
       it("still takes a line", () =>
         refused((workflow) => {
-          expect(line).toBe("Acknowledged.");
+          expect(line).toBe("Acknowledged. Your other tools are now offered.");
           expect(workflow.posted).toEqual([{ type: "info", text: "On it." }]);
         }));
     });

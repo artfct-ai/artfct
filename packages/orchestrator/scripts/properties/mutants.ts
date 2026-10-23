@@ -436,9 +436,9 @@ export const MUTANTS: Mutant[] = [
     id: "A5",
     invariant: "agentTurns::sessionMessageWithoutAnAuthorIsAnswered",
     path: "src/agent/tools/channel.ts",
-    find: '            await workflow.post({ type: "info", text: reply.text }, { answering });\n            return "Acknowledged.";',
+    find: '            await workflow.post({ type: "info", text: reply.text }, { answering });\n            return "Acknowledged. Your other tools are now offered.";',
     replace:
-      '            await workflow.post({ type: "info", text: reply.text }, { answering: workflow.transcript.answering() });\n            return "Acknowledged.";',
+      '            await workflow.post({ type: "info", text: reply.text }, { answering: workflow.transcript.answering() });\n            return "Acknowledged. Your other tools are now offered.";',
   },
   {
     id: "A6",

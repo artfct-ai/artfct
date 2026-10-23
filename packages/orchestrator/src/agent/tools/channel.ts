@@ -52,7 +52,7 @@ export const CHANNEL_RULES = `## Communication & Response Protocol
 
 /** How the agent answers in a turn where a person wrote. */
 export const PERSON_WROTE_RULES = `### Inbound Message Handling
-* **Reply first.** Your first step replies to the person who wrote, before any lookup, dispatch, or other tool call. The system does not offer other tools until you reply. Choose the reply that fits the message:
+* **Reply first.** Your first step replies to the person who wrote, before any lookup, dispatch, or other tool call. Until you reply, you see only \`acknowledge\` and \`ask\`. Your other tools, such as tracker and code host lookups and dispatch, appear in your next step. Choose the reply that fits the message:
   * **Clear instruction**: when your only words would be "on it", call \`acknowledge\` with a reaction. It puts a thumbs-up on their message. Do not write anything else. The reaction is offered only for a message written in chat. Without it, send a short line.
   * **Request that is not clear-cut**: call \`acknowledge\` with one line that says what you are about to do, with the context the person needs, such as "I'll have the author check whether lighthouse fails on main too, and skip it if so."
   * **Question**: answer it in your closing text, in a few concise sentences. When the answer needs a lookup, first call \`acknowledge\` with one line that says what you check, such as "Checking the review chain now."
@@ -94,8 +94,8 @@ export function channelTools(
   return {
     [ACKNOWLEDGE]: tool({
       description: reactable
-        ? 'Your first reply to the person who wrote, before any other tool. A reaction puts a thumbs-up on their chat message, for a clear instruction where your only words would be "on it". A text is one short line that says what you are about to do, never the answer. It works once per turn.'
-        : "Your first reply to the person who wrote, before any other tool: one short line that says what you are about to do, never the answer. It works once per turn.",
+        ? 'Your first reply to the person who wrote, before any other tool. Your other tools appear after it. A reaction puts a thumbs-up on their chat message, for a clear instruction where your only words would be "on it". A text is one short line that says what you are about to do, never the answer. It works once per turn.'
+        : "Your first reply to the person who wrote, before any other tool. Your other tools appear after it. One short line that says what you are about to do, never the answer. It works once per turn.",
       inputSchema,
       execute: async ({ reply }) => {
         if (acknowledgement.acknowledged) {
@@ -107,11 +107,11 @@ export function channelTools(
           case "reaction":
             await reactWithThumbsUp(workflow);
             acknowledgement.acknowledged = true;
-            return "Reacted with a thumbs-up.";
+            return "Reacted with a thumbs-up. Your other tools are now offered.";
           case "text":
             acknowledgement.acknowledged = true;
             await workflow.post({ type: "info", text: reply.text }, { answering });
-            return "Acknowledged.";
+            return "Acknowledged. Your other tools are now offered.";
           default: {
             const unreachable: never = reply;
             throw new Error(`unhandled first reply ${JSON.stringify(unreachable)}`);
