@@ -46,7 +46,10 @@ function afterTool(toolName: string, value: string): LanguageModelV4Prompt {
 }
 
 function afterAck(text: string, system = SYSTEM): LanguageModelV4Prompt {
-  return [...userPrompt(text, system), toolResult("acknowledge", "Acknowledged.")];
+  return [
+    ...userPrompt(text, system),
+    toolResult("acknowledge", "Acknowledged. Your other tools are now offered."),
+  ];
 }
 
 const REQUEST =
