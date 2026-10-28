@@ -16,12 +16,12 @@ const TLA_TOOLS: PinnedDownload = {
 };
 
 const APALACHE: PinnedDownload = {
-  url: "https://github.com/apalache-mc/apalache/releases/download/v0.62.1/apalache.tgz",
-  sha256: "38202a8c4ebeb3ab73e0fe5a7e4bb948442d46ad5de8a7fb45c9e5cac2beb2a6",
-  file: "apalache-0.62.1.tgz",
+  url: "https://github.com/apalache-mc/apalache/releases/download/v0.62.4/apalache.tgz",
+  sha256: "8ac8488422c30d552735bae11b92a2d014d8e02e8608702acc08f9a2d8a9abb2",
+  file: "apalache-0.62.4.tgz",
 };
 
-const APALACHE_DIR = join(TOOLS_DIR, "apalache-0.62.1");
+const APALACHE_DIR = join(TOOLS_DIR, "apalache-0.62.4");
 
 async function downloadPinned(download: PinnedDownload): Promise<string> {
   const path = join(TOOLS_DIR, download.file);

@@ -24,27 +24,27 @@
     "spec:replay:e2e": "bun scripts/properties/e2e-property-test.ts"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^2.0.0",
-    "@ai-sdk/openai-compatible": "^3.0.73",
-    "@ai-sdk/provider": "^4.0.30",
-    "@ai-sdk/provider-utils": "^5.0.63",
+    "@agentclientprotocol/sdk": "^2.1.0",
+    "@ai-sdk/openai-compatible": "^3.0.80",
+    "@ai-sdk/provider": "^4.0.34",
+    "@ai-sdk/provider-utils": "^5.0.70",
     "@artfct-ai/acp": "workspace:*",
     "@artfct-ai/adapters": "workspace:*",
     "@artfct-ai/contracts": "workspace:*",
-    "@cloudflare/sandbox": "^1.0.1",
-    "agents": "^0.28.1",
-    "ai": "^7.0.145",
-    "croner": "^10.0.1",
+    "@cloudflare/sandbox": "^1.0.3",
+    "agents": "^0.31.0",
+    "ai": "^7.0.155",
+    "croner": "^11.0.0",
     "drizzle-orm": "^0.45.4",
     "yaml": "^2.9.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@artfct-ai/spec": "workspace:*",
-    "@cloudflare/vitest-plugin": "^1.4.5",
-    "@informalsystems/quint": "^0.33.0",
+    "@cloudflare/vitest-plugin": "^1.4.9",
+    "@informalsystems/quint": "^0.33.1",
     "drizzle-kit": "^0.31.11",
     "fast-check": "^4.10.2",
-    "wrangler": "^4.151.2"
+    "wrangler": "^4.154.0"
   }
 }

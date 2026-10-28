@@ -17,10 +17,10 @@
     "@artfct-ai/acp": "workspace:*",
     "@artfct-ai/adapters": "workspace:*",
     "@artfct-ai/contracts": "workspace:*",
-    "hono": "^4.13.13"
+    "hono": "^4.13.14"
   },
   "devDependencies": {
     "fast-check": "^4.10.2",
-    "wrangler": "^4.151.2"
+    "wrangler": "^4.154.0"
   }
 }

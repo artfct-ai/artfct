@@ -31,19 +31,19 @@
     "test:root": "bun test ./scripts/"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261019.1",
-    "@types/bun": "^1.4.3",
+    "@cloudflare/workers-types": "^5.20261028.1",
+    "@types/bun": "^1.4.4",
     "@types/node": "^24.19.2",
-    "bun-types": "^1.4.3",
-    "knip": "^6.42.1",
-    "oxfmt": "^0.74.0",
-    "oxlint": "^1.89.0",
-    "oxlint-tsgolint": "^7.0.2004",
-    "pkg-pr-new": "^0.0.91",
-    "turbo": "^2.11.9",
+    "bun-types": "^1.4.4",
+    "knip": "^6.43.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "oxlint-tsgolint": "^7.0.2005",
+    "pkg-pr-new": "^0.0.92",
+    "turbo": "^2.11.10",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5",
-    "wrangler": "^4.151.2"
+    "wrangler": "^4.154.0"
   },
-  "packageManager": "bun@1.4.3"
+  "packageManager": "bun@1.4.4"
 }
