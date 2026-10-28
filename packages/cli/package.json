@@ -32,7 +32,7 @@
   "devDependencies": {
     "@artfct-ai/adapters": "^0.1.0",
     "@artfct-ai/core": "^0.1.0",
-    "@types/bun": "^1.4.3",
+    "@types/bun": "^1.4.4",
     "fast-check": "^4.10.2"
   },
   "peerDependencies": {

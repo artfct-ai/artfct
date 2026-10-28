@@ -13,12 +13,12 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^2.0.0",
+    "@agentclientprotocol/sdk": "^2.1.0",
     "@artfct-ai/acp": "workspace:*"
   },
   "devDependencies": {
     "@artfct-ai/adapters": "workspace:*",
-    "@types/bun": "^1.4.3",
+    "@types/bun": "^1.4.4",
     "fast-check": "^4.10.2"
   }
 }
